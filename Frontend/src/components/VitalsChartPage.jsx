@@ -1,534 +1,670 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Activity, 
-  Eye, 
   Printer, 
-  ChevronDown, 
-  PlusCircle, 
-  Calendar, 
-  Clock, 
-  Heart, 
-  TrendingUp, 
   Save, 
-  Trash2,
-  CheckCircle2,
-  FileText
+  CheckCircle2
 } from 'lucide-react';
 
 export default function VitalsChartPage() {
   // Patient Details State
   const [patient, setPatient] = useState({
-    name: 'Rajesh Kumar',
-    age: '45',
+    name: '',
+    age: '',
     sex: 'Male',
-    uhid: 'GS-2026-8842',
-    ipNo: 'IP-90412',
-    doa: '20-Jul-2026',
-    ward: 'ICU-3',
-    bed: 'B-12'
+    uhidNo: '',
+    ipNo: '',
+    doa: '',
+    ward: '',
+    bedNo: ''
   });
 
-  // New Vital Reading Form State
-  const [newReading, setNewReading] = useState({
-    date: '2026-07-21',
-    time: '06:00 AM',
-    temp: '98.6',
-    pulse: '72',
-    resp: '18',
-    bp: '120/80',
-    ivf: '500',
-    ngOral: '200',
-    urine: '300',
-    bowel: 'Normal',
-    drain: '50'
+  // Entry Form State (ONLY Date, Time, Pulse, Temp, Resp)
+  const [entry, setEntry] = useState({
+    date: '2026-07-22',
+    timeSlot: 'Night_10',
+    pulse: '',
+    temp: '102',
+    resp: ''
   });
 
-  // Recorded Vitals List
-  const [readings, setReadings] = useState([
-    {
-      id: 1,
-      date: '2026-07-21',
-      time: '06:00 AM',
-      temp: '98.6°F',
-      pulse: '72 bpm',
-      resp: '18/min',
-      bp: '120/80',
-      ivf: '500 ml',
-      ngOral: '200 ml',
-      urine: '300 ml',
-      totalIntake: '700 ml',
-      totalOutput: '350 ml',
-      bowel: 'Normal',
-      drain: '50 ml'
-    },
-    {
-      id: 2,
-      date: '2026-07-21',
-      time: '12:00 PM',
-      temp: '99.1°F',
-      pulse: '78 bpm',
-      resp: '20/min',
-      bp: '124/82',
-      ivf: '400 ml',
-      ngOral: '250 ml',
-      urine: '320 ml',
-      totalIntake: '650 ml',
-      totalOutput: '370 ml',
-      bowel: '-',
-      drain: '50 ml'
-    }
+  // Date Columns State matching screenshot (22/07/26, 23/07/26, 24/07/26)
+  const [dates, setDates] = useState([
+    '22/07/26',
+    '23/07/26',
+    '24/07/26'
   ]);
 
-  const [savedChartsModalOpen, setSavedChartsModalOpen] = useState(false);
-  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
-  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  // Plotted Readings List
+  // Sample initial readings matching screenshot:
+  // Point 1: Date 22/07/26, Night slot 10 (idx 1), Temp 102 -> Row index 4
+  // Point 2: Date 24/07/26, Night slot 11 (idx 2), Temp 101 -> Row index 5
+  const [readings, setReadings] = useState([
+    { id: 1, date: '22/07/26', dIdx: 0, sIdx: 4, type: 'temp', val: 102, rIdx: 4 },
+    { id: 2, date: '24/07/26', dIdx: 2, sIdx: 5, type: 'temp', val: 101, rIdx: 5 }
+  ]);
+
+  const [toastMsg, setToastMsg] = useState('');
+  const tableRef = useRef(null);
+  const [svgLines, setSvgLines] = useState([]);
+  const [svgDots, setSvgDots] = useState([]);
+
+  // Time Slots per day matching screenshot:
+  // Day: 6, 10, 2 (3 sub-columns)
+  // Night: 6, 10, 11, 2 (4 sub-columns)
+  const timeSlots = [
+    { key: 'Day_6',   period: 'Day',   hour: '6',  slotIdx: 0 },
+    { key: 'Day_10',  period: 'Day',   hour: '10', slotIdx: 1 },
+    { key: 'Day_2',   period: 'Day',   hour: '2',  slotIdx: 2 },
+    { key: 'Night_6', period: 'Night', hour: '6',  slotIdx: 3 },
+    { key: 'Night_10',period: 'Night', hour: '10', slotIdx: 4 },
+    { key: 'Night_11',period: 'Night', hour: '11', slotIdx: 5 },
+    { key: 'Night_2', period: 'Night', hour: '2',  slotIdx: 6 }
+  ];
+
+  // Y-Axis Rows matching physical form sheet (18 rows)
+  const yAxisRows = [
+    { pulse: '210', temp: '106', resp: '' },
+    { pulse: '200', temp: '105', resp: '' },
+    { pulse: '190', temp: '104', resp: '' },
+    { pulse: '180', temp: '103', resp: '' },
+    { pulse: '170', temp: '102', resp: '' },
+    { pulse: '160', temp: '101', resp: '' },
+    { pulse: '150', temp: '100', resp: '' },
+    { pulse: '140', temp: '99',  resp: '' },
+    { pulse: '130', temp: '98',  resp: '' },
+    { pulse: '120', temp: '97',  resp: '' },
+    { pulse: '110', temp: '96',  resp: '' },
+    { pulse: '100', temp: '95',  resp: '' },
+    { pulse: '90',  temp: '',    resp: '60' },
+    { pulse: '80',  temp: '',    resp: '50' },
+    { pulse: '70',  temp: '',    resp: '40' },
+    { pulse: '60',  temp: '',    resp: '30' },
+    { pulse: '50',  temp: '',    resp: '20' },
+    { pulse: '40',  temp: '',    resp: '10' }
+  ];
 
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleReadingChange = (e) => {
+  const handleEntryChange = (e) => {
     const { name, value } = e.target;
-    setNewReading((prev) => ({ ...prev, [name]: value }));
+    setEntry((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Map value to row index
+  const getTempRowIndex = (val) => {
+    const t = parseFloat(val);
+    if (isNaN(t)) return -1;
+    const rIdx = Math.round(106 - t);
+    return (rIdx >= 0 && rIdx <= 11) ? rIdx : -1;
+  };
+
+  const getPulseRowIndex = (val) => {
+    const p = parseFloat(val);
+    if (isNaN(p)) return -1;
+    const rIdx = Math.round((210 - p) / 10);
+    return (rIdx >= 0 && rIdx <= 17) ? rIdx : -1;
+  };
+
+  const getRespRowIndex = (val) => {
+    const r = parseFloat(val);
+    if (isNaN(r)) return -1;
+    const rIdx = 12 + Math.round((60 - r) / 10);
+    return (rIdx >= 12 && rIdx <= 17) ? rIdx : -1;
+  };
+
+  // Convert Form Date 'YYYY-MM-DD' -> 'DD/MM/YY'
+  const formatDateString = (rawDate) => {
+    if (!rawDate) return '';
+    const parts = rawDate.split('-');
+    if (parts.length === 3) {
+      const yy = parts[0].slice(2);
+      return `${parts[2]}/${parts[1]}/${yy}`;
+    }
+    return rawDate;
+  };
+
+  // Handle Form Submit: Plot / Add Reading
   const handleAddReading = (e) => {
     e.preventDefault();
-    const intake = (parseFloat(newReading.ivf) || 0) + (parseFloat(newReading.ngOral) || 0);
-    const output = (parseFloat(newReading.urine) || 0) + (parseFloat(newReading.drain) || 0);
+    const formattedDate = formatDateString(entry.date);
+    
+    // Check if date is in dates array, else add it
+    let dIdx = dates.indexOf(formattedDate);
+    let updatedDates = [...dates];
+    if (dIdx === -1) {
+      updatedDates.push(formattedDate);
+      setDates(updatedDates);
+      dIdx = updatedDates.length - 1;
+    }
 
-    const entry = {
-      id: Date.now(),
-      date: newReading.date,
-      time: newReading.time,
-      temp: newReading.temp ? `${newReading.temp}°F` : '-',
-      pulse: newReading.pulse ? `${newReading.pulse} bpm` : '-',
-      resp: newReading.resp ? `${newReading.resp}/min` : '-',
-      bp: newReading.bp || '-',
-      ivf: newReading.ivf ? `${newReading.ivf} ml` : '-',
-      ngOral: newReading.ngOral ? `${newReading.ngOral} ml` : '-',
-      urine: newReading.urine ? `${newReading.urine} ml` : '-',
-      totalIntake: `${intake} ml`,
-      totalOutput: `${output} ml`,
-      bowel: newReading.bowel || '-',
-      drain: newReading.drain ? `${newReading.drain} ml` : '-'
-    };
+    // Find slot index from timeSlot key
+    const slotObj = timeSlots.find(s => s.key === entry.timeSlot) || timeSlots[4];
+    const sIdx = slotObj.slotIdx;
 
-    setReadings([entry, ...readings]);
-    setSaveSuccessMsg('Vital sign reading added successfully!');
-    setTimeout(() => setSaveSuccessMsg(''), 3000);
+    const newEntries = [];
+
+    if (entry.temp) {
+      const rIdx = getTempRowIndex(entry.temp);
+      if (rIdx !== -1) {
+        newEntries.push({
+          id: Date.now() + 1,
+          date: formattedDate,
+          dIdx,
+          sIdx,
+          type: 'temp',
+          val: parseFloat(entry.temp),
+          rIdx
+        });
+      }
+    }
+
+    if (entry.pulse) {
+      const rIdx = getPulseRowIndex(entry.pulse);
+      if (rIdx !== -1) {
+        newEntries.push({
+          id: Date.now() + 2,
+          date: formattedDate,
+          dIdx,
+          sIdx,
+          type: 'pulse',
+          val: parseFloat(entry.pulse),
+          rIdx
+        });
+      }
+    }
+
+    if (entry.resp) {
+      const rIdx = getRespRowIndex(entry.resp);
+      if (rIdx !== -1) {
+        newEntries.push({
+          id: Date.now() + 3,
+          date: formattedDate,
+          dIdx,
+          sIdx,
+          type: 'resp',
+          val: parseFloat(entry.resp),
+          rIdx
+        });
+      }
+    }
+
+    if (newEntries.length > 0) {
+      setReadings((prev) => [...prev, ...newEntries]);
+      setToastMsg(`Vitals plotted for ${formattedDate} (${slotObj.period} ${slotObj.hour})!`);
+      setTimeout(() => setToastMsg(''), 3000);
+    } else {
+      setToastMsg('Please enter a valid Pulse, Temp, or Resp value to plot.');
+      setTimeout(() => setToastMsg(''), 3000);
+    }
   };
 
   const handlePrint = () => {
     window.print();
   };
 
-  // Calculate live total intake/output for new entry preview
-  const currentTotalIntake = (parseFloat(newReading.ivf) || 0) + (parseFloat(newReading.ngOral) || 0);
-  const currentTotalOutput = (parseFloat(newReading.urine) || 0) + (parseFloat(newReading.drain) || 0);
+  const handleSave = () => {
+    setToastMsg('Vitals Chart saved successfully!');
+    setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  // Update SVG connecting lines and dots based on table DOM layout
+  const updateOverlayCoordinates = () => {
+    if (!tableRef.current) return;
+    const containerEl = tableRef.current;
+    const containerRect = containerEl.getBoundingClientRect();
+
+    const dots = [];
+    const tempPoints = [];
+    const pulsePoints = [];
+
+    readings.forEach((r) => {
+      const cell = containerEl.querySelector(`[data-cell="${r.rIdx}_${r.dIdx}_${r.sIdx}"]`);
+      if (cell) {
+        const rect = cell.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2 - containerRect.left;
+        const cy = rect.top + rect.height / 2 - containerRect.top;
+        
+        const dotItem = { ...r, cx, cy };
+        dots.push(dotItem);
+
+        if (r.type === 'temp') tempPoints.push(dotItem);
+        else if (r.type === 'pulse') pulsePoints.push(dotItem);
+      }
+    });
+
+    tempPoints.sort((a, b) => (a.dIdx * 10 + a.sIdx) - (b.dIdx * 10 + b.sIdx));
+    pulsePoints.sort((a, b) => (a.dIdx * 10 + a.sIdx) - (b.dIdx * 10 + b.sIdx));
+
+    const lines = [];
+
+    for (let i = 0; i < tempPoints.length - 1; i++) {
+      lines.push({
+        id: `t_${i}`,
+        x1: tempPoints[i].cx,
+        y1: tempPoints[i].cy,
+        x2: tempPoints[i + 1].cx,
+        y2: tempPoints[i + 1].cy,
+        stroke: '#0284c7', // Blue line
+        strokeWidth: 2
+      });
+    }
+
+    for (let i = 0; i < pulsePoints.length - 1; i++) {
+      lines.push({
+        id: `p_${i}`,
+        x1: pulsePoints[i].cx,
+        y1: pulsePoints[i].cy,
+        x2: pulsePoints[i + 1].cx,
+        y2: pulsePoints[i + 1].cy,
+        stroke: '#dc2626', // Red line
+        strokeWidth: 2
+      });
+    }
+
+    setSvgDots(dots);
+    setSvgLines(lines);
+  };
+
+  useEffect(() => {
+    updateOverlayCoordinates();
+    window.addEventListener('resize', updateOverlayCoordinates);
+    return () => window.removeEventListener('resize', updateOverlayCoordinates);
+  }, [readings, dates]);
+
+  const handleCellClick = (rIdx, dIdx, sIdx) => {
+    const existing = readings.find(r => r.dIdx === dIdx && r.sIdx === sIdx && r.rIdx === rIdx);
+    if (existing) {
+      setReadings(readings.filter(r => r.id !== existing.id));
+    } else {
+      setReadings([...readings, {
+        id: Date.now(),
+        date: dates[dIdx] || '22/07/26',
+        dIdx,
+        sIdx,
+        type: 'temp',
+        val: 106 - rIdx,
+        rIdx
+      }]);
+    }
+  };
 
   return (
-    <div className="vitals-chart-page">
-      {/* Top Page Header Bar */}
-      <div className="page-header-row">
-        <div className="page-title-group">
-          <div className="title-icon-badge">
-            <Activity size={22} className="header-icon" />
-          </div>
-          <div>
-            <h1 className="page-title">Patient Vitals Chart</h1>
-            <p className="page-subtitle">
-              Monitor Temperature, Pulse, Respiration rate, and Blood Pressure on a unified medical grid.
-            </p>
-          </div>
-        </div>
-
-        <div className="page-actions">
-          <button 
-            className="btn btn-secondary"
-            onClick={() => setSavedChartsModalOpen(true)}
-          >
-            <Eye size={16} />
-            <span>View Saved Charts</span>
-          </button>
-
-          <div className="export-btn-dropdown">
-            <button 
-              className="btn btn-primary"
-              onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-            >
-              <Printer size={16} />
-              <span>Export / Print</span>
-              <ChevronDown size={14} />
-            </button>
-
-            {exportDropdownOpen && (
-              <div className="export-menu">
-                <button onClick={handlePrint} className="export-menu-item">
-                  Print Medical Chart (PDF)
-                </button>
-                <button onClick={() => alert('Exporting CSV...')} className="export-menu-item">
-                  Export CSV Data
-                </button>
-                <button onClick={() => alert('Exporting DICOM/HL7...')} className="export-menu-item">
-                  Export HL7 / EMR Format
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {saveSuccessMsg && (
-        <div className="alert-success-toast">
+    <div className="vitals-chart-page-wrapper">
+      {toastMsg && (
+        <div className="no-print alert-success-toast">
           <CheckCircle2 size={18} />
-          <span>{saveSuccessMsg}</span>
+          <span>{toastMsg}</span>
         </div>
       )}
 
-      {/* Main Printable Medical Sheet */}
-      <div className="medical-chart-sheet">
-        {/* Hospital Letterhead Header */}
-        <div className="hospital-header-grid">
-          {/* Left Diamond Accreditation Logo */}
-          <div className="left-logo-container">
-            <div className="diamond-logo-box">
-              <div className="diamond-inner">
-                <span className="diamond-top-text">NABH</span>
-                <span className="diamond-sub-text">PRE-ACCREDITED</span>
+      {/* Top Action Row */}
+      <div className="no-print page-action-bar">
+        <h2 className="vitals-page-heading">Vitals Chart & Graphic Recording</h2>
+        <div className="action-btns-group">
+          <button type="button" className="btn-mint-clear" onClick={handleSave}>
+            <Save size={14} />
+            <span>Save Chart</span>
+          </button>
+          <button type="button" className="btn-mint-save" onClick={handlePrint}>
+            <Printer size={14} />
+            <span>Print Vitals Sheet</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Vitals Sheet Container */}
+      <div className="vitals-card-container">
+        <div className="inner-vitals-form-box">
+          
+          {/* Top Kannada Header */}
+          <div className="form-top-kannada">ಗುರುಶ್ರೀ ಹೈಟೆಕ್ ಆಸ್ಪತ್ರೆ</div>
+
+          {/* Hospital Header Block */}
+          <div className="vitals-hospital-header">
+            <div className="nabh-diamond-wrapper">
+              <div className="nabh-diamond">
+                <div className="diamond-inner-text">
+                  <span className="nabh-head">NABH</span>
+                  <span className="nabh-sub">PRE-ACCREDITED</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Center Hospital Name & Tagline */}
-          <div className="center-hospital-info">
-            <h1 className="hospital-main-title">GURUSHREE</h1>
-            <h2 className="hospital-sub-title">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
-            <p className="hospital-tagline">A touch of gentle faith</p>
-          </div>
+            <div className="center-hospital-brand">
+              <div className="hospital-logo-row">
+                <div className="gs-square-logo">
+                  <span className="gs-text">GS</span>
+                </div>
+                <div className="hospital-titles">
+                  <h1 className="eng-title-large">GURUSHREE</h1>
+                  <h2 className="eng-title-medium">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
+                  <p className="eng-tagline">A touch can instill faith</p>
+                </div>
+              </div>
+            </div>
 
-          {/* Right Hospital Badge */}
-          <div className="right-badge-container">
-            <div className="hospital-badge-box">
-              <span className="badge-logo-text">GS</span>
-              <span className="badge-hospital-text">HOSPITAL</span>
+            <div className="header-vitals-title">
+              VITALS CHART
             </div>
           </div>
-        </div>
 
-        <div className="chart-header-divider"></div>
+          {/* Subtitle Banner */}
+          <div className="vitals-sub-banner">
+            TEMPERATURE, PULSE & RESPIRATION RATE CHART
+          </div>
 
-        {/* Chart Title Banner */}
-        <div className="chart-title-banner">
-          <h2>VITALS CHART</h2>
-          <h3>TEMPERATURE, PULSE, RESPIRATION RATE & BP CHART</h3>
-        </div>
+          {/* Patient Details Table */}
+          <table className="mint-patient-info-table">
+            <tbody>
+              <tr>
+                <td colSpan={3} className="cell-patient-name">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Name of the Patient :</span>
+                    <input 
+                      type="text" 
+                      name="name" 
+                      value={patient.name} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-age">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Age :</span>
+                    <input 
+                      type="text" 
+                      name="age" 
+                      value={patient.age} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-sex">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Sex :</span>
+                    <select 
+                      name="sex" 
+                      value={patient.sex} 
+                      onChange={handlePatientChange} 
+                      className="info-select-plain"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </td>
+              </tr>
 
-        {/* Patient Details Table Grid */}
-        <div className="patient-grid-table">
-          <div className="patient-grid-row">
-            <div className="grid-cell flex-2">
-              <label className="cell-label">Name of the Patient :</label>
+              <tr>
+                <td className="cell-uhid">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">UHID No. :</span>
+                    <input 
+                      type="text" 
+                      name="uhidNo" 
+                      value={patient.uhidNo} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-ipno">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">IP No. :</span>
+                    <input 
+                      type="text" 
+                      name="ipNo" 
+                      value={patient.ipNo} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-doa">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">DOA :</span>
+                    <input 
+                      type="text" 
+                      name="doa" 
+                      value={patient.doa} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-ward">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Ward :</span>
+                    <input 
+                      type="text" 
+                      name="ward" 
+                      value={patient.ward} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-bed">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Bed No. :</span>
+                    <input 
+                      type="text" 
+                      name="bedNo" 
+                      value={patient.bedNo} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          
+      {/* ENTRY CARD CONTAINER (ONLY Vitals Form Inputs) */}
+      <div className="no-print vital-entry-card-box">
+        <form onSubmit={handleAddReading}>
+          <div className="entry-grid-row-5">
+            <div className="entry-field-group">
+              <label className="entry-label">Date</label>
               <input 
-                type="text" 
-                name="name" 
-                value={patient.name} 
-                onChange={handlePatientChange}
-                className="cell-input text-bold"
+                type="date" 
+                name="date" 
+                value={entry.date} 
+                onChange={handleEntryChange} 
+                className="entry-input"
               />
             </div>
-            <div className="grid-cell flex-1 border-left">
-              <label className="cell-label">Age :</label>
-              <input 
-                type="text" 
-                name="age" 
-                value={patient.age} 
-                onChange={handlePatientChange}
-                className="cell-input"
-              />
-            </div>
-            <div className="grid-cell flex-1 border-left">
-              <label className="cell-label">Sex :</label>
+            <div className="entry-field-group">
+              <label className="entry-label">Time</label>
               <select 
-                name="sex" 
-                value={patient.sex} 
-                onChange={handlePatientChange}
-                className="cell-select"
+                name="timeSlot" 
+                value={entry.timeSlot} 
+                onChange={handleEntryChange} 
+                className="entry-select"
               >
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
+                <option value="Day_6">Day - 6 AM</option>
+                <option value="Day_10">Day - 10 AM</option>
+                <option value="Day_2">Day - 2 PM</option>
+                <option value="Night_6">Night - 6 PM</option>
+                <option value="Night_10">Night - 10 PM</option>
+                <option value="Night_11">Night - 11 PM</option>
+                <option value="Night_2">Night - 2 AM</option>
               </select>
             </div>
-          </div>
-
-          <div className="patient-grid-row border-top">
-            <div className="grid-cell flex-1-5">
-              <label className="cell-label">UHID No. :</label>
+            <div className="entry-field-group">
+              <label className="entry-label label-pink">Pulse (bpm)</label>
               <input 
                 type="text" 
-                name="uhid" 
-                value={patient.uhid} 
-                onChange={handlePatientChange}
-                className="cell-input"
+                name="pulse" 
+                value={entry.pulse} 
+                onChange={handleEntryChange} 
+                placeholder="e.g. 72" 
+                className="entry-input"
               />
             </div>
-            <div className="grid-cell flex-2 border-left">
-              <label className="cell-label highlight-green">IP No. :</label>
+            <div className="entry-field-group">
+              <label className="entry-label label-amber">Temp (°F)</label>
               <input 
                 type="text" 
-                name="ipNo" 
-                value={patient.ipNo} 
-                onChange={handlePatientChange}
-                placeholder="Search / Type IP..."
-                className="cell-input highlight-green-input"
+                name="temp" 
+                value={entry.temp} 
+                onChange={handleEntryChange} 
+                placeholder="e.g. 98.6" 
+                className="entry-input"
               />
             </div>
-            <div className="grid-cell flex-1 border-left">
-              <label className="cell-label">DOA :</label>
+            <div className="entry-field-group">
+              <label className="entry-label label-blue">Resp. Rate (cpm)</label>
               <input 
                 type="text" 
-                name="doa" 
-                value={patient.doa} 
-                onChange={handlePatientChange}
-                className="cell-input"
-              />
-            </div>
-            <div className="grid-cell flex-1 border-left">
-              <label className="cell-label">Ward :</label>
-              <input 
-                type="text" 
-                name="ward" 
-                value={patient.ward} 
-                onChange={handlePatientChange}
-                className="cell-input"
-              />
-            </div>
-            <div className="grid-cell flex-1 border-left">
-              <label className="cell-label">Bed :</label>
-              <input 
-                type="text" 
-                name="bed" 
-                value={patient.bed} 
-                onChange={handlePatientChange}
-                className="cell-input"
+                name="resp" 
+                value={entry.resp} 
+                onChange={handleEntryChange} 
+                placeholder="e.g. 18" 
+                className="entry-input"
               />
             </div>
           </div>
-        </div>
 
-        {/* Enter Vital Sign Reading Card Container */}
-        <div className="vital-entry-card">
-          <div className="entry-card-header">
-            <Heart size={18} className="entry-icon" />
-            <h3 className="entry-title">Enter Vital Sign Reading</h3>
+          <div className="entry-btn-row">
+            <button type="submit" className="btn-plot-reading">
+              Plot / Add Reading
+            </button>
           </div>
+        </form>
+      </div>
 
-          <form onSubmit={handleAddReading} className="vital-form">
-            <div className="form-row-3">
-              <div className="form-group">
-                <label>Date</label>
-                <div className="input-with-icon">
-                  <input 
-                    type="date" 
-                    name="date" 
-                    value={newReading.date} 
-                    onChange={handleReadingChange}
-                  />
-                </div>
-              </div>
 
-              <div className="form-group">
-                <label>Time</label>
-                <select name="time" value={newReading.time} onChange={handleReadingChange}>
-                  <option value="6:00 AM">6:00 AM</option>
-                  <option value="8:00 AM">8:00 AM</option>
-                  <option value="10:00 AM">10:00 AM</option>
-                  <option value="12:00 PM">12:00 PM</option>
-                  <option value="2:00 PM">2:00 PM</option>
-                  <option value="4:00 PM">4:00 PM</option>
-                  <option value="6:00 PM">6:00 PM</option>
-                  <option value="8:00 PM">8:00 PM</option>
-                  <option value="10:00 PM">10:00 PM</option>
-                  <option value="12:00 AM">12:00 AM</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="label-bp">BP (Systolic/Diastolic)</label>
-                <input 
-                  type="text" 
-                  name="bp" 
-                  value={newReading.bp} 
-                  onChange={handleReadingChange}
-                  placeholder="e.g. 120/80" 
+          {/* Vitals Graph Grid Table Container with SVG Overlay */}
+          <div className="vitals-grid-table-container" ref={tableRef}>
+            
+            {/* SVG Connecting Lines & Plotted Dots Overlay */}
+            <svg className="vitals-svg-canvas">
+              {/* Connecting Lines */}
+              {svgLines.map((line) => (
+                <line 
+                  key={line.id}
+                  x1={line.x1}
+                  y1={line.y1}
+                  x2={line.x2}
+                  y2={line.y2}
+                  stroke={line.stroke}
+                  strokeWidth={line.strokeWidth}
                 />
-              </div>
-            </div>
+              ))}
 
-            <div className="form-row-3">
-              <div className="form-group">
-                <label>IVF (ml)</label>
-                <input 
-                  type="number" 
-                  name="ivf" 
-                  value={newReading.ivf} 
-                  onChange={handleReadingChange}
-                  placeholder="e.g. 500" 
+              {/* Plotted Dots */}
+              {svgDots.map((dot) => (
+                <circle 
+                  key={dot.id}
+                  cx={dot.cx}
+                  cy={dot.cy}
+                  r={4.5}
+                  fill={dot.type === 'pulse' ? '#dc2626' : '#0284c7'}
+                  stroke="#ffffff"
+                  strokeWidth={1}
                 />
-              </div>
+              ))}
+            </svg>
 
-              <div className="form-group">
-                <label>NG / Oral (ml)</label>
-                <input 
-                  type="number" 
-                  name="ngOral" 
-                  value={newReading.ngOral} 
-                  onChange={handleReadingChange}
-                  placeholder="e.g. 200" 
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Urine (ml)</label>
-                <input 
-                  type="number" 
-                  name="urine" 
-                  value={newReading.urine} 
-                  onChange={handleReadingChange}
-                  placeholder="e.g. 300" 
-                />
-              </div>
-            </div>
-
-            <div className="form-row-3">
-              <div className="form-group">
-                <label>Total Intake / Total Output</label>
-                <div className="summary-pill-group">
-                  <span className="intake-pill">Intake: {currentTotalIntake} ml</span>
-                  <span className="output-pill">Output: {currentTotalOutput} ml</span>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Bowel</label>
-                <input 
-                  type="text" 
-                  name="bowel" 
-                  value={newReading.bowel} 
-                  onChange={handleReadingChange}
-                  placeholder="e.g. Passed / Normal" 
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Drain (ml)</label>
-                <input 
-                  type="number" 
-                  name="drain" 
-                  value={newReading.drain} 
-                  onChange={handleReadingChange}
-                  placeholder="e.g. 50" 
-                />
-              </div>
-            </div>
-
-            <div className="form-actions">
-              <button type="submit" className="btn btn-save-reading">
-                <PlusCircle size={16} />
-                <span>Add Vital Sign Entry</span>
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Existing Vitals Records Table */}
-        <div className="vitals-table-section">
-          <h3 className="section-sub-title">Recorded Vitals Grid</h3>
-          <div className="table-responsive">
-            <table className="vitals-data-table">
+            <table className="vitals-sheet-table">
               <thead>
+                {/* DATE Row */}
                 <tr>
-                  <th>Date & Time</th>
-                  <th>BP</th>
-                  <th>Temp</th>
-                  <th>Pulse</th>
-                  <th>Resp</th>
-                  <th>IVF</th>
-                  <th>NG/Oral</th>
-                  <th>Urine</th>
-                  <th>Drain</th>
-                  <th>Total Intake</th>
-                  <th>Total Output</th>
-                  <th>Actions</th>
+                  <th colSpan={2} className="th-date-label">DATE</th>
+                  {dates.map((d, dIdx) => (
+                    <th key={dIdx} colSpan={7} className="th-date-val">
+                      <input 
+                        type="text" 
+                        value={d} 
+                        onChange={(e) => {
+                          const updated = [...dates];
+                          updated[dIdx] = e.target.value;
+                          setDates(updated);
+                        }}
+                        className="date-grid-input"
+                      />
+                    </th>
+                  ))}
+                </tr>
+
+                {/* TIME Header Row 1 (Day / Night matching screenshot) */}
+                <tr>
+                  <th colSpan={2} className="th-time-label" rowSpan={2}>TIME</th>
+                  {dates.map((_, dIdx) => (
+                    <React.Fragment key={dIdx}>
+                      <th colSpan={3} className="th-day-night day-col">Day</th>
+                      <th colSpan={4} className="th-day-night night-col">Night</th>
+                    </React.Fragment>
+                  ))}
+                </tr>
+
+                {/* TIME Header Row 2 (Hours: Day 6 10 2 | Night 6 10 11 2 matching screenshot) */}
+                <tr>
+                  {dates.map((_, dIdx) => (
+                    <React.Fragment key={dIdx}>
+                      {timeSlots.map((slot, sIdx) => (
+                        <th key={sIdx} className="th-hour-slot">
+                          {slot.hour}
+                        </th>
+                      ))}
+                    </React.Fragment>
+                  ))}
                 </tr>
               </thead>
+
               <tbody>
-                {readings.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <strong>{r.date}</strong> <span className="time-badge">{r.time}</span>
+                {yAxisRows.map((yRow, yIdx) => (
+                  <tr key={yIdx}>
+                    {/* Y-Axis Column 1: Pulse */}
+                    <td className="td-pulse-axis">
+                      {yIdx === 0 && <span className="axis-title-pulse">Pulse</span>}
+                      <span className="pulse-val-num">{yRow.pulse}</span>
                     </td>
-                    <td><span className="bp-tag">{r.bp}</span></td>
-                    <td>{r.temp}</td>
-                    <td>{r.pulse}</td>
-                    <td>{r.resp}</td>
-                    <td>{r.ivf}</td>
-                    <td>{r.ngOral}</td>
-                    <td>{r.urine}</td>
-                    <td>{r.drain}</td>
-                    <td className="intake-col">{r.totalIntake}</td>
-                    <td className="output-col">{r.totalOutput}</td>
-                    <td>
-                      <button 
-                        className="btn-delete"
-                        onClick={() => setReadings(readings.filter(item => item.id !== r.id))}
-                        title="Delete reading"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+
+                    {/* Y-Axis Column 2: Temp F / Resp Rate */}
+                    <td className="td-temp-axis">
+                      {yIdx === 0 && <span className="axis-title-temp">Temp F</span>}
+                      {yIdx === 12 && <span className="axis-title-resp">RESP. RATE</span>}
+                      {yRow.temp && <span className="temp-val-num">{yRow.temp}</span>}
+                      {yRow.resp && <span className="resp-val-num">{yRow.resp}</span>}
                     </td>
+
+                    {/* Grid Check Cells across Date & Time slots */}
+                    {dates.map((_, dIdx) => (
+                      <React.Fragment key={dIdx}>
+                        {timeSlots.map((_, sIdx) => (
+                          <td 
+                            key={sIdx} 
+                            data-cell={`${yIdx}_${dIdx}_${sIdx}`}
+                            className="vitals-cell-slot"
+                            onClick={() => handleCellClick(yIdx, dIdx, sIdx)}
+                            title="Click to toggle reading point"
+                          />
+                        ))}
+                      </React.Fragment>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* Legend Guide */}
+          <div className="vitals-legend-guide">
+            <span className="legend-item"><span className="pulse-dot">●</span> Red: Pulse Rate</span>
+            <span className="legend-item"><span className="temp-dot">●</span> Blue: Temperature (°F)</span>
+            <span className="legend-hint">(Submitting the form above plots values and draws graph lines automatically)</span>
+          </div>
+
         </div>
       </div>
-
-      {/* Saved Charts Modal */}
-      {savedChartsModalOpen && (
-        <div className="modal-backdrop" onClick={() => setSavedChartsModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Saved Patient Charts</h3>
-              <button className="close-btn" onClick={() => setSavedChartsModalOpen(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="saved-chart-card">
-                <FileText size={24} className="chart-icon" />
-                <div>
-                  <h4>Rajesh Kumar - Vitals Chart (21-Jul-2026)</h4>
-                  <p>UHID: GS-2026-8842 | IP: IP-90412 | Ward: ICU-3</p>
-                  <span className="save-timestamp">Saved at 11:45 AM by Sadhana Admin</span>
-                </div>
-                <button className="btn btn-secondary btn-sm">Load</button>
-              </div>
-
-              <div className="saved-chart-card">
-                <FileText size={24} className="chart-icon" />
-                <div>
-                  <h4>Anita Sharma - Intake & Output Record</h4>
-                  <p>UHID: GS-2026-7210 | IP: IP-89215 | Ward: Ward-B</p>
-                  <span className="save-timestamp">Saved yesterday at 04:30 PM</span>
-                </div>
-                <button className="btn btn-secondary btn-sm">Load</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

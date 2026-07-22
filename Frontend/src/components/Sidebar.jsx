@@ -16,6 +16,7 @@ export default function Sidebar({ sidebarOpen, activeTab, setActiveTab }) {
       title: 'NURSE CARE PLAN',
       items: [
         { id: 'nurse-care-plan', label: 'Nurse Care Plan', icon: Info },
+        { id: 'nursing-initial-assessment', label: 'Nursing Initial Assessment', icon: FileText },
         { id: 'progress-sheet', label: 'Progress Sheet', icon: SquareCheck }
       ]
     },

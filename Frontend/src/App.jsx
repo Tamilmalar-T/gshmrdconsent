@@ -4,35 +4,33 @@ import Sidebar from './components/Sidebar';
 import VitalsChartPage from './components/VitalsChartPage';
 import ConsentGeneralAdmissionPage from './components/ConsentGeneralAdmissionPage';
 import NursesCarePlanPage from './components/NursesCarePlanPage';
+import NursingInitialAssessmentPage from './components/NursingInitialAssessmentPage';
+import ProgressSheetPage from './components/ProgressSheetPage';
+import LabRequisitionPage from './components/LabRequisitionPage';
+import DiabeticChartPage from './components/DiabeticChartPage';
+import IntakeOutputRecordPage from './components/IntakeOutputRecordPage';
 import './App.css';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('nurse-care-plan'); // Nurse Care Plan active by default!
+  const [activeTab, setActiveTab] = useState('intake-output'); // Intake Output active!
 
   const renderContent = () => {
     switch (activeTab) {
       case 'nurse-care-plan':
         return <NursesCarePlanPage />;
+      case 'nursing-initial-assessment':
+        return <NursingInitialAssessmentPage />;
       case 'progress-sheet':
-        return (
-          <div className="placeholder-page">
-            <h2>Progress Sheet</h2>
-            <p>Daily patient recovery progress log.</p>
-          </div>
-        );
+        return <ProgressSheetPage />;
       case 'general-admission-consent':
         return <ConsentGeneralAdmissionPage />;
       case 'vitals-chart':
-      case 'intake-output':
         return <VitalsChartPage />;
+      case 'intake-output':
+        return <IntakeOutputRecordPage />;
       case 'lab-requisition':
-        return (
-          <div className="placeholder-page">
-            <h2>Laboratory Requisition</h2>
-            <p>Manage and order lab tests for patients.</p>
-          </div>
-        );
+        return <LabRequisitionPage />;
       case 'mrd-checklist':
         return (
           <div className="placeholder-page">
@@ -41,12 +39,7 @@ function App() {
           </div>
         );
       case 'diabetic-chart':
-        return (
-          <div className="placeholder-page">
-            <h2>Diabetic Chart</h2>
-            <p>Blood glucose levels and insulin tracking log.</p>
-          </div>
-        );
+        return <DiabeticChartPage />;
       default:
         return <NursesCarePlanPage />;
     }

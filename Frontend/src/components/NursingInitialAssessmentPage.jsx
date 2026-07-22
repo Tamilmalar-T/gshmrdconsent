@@ -1,0 +1,654 @@
+import React, { useState } from 'react';
+import { Save, Printer, CheckCircle2 } from 'lucide-react';
+
+export default function NursingInitialAssessmentPage() {
+  // Patient Details
+  const [patient, setPatient] = useState({
+    name: '',
+    age: '',
+    sex: 'Male',
+    uhidNo: '',
+    ipNo: '',
+    ward: '',
+    bedNo: ''
+  });
+
+  // Vitals State
+  const [vitals, setVitals] = useState({
+    bp: '',
+    pulse: '',
+    temperature: '',
+    respiratoryRate: '',
+    weight: '',
+    grbs: '',
+    saturation: ''
+  });
+
+  // Examination State
+  const [exam, setExam] = useState({
+    levelOfConsciousness: '',
+    gcsE: '',
+    gcsV: '',
+    gcsM: '',
+    respiratoryStatus: '',
+    anyOtherFinding: '',
+    skinIntegrity: ''
+  });
+
+  // Casualty & Investigations
+  const [casualty, setCasualty] = useState({
+    medications: '',
+    dateTime: ''
+  });
+  const [investigations, setInvestigations] = useState('');
+
+  // Bottom Page 1 State
+  const [bottomPg1, setBottomPg1] = useState({
+    diet: '',
+    vulnerable: 'No',
+    specialCareGiven: ''
+  });
+
+  // Page 2 State (Pain & Risk Assessment matching screenshot)
+  const [pg2, setPg2] = useState({
+    painScore: 3,
+    pressureSore: 'No',
+    pressureSoreCare: '',
+    restraints: 'No',
+    restraintsUsed: '',
+    fallRisk: 'No',
+    dvtRisk: 'No',
+    pressureSoreRisk: 'No',
+    nurseSignature: 'Sadhana',
+    sigDate: '2026-07-21',
+    sigTime: '01:49 PM'
+  });
+
+  const [toastMsg, setToastMsg] = useState('');
+
+  const handlePatientChange = (e) => {
+    const { name, value } = e.target;
+    setPatient((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleVitalsChange = (e) => {
+    const { name, value } = e.target;
+    setVitals((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleExamChange = (e) => {
+    const { name, value } = e.target;
+    setExam((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCasualtyChange = (e) => {
+    const { name, value } = e.target;
+    setCasualty((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleBottomPg1Change = (e) => {
+    const { name, value } = e.target;
+    setBottomPg1((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePg2Change = (e) => {
+    const { name, value } = e.target;
+    setPg2((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = () => {
+    setToastMsg('Nursing Initial Assessment saved successfully!');
+    setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // 0-10 Pain Assessment Scale Options (Matching Screenshot)
+  const painScaleOptions = [
+    { score: 0, label: 'No Pain', emoji: '😊' },
+    { score: 1, label: 'Just Noticeable', emoji: '🙂' },
+    { score: 2, label: 'Mild Pain', emoji: '😐' },
+    { score: 3, label: 'Uncomfortable', emoji: '😟' },
+    { score: 4, label: 'Annoying', emoji: '😣' },
+    { score: 5, label: 'Moderate', emoji: '😫' },
+    { score: 6, label: 'Just Tolerable', emoji: '😖' },
+    { score: 7, label: 'Strong', emoji: '😭' },
+    { score: 8, label: 'Severe', emoji: '😢' },
+    { score: 9, label: 'Horrible', emoji: '🤯' },
+    { score: 10, label: 'Worst Pain', emoji: '😡' }
+  ];
+
+  const selectedPainObj = painScaleOptions.find(p => p.score === pg2.painScore) || painScaleOptions[3];
+
+  return (
+    <div className="nursing-assessment-wrapper">
+      {toastMsg && (
+        <div className="no-print alert-success-toast">
+          <CheckCircle2 size={18} />
+          <span>{toastMsg}</span>
+        </div>
+      )}
+
+      {/* Action Header Row */}
+      <div className="no-print page-action-bar">
+        <h2 className="vitals-page-heading">Nursing Initial Assessment</h2>
+        <div className="action-btns-group">
+          <button type="button" className="btn-mint-clear" onClick={handleSave}>
+            <Save size={14} />
+            <span>Save Assessment</span>
+          </button>
+          <button type="button" className="btn-mint-save" onClick={handlePrint}>
+            <Printer size={14} />
+            <span>Print Form</span>
+          </button>
+        </div>
+      </div>
+
+      {/* PAGE 1 SHEET CONTAINER */}
+      <div className="assessment-card-container">
+        <div className="inner-assessment-form-box">
+          
+          {/* Top Kannada Text */}
+          <div className="form-top-kannada">ಗುರುಶ್ರೀ ಹೈಟೆಕ್ ಆಸ್ಪತ್ರೆ</div>
+
+          {/* Hospital Header Block */}
+          <div className="care-plan-hospital-header">
+            <div className="nabh-diamond-wrapper">
+              <div className="nabh-diamond">
+                <div className="diamond-inner-text">
+                  <span className="nabh-head">NABH</span>
+                  <span className="nabh-sub">PRE-ACCREDITED</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="center-hospital-brand">
+              <div className="hospital-logo-row">
+                <div className="gs-square-logo">
+                  <span className="gs-text">GS</span>
+                </div>
+                <div className="hospital-titles">
+                  <h1 className="eng-title-large">GURUSHREE</h1>
+                  <h2 className="eng-title-medium">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
+                  <p className="eng-tagline">A touch can instill faith</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Title Banner */}
+          <div className="care-plan-form-title">
+            Nursing Initial Assessment
+          </div>
+
+          {/* Patient Details Table */}
+          <table className="mint-patient-info-table">
+            <tbody>
+              <tr>
+                <td colSpan={3} className="cell-patient-name">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Name of the Patient :</span>
+                    <input 
+                      type="text" 
+                      name="name" 
+                      value={patient.name} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-age">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Age :</span>
+                    <input 
+                      type="text" 
+                      name="age" 
+                      value={patient.age} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-sex">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Sex :</span>
+                    <select 
+                      name="sex" 
+                      value={patient.sex} 
+                      onChange={handlePatientChange} 
+                      className="info-select-plain"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </td>
+              </tr>
+
+              <tr>
+                <td className="cell-uhid">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">UHID No. :</span>
+                    <input 
+                      type="text" 
+                      name="uhidNo" 
+                      value={patient.uhidNo} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-ipno">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">IP No.:</span>
+                    <input 
+                      type="text" 
+                      name="ipNo" 
+                      value={patient.ipNo} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-doa" colSpan={2}>
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Ward :</span>
+                    <input 
+                      type="text" 
+                      name="ward" 
+                      value={patient.ward} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-bed">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Bed No. :</span>
+                    <input 
+                      type="text" 
+                      name="bedNo" 
+                      value={patient.bedNo} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* VITALS SECTION TABLE */}
+          <div className="assessment-section-header">VITALS</div>
+          <table className="mint-patient-info-table">
+            <tbody>
+              <tr>
+                <td className="cell-w50">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">BP :</span>
+                    <input 
+                      type="text" 
+                      name="bp" 
+                      value={vitals.bp} 
+                      onChange={handleVitalsChange} 
+                      placeholder="e.g. 120/80 mmHg" 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-w50">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Pulse :</span>
+                    <input 
+                      type="text" 
+                      name="pulse" 
+                      value={vitals.pulse} 
+                      onChange={handleVitalsChange} 
+                      placeholder="e.g. 72 bpm" 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Temperature :</span>
+                    <input 
+                      type="text" 
+                      name="temperature" 
+                      value={vitals.temperature} 
+                      onChange={handleVitalsChange} 
+                      placeholder="e.g. 98.6 °F" 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td>
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Respiratory Rate :</span>
+                    <input 
+                      type="text" 
+                      name="respiratoryRate" 
+                      value={vitals.respiratoryRate} 
+                      onChange={handleVitalsChange} 
+                      placeholder="e.g. 18 cpm" 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Weight :</span>
+                    <input 
+                      type="text" 
+                      name="weight" 
+                      value={vitals.weight} 
+                      onChange={handleVitalsChange} 
+                      placeholder="e.g. 65 kg" 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td>
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">GRBS (if done) :</span>
+                    <input 
+                      type="text" 
+                      name="grbs" 
+                      value={vitals.grbs} 
+                      onChange={handleVitalsChange} 
+                      placeholder="e.g. 120 mg/dL" 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={2}>
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Saturation :</span>
+                    <input 
+                      type="text" 
+                      name="saturation" 
+                      value={vitals.saturation} 
+                      onChange={handleVitalsChange} 
+                      placeholder="e.g. 98% SpO2" 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* EXAMINATION SECTION */}
+          <div className="assessment-section-header">Examination :</div>
+          <div className="examination-block">
+            <div className="exam-row-gcs">
+              <div className="info-field-inline flex-grow-1">
+                <span className="info-lbl-bold">1. Level of consciousness :</span>
+                <input 
+                  type="text" 
+                  name="levelOfConsciousness" 
+                  value={exam.levelOfConsciousness} 
+                  onChange={handleExamChange} 
+                  className="info-input-plain"
+                />
+              </div>
+              <div className="gcs-group">
+                <span className="info-lbl-bold">GCS :</span>
+                <span className="gcs-sub-item">E <input type="text" name="gcsE" value={exam.gcsE} onChange={handleExamChange} className="gcs-in" /></span>
+                <span className="gcs-sub-item">V <input type="text" name="gcsV" value={exam.gcsV} onChange={handleExamChange} className="gcs-in" /></span>
+                <span className="gcs-sub-item">M <input type="text" name="gcsM" value={exam.gcsM} onChange={handleExamChange} className="gcs-in" /></span>
+              </div>
+            </div>
+
+            <div className="info-field-inline exam-field-item">
+              <span className="info-lbl-bold">2. Respiratory Status :</span>
+              <input 
+                type="text" 
+                name="respiratoryStatus" 
+                value={exam.respiratoryStatus} 
+                onChange={handleExamChange} 
+                className="info-input-plain"
+              />
+            </div>
+
+            <div className="info-field-inline exam-field-item">
+              <span className="info-lbl-bold">3. Any Other Finding :</span>
+              <input 
+                type="text" 
+                name="anyOtherFinding" 
+                value={exam.anyOtherFinding} 
+                onChange={handleExamChange} 
+                className="info-input-plain"
+              />
+            </div>
+
+            <div className="info-field-inline exam-field-item">
+              <span className="info-lbl-bold">4. Skin integrity :</span>
+              <input 
+                type="text" 
+                name="skinIntegrity" 
+                value={exam.skinIntegrity} 
+                onChange={handleExamChange} 
+                className="info-input-plain"
+              />
+            </div>
+          </div>
+
+          {/* MEDICATIONS GIVEN IN CASUALTY */}
+          <div className="assessment-bordered-box">
+            <span className="info-lbl-bold">Medications given in Casualty :</span>
+            <textarea 
+              name="medications" 
+              value={casualty.medications} 
+              onChange={handleCasualtyChange} 
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              rows={2} 
+              placeholder="List medications administered in casualty..." 
+              className="assessment-textarea"
+            />
+            <div className="date-time-bottom-right">
+              <span className="info-lbl-bold">Date & Time :</span>
+              <input 
+                type="text" 
+                name="dateTime" 
+                value={casualty.dateTime} 
+                onChange={handleCasualtyChange} 
+                placeholder="dd/mm/yyyy hh:mm AM/PM" 
+                className="info-input-plain dt-in"
+              />
+            </div>
+          </div>
+
+          {/* INVESTIGATIONS ORDERED */}
+          <div className="assessment-bordered-box">
+            <span className="info-lbl-bold">Investigations Ordered :</span>
+            <textarea 
+              value={investigations} 
+              onChange={(e) => setInvestigations(e.target.value)} 
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              rows={2} 
+              placeholder="List lab tests & radiologic investigations ordered..." 
+              className="assessment-textarea"
+            />
+          </div>
+
+          {/* BOTTOM SECTION PAGE 1 (Matching Screenshot Format) */}
+          <div className="assessment-bottom-rows">
+            <div className="info-field-inline btm-item">
+              <span className="info-lbl-bold">Diet :</span>
+              <input 
+                type="text" 
+                name="diet" 
+                value={bottomPg1.diet} 
+                onChange={handleBottomPg1Change} 
+                placeholder="e.g. Diabetic Diet / Soft Diet / NPO" 
+                className="info-input-plain dotted-line-input"
+              />
+            </div>
+
+            <div className="info-field-inline btm-item">
+              <span className="info-lbl-bold">Vulnerable :</span>
+              <label className="radio-lbl"><input type="radio" name="vulnerable" value="Yes" checked={bottomPg1.vulnerable === 'Yes'} onChange={handleBottomPg1Change} /> Yes</label>
+              <label className="radio-lbl"><input type="radio" name="vulnerable" value="No" checked={bottomPg1.vulnerable === 'No'} onChange={handleBottomPg1Change} /> No</label>
+            </div>
+
+            <div className="info-field-inline btm-item">
+              <span className="info-lbl-bold">Any Special care given :</span>
+              <input 
+                type="text" 
+                name="specialCareGiven" 
+                value={bottomPg1.specialCareGiven} 
+                onChange={handleBottomPg1Change} 
+                className="info-input-plain dotted-line-input"
+              />
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* PAGE 2 SHEET CONTAINER (Matching User Screenshot Exactly) */}
+      <div className="assessment-card-container page-break-top">
+        <div className="inner-assessment-form-box">
+
+          {/* PAIN ASSESSMENT SCALE HEADER */}
+          <div className="pain-scale-title">PAIN ASSESSMENT SCALE</div>
+          <div className="pain-faces-grid-11">
+            {painScaleOptions.map((opt) => (
+              <div 
+                key={opt.score} 
+                className={`pain-face-card-sm ${pg2.painScore === opt.score ? 'selected-blue' : ''}`}
+                onClick={() => setPg2((prev) => ({ ...prev, painScore: opt.score }))}
+              >
+                <span className="pain-score-num-bold">{opt.score}</span>
+                <span className="pain-emoji-lg">{opt.emoji}</span>
+                <span className="pain-score-lbl-sm">{opt.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="pain-selected-status">
+            Selected Score: <strong>{selectedPainObj.score} - {selectedPainObj.label}</strong>
+          </div>
+
+          {/* PRESSURE SORE SECTION */}
+          <div className="assessment-section-box">
+            <div className="info-field-inline">
+              <span className="info-lbl-bold">Pressure sore :</span>
+              <label className="radio-lbl"><input type="radio" name="pressureSore" value="Yes" checked={pg2.pressureSore === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+              <label className="radio-lbl"><input type="radio" name="pressureSore" value="No" checked={pg2.pressureSore === 'No'} onChange={handlePg2Change} /> No</label>
+            </div>
+            <div className="info-field-inline indent-item-block">
+              <span className="info-lbl-bold">Any Special care given :</span>
+              <input 
+                type="text" 
+                name="pressureSoreCare" 
+                value={pg2.pressureSoreCare} 
+                onChange={handlePg2Change} 
+                className="info-input-plain dotted-line-input"
+              />
+            </div>
+          </div>
+
+          {/* RESTRAINTS SECTION */}
+          <div className="assessment-section-box">
+            <div className="info-field-inline">
+              <span className="info-lbl-bold">Restraints :</span>
+              <label className="radio-lbl"><input type="radio" name="restraints" value="Yes" checked={pg2.restraints === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+              <label className="radio-lbl"><input type="radio" name="restraints" value="No" checked={pg2.restraints === 'No'} onChange={handlePg2Change} /> No</label>
+            </div>
+            <div className="info-field-inline indent-item-block">
+              <span className="info-lbl-bold">Restraint used :</span>
+              <input 
+                type="text" 
+                name="restraintsUsed" 
+                value={pg2.restraintsUsed} 
+                onChange={handlePg2Change} 
+                placeholder="Specify restraints used..."
+                className="info-input-plain dotted-line-input"
+              />
+            </div>
+          </div>
+
+          {/* RISK FOR THE FOLLOWING SECTION */}
+          <div className="assessment-section-box">
+            <span className="info-lbl-bold section-title-bold">Risk for the following :</span>
+            
+            <div className="risk-options-list">
+              <div className="info-field-inline risk-sub-item">
+                <span className="info-lbl-bold risk-name">Fall :</span>
+                <label className="radio-lbl"><input type="radio" name="fallRisk" value="Yes" checked={pg2.fallRisk === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+                <label className="radio-lbl"><input type="radio" name="fallRisk" value="No" checked={pg2.fallRisk === 'No'} onChange={handlePg2Change} /> No</label>
+              </div>
+
+              <div className="info-field-inline risk-sub-item">
+                <span className="info-lbl-bold risk-name">DVT :</span>
+                <label className="radio-lbl"><input type="radio" name="dvtRisk" value="Yes" checked={pg2.dvtRisk === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+                <label className="radio-lbl"><input type="radio" name="dvtRisk" value="No" checked={pg2.dvtRisk === 'No'} onChange={handlePg2Change} /> No</label>
+              </div>
+
+              <div className="info-field-inline risk-sub-item">
+                <span className="info-lbl-bold risk-name">Pressure sore :</span>
+                <label className="radio-lbl"><input type="radio" name="pressureSoreRisk" value="Yes" checked={pg2.pressureSoreRisk === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+                <label className="radio-lbl"><input type="radio" name="pressureSoreRisk" value="No" checked={pg2.pressureSoreRisk === 'No'} onChange={handlePg2Change} /> No</label>
+              </div>
+            </div>
+          </div>
+
+          {/* NURSE SIGNATURE ROW (Matching Screenshot) */}
+          <div className="nurse-sig-footer-row">
+            <div className="sig-field-item flex-2">
+              <span className="info-lbl-bold">Signature of the Nurse :</span>
+              <input 
+                type="text" 
+                name="nurseSignature" 
+                value={pg2.nurseSignature} 
+                onChange={handlePg2Change} 
+                placeholder="Type nurse signature / name"
+                className="info-input-plain sig-input-stamp underline-input"
+              />
+            </div>
+            <div className="sig-field-item">
+              <span className="info-lbl-bold">Date :</span>
+              <input 
+                type="date" 
+                name="sigDate" 
+                value={pg2.sigDate} 
+                onChange={handlePg2Change} 
+                className="info-input-plain"
+              />
+            </div>
+            <div className="sig-field-item">
+              <span className="info-lbl-bold">Time :</span>
+              <input 
+                type="text" 
+                name="sigTime" 
+                value={pg2.sigTime} 
+                onChange={handlePg2Change} 
+                placeholder="01:49 PM"
+                className="info-input-plain"
+              />
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  );
+}

@@ -6,7 +6,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-export default function NursesCarePlanPage() {
+export default function DiabeticChartPage() {
   // Patient Metadata State
   const [patient, setPatient] = useState({
     name: '',
@@ -14,32 +14,41 @@ export default function NursesCarePlanPage() {
     sex: 'Male',
     uhidNo: '',
     ipNo: '',
-    doa: '',
     ward: '',
-    bed: ''
+    bed: '',
+    doa: ''
   });
 
-  // Notes Rows State
+  // Diabetic Grid Rows State
   const [rows, setRows] = useState([
     {
       id: 1,
       date: '2026-07-21',
-      time: '06:00',
-      notes: '',
+      time: '07:00',
+      grbsType: 'FBS',
+      grbs: '135 mg/dL',
+      reading: 'Normal',
+      medication: 'Inj. Human Actrapid 6 U',
       sign: 'Sadhana'
     },
     {
       id: 2,
       date: '',
       time: '',
-      notes: '',
+      grbsType: 'PPBS',
+      grbs: '',
+      reading: '',
+      medication: '',
       sign: 'Sadhana'
     },
     {
       id: 3,
       date: '',
       time: '',
-      notes: '',
+      grbsType: 'FBS',
+      grbs: '',
+      reading: '',
+      medication: '',
       sign: 'Sadhana'
     }
   ]);
@@ -60,7 +69,10 @@ export default function NursesCarePlanPage() {
       id: Date.now(),
       date: '',
       time: '',
-      notes: '',
+      grbsType: 'FBS',
+      grbs: '',
+      reading: '',
+      medication: '',
       sign: 'Sadhana'
     };
     setRows([...rows, newRow]);
@@ -78,24 +90,24 @@ export default function NursesCarePlanPage() {
       sex: 'Male',
       uhidNo: '',
       ipNo: '',
-      doa: '',
       ward: '',
-      bed: ''
+      bed: '',
+      doa: ''
     });
     setRows([
-      { id: 1, date: '', time: '', notes: '', sign: 'Sadhana' },
-      { id: 2, date: '', time: '', notes: '', sign: 'Sadhana' },
-      { id: 3, date: '', time: '', notes: '', sign: 'Sadhana' }
+      { id: 1, date: '', time: '', grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
+      { id: 2, date: '', time: '', grbsType: 'PPBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
+      { id: 3, date: '', time: '', grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' }
     ]);
   };
 
-  const handleSavePlan = () => {
-    setToastMsg('Nurse Care Plan saved successfully!');
+  const handleSave = () => {
+    setToastMsg('Diabetic Chart saved successfully!');
     setTimeout(() => setToastMsg(''), 3000);
   };
 
   return (
-    <div className="nurse-care-plan-wrapper">
+    <div className="diabetic-chart-wrapper">
       {toastMsg && (
         <div className="no-print alert-success-toast">
           <CheckCircle2 size={18} />
@@ -103,11 +115,9 @@ export default function NursesCarePlanPage() {
         </div>
       )}
 
-      {/* Mint Green Card Container */}
-      <div className="mint-card-container">
-        
-        {/* Inner Mint Form Box */}
-        <div className="inner-mint-form-box">
+      {/* Sheet Container */}
+      <div className="lab-card-container">
+        <div className="inner-lab-form-box">
           
           {/* Top Kannada Text */}
           <div className="form-top-kannada">ಗುರುಶ್ರೀ ಹೈಟೆಕ್ ಆಸ್ಪತ್ರೆ</div>
@@ -139,14 +149,14 @@ export default function NursesCarePlanPage() {
 
           {/* Form Title Banner */}
           <div className="care-plan-form-title">
-            NURSES CARE PLAN RECORD
+            DIABETIC CHART
           </div>
-          
-          {/* Patient Info Table */}
+
+          {/* Patient Metadata Table */}
           <table className="mint-patient-info-table">
             <tbody>
               <tr>
-                <td colSpan={3} className="cell-patient-name">
+                <td colSpan={2} className="cell-patient-name">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Name of the Patient :</span>
                     <input 
@@ -202,23 +212,11 @@ export default function NursesCarePlanPage() {
                 </td>
                 <td className="cell-ipno">
                   <div className="info-field-inline">
-                    <span className="info-lbl-bold">IP No.:</span>
+                    <span className="info-lbl-bold">IP No. :</span>
                     <input 
                       type="text" 
                       name="ipNo" 
                       value={patient.ipNo} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td className="cell-doa">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">DOA :</span>
-                    <input 
-                      type="text" 
-                      name="doa" 
-                      value={patient.doa} 
                       onChange={handlePatientChange} 
                       className="info-input-plain"
                     />
@@ -249,23 +247,40 @@ export default function NursesCarePlanPage() {
                   </div>
                 </td>
               </tr>
+
+              <tr>
+                <td colSpan={4}>
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">DOA :</span>
+                    <input 
+                      type="text" 
+                      name="doa" 
+                      value={patient.doa} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
 
-          {/* Notes Grid Table */}
+          {/* Readings Grid Table */}
           <table className="mint-notes-table">
             <thead>
               <tr>
-                <th className="th-mint-date">DATE</th>
-                <th className="th-mint-time">TIME</th>
-                <th className="th-mint-notes">NOTES</th>
-                <th className="th-mint-sign">SIGN</th>
+                <th className="th-diabetic-date">Date</th>
+                <th className="th-diabetic-time">Time</th>
+                <th className="th-diabetic-grbs">GRBS</th>
+                <th className="th-diabetic-reading">READING</th>
+                <th className="th-diabetic-med">MEDICATION</th>
+                <th className="th-diabetic-sign">SIGN.</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id}>
-                  {/* DATE Cell */}
+                  {/* Date Cell */}
                   <td className="td-mint-date">
                     <input 
                       type="date" 
@@ -283,7 +298,7 @@ export default function NursesCarePlanPage() {
                     </button>
                   </td>
 
-                  {/* TIME Cell */}
+                  {/* Time Cell */}
                   <td className="td-mint-time">
                     <input 
                       type="time" 
@@ -293,22 +308,50 @@ export default function NursesCarePlanPage() {
                     />
                   </td>
 
-                  {/* NOTES Cell */}
-                  <td className="td-mint-notes">
-                    <textarea 
-                      value={row.notes} 
-                      onChange={(e) => handleRowChange(row.id, 'notes', e.target.value)} 
-                      onInput={(e) => {
-                        e.target.style.height = 'auto';
-                        e.target.style.height = `${e.target.scrollHeight}px`;
-                      }}
-                      placeholder="Notes..." 
-                      rows={1} 
-                      className="mint-notes-textarea"
+                  {/* GRBS Cell with Type Dropdown */}
+                  <td>
+                    <div className="grbs-field-flex">
+                      <select 
+                        value={row.grbsType || 'FBS'} 
+                        onChange={(e) => handleRowChange(row.id, 'grbsType', e.target.value)} 
+                        className="grbs-select-dropdown"
+                      >
+                        <option value="FBS">FBS</option>
+                        <option value="PPBS">PPBS</option>
+                      </select>
+                      <input 
+                        type="text" 
+                        value={row.grbs} 
+                        onChange={(e) => handleRowChange(row.id, 'grbs', e.target.value)} 
+                        placeholder="mg/dL" 
+                        className="info-input-plain grbs-input-val"
+                      />
+                    </div>
+                  </td>
+
+                  {/* READING Cell */}
+                  <td>
+                    <input 
+                      type="text" 
+                      value={row.reading} 
+                      onChange={(e) => handleRowChange(row.id, 'reading', e.target.value)} 
+                      placeholder="Reading..."
+                      className="info-input-plain"
                     />
                   </td>
 
-                  {/* SIGN Cell */}
+                  {/* MEDICATION Cell */}
+                  <td>
+                    <input 
+                      type="text" 
+                      value={row.medication} 
+                      onChange={(e) => handleRowChange(row.id, 'medication', e.target.value)} 
+                      placeholder="Medication / Insulin..."
+                      className="info-input-plain"
+                    />
+                  </td>
+
+                  {/* SIGN. Cell */}
                   <td className="td-mint-sign">
                     <div className="sign-select-group">
                       <select 
@@ -340,7 +383,7 @@ export default function NursesCarePlanPage() {
               onClick={handleAddRow}
             >
               <Plus size={14} />
-              <span>Add Notes Row</span>
+              <span>Add Diabetic Log Row</span>
             </button>
 
             <div className="bottom-btn-row">
@@ -355,18 +398,16 @@ export default function NursesCarePlanPage() {
               <button 
                 type="button" 
                 className="btn-mint-save"
-                onClick={handleSavePlan}
+                onClick={handleSave}
               >
                 <Save size={14} />
-                <span>Save Plan</span>
+                <span>Save Diabetic Chart</span>
               </button>
             </div>
           </div>
 
         </div>
-
       </div>
     </div>
   );
 }
-

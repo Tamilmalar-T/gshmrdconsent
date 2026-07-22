@@ -6,7 +6,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-export default function NursesCarePlanPage() {
+export default function ProgressSheetPage() {
   // Patient Metadata State
   const [patient, setPatient] = useState({
     name: '',
@@ -14,33 +14,31 @@ export default function NursesCarePlanPage() {
     sex: 'Male',
     uhidNo: '',
     ipNo: '',
+    consultantName: '',
     doa: '',
     ward: '',
     bed: ''
   });
 
-  // Notes Rows State
+  // Progress Notes Rows State
   const [rows, setRows] = useState([
     {
       id: 1,
       date: '2026-07-21',
-      time: '06:00',
       notes: '',
-      sign: 'Sadhana'
+      signature: 'Dr. Ramesh'
     },
     {
       id: 2,
       date: '',
-      time: '',
       notes: '',
-      sign: 'Sadhana'
+      signature: 'Dr. Ramesh'
     },
     {
       id: 3,
       date: '',
-      time: '',
       notes: '',
-      sign: 'Sadhana'
+      signature: 'Dr. Ramesh'
     }
   ]);
 
@@ -59,9 +57,8 @@ export default function NursesCarePlanPage() {
     const newRow = {
       id: Date.now(),
       date: '',
-      time: '',
       notes: '',
-      sign: 'Sadhana'
+      signature: 'Dr. Ramesh'
     };
     setRows([...rows, newRow]);
   };
@@ -78,24 +75,25 @@ export default function NursesCarePlanPage() {
       sex: 'Male',
       uhidNo: '',
       ipNo: '',
+      consultantName: '',
       doa: '',
       ward: '',
       bed: ''
     });
     setRows([
-      { id: 1, date: '', time: '', notes: '', sign: 'Sadhana' },
-      { id: 2, date: '', time: '', notes: '', sign: 'Sadhana' },
-      { id: 3, date: '', time: '', notes: '', sign: 'Sadhana' }
+      { id: 1, date: '', notes: '', signature: 'Dr. Ramesh' },
+      { id: 2, date: '', notes: '', signature: 'Dr. Ramesh' },
+      { id: 3, date: '', notes: '', signature: 'Dr. Ramesh' }
     ]);
   };
 
   const handleSavePlan = () => {
-    setToastMsg('Nurse Care Plan saved successfully!');
+    setToastMsg('Consultant Progress Sheet saved successfully!');
     setTimeout(() => setToastMsg(''), 3000);
   };
 
   return (
-    <div className="nurse-care-plan-wrapper">
+    <div className="progress-sheet-wrapper">
       {toastMsg && (
         <div className="no-print alert-success-toast">
           <CheckCircle2 size={18} />
@@ -103,11 +101,11 @@ export default function NursesCarePlanPage() {
         </div>
       )}
 
-      {/* Mint Green Card Container */}
-      <div className="mint-card-container">
+      {/* Pink Paper Sheet Container */}
+      <div className="pink-card-container">
         
-        {/* Inner Mint Form Box */}
-        <div className="inner-mint-form-box">
+        {/* Inner Pink Form Box */}
+        <div className="inner-pink-form-box">
           
           {/* Top Kannada Text */}
           <div className="form-top-kannada">ಗುರುಶ್ರೀ ಹೈಟೆಕ್ ಆಸ್ಪತ್ರೆ</div>
@@ -139,14 +137,14 @@ export default function NursesCarePlanPage() {
 
           {/* Form Title Banner */}
           <div className="care-plan-form-title">
-            NURSES CARE PLAN RECORD
+            PROGRESS SHEET - CONSULTANT
           </div>
           
           {/* Patient Info Table */}
           <table className="mint-patient-info-table">
             <tbody>
               <tr>
-                <td colSpan={3} className="cell-patient-name">
+                <td className="cell-progress-name">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Name of the Patient :</span>
                     <input 
@@ -158,7 +156,7 @@ export default function NursesCarePlanPage() {
                     />
                   </div>
                 </td>
-                <td className="cell-age">
+                <td className="cell-progress-age">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Age :</span>
                     <input 
@@ -170,7 +168,7 @@ export default function NursesCarePlanPage() {
                     />
                   </div>
                 </td>
-                <td className="cell-sex">
+                <td className="cell-progress-sex">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Sex :</span>
                     <select 
@@ -185,10 +183,7 @@ export default function NursesCarePlanPage() {
                     </select>
                   </div>
                 </td>
-              </tr>
-
-              <tr>
-                <td className="cell-uhid">
+                <td className="cell-progress-uhid">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">UHID No. :</span>
                     <input 
@@ -200,9 +195,12 @@ export default function NursesCarePlanPage() {
                     />
                   </div>
                 </td>
-                <td className="cell-ipno">
+              </tr>
+
+              <tr>
+                <td className="cell-progress-ip">
                   <div className="info-field-inline">
-                    <span className="info-lbl-bold">IP No.:</span>
+                    <span className="info-lbl-bold">IP No. :</span>
                     <input 
                       type="text" 
                       name="ipNo" 
@@ -212,7 +210,19 @@ export default function NursesCarePlanPage() {
                     />
                   </div>
                 </td>
-                <td className="cell-doa">
+                <td className="cell-progress-consultant">
+                  <div className="info-field-inline">
+                    <span className="info-lbl-bold">Consultant Name :</span>
+                    <input 
+                      type="text" 
+                      name="consultantName" 
+                      value={patient.consultantName} 
+                      onChange={handlePatientChange} 
+                      className="info-input-plain"
+                    />
+                  </div>
+                </td>
+                <td className="cell-progress-doa">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">DOA :</span>
                     <input 
@@ -224,7 +234,7 @@ export default function NursesCarePlanPage() {
                     />
                   </div>
                 </td>
-                <td className="cell-ward">
+                <td className="cell-progress-wardbed">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Ward :</span>
                     <input 
@@ -232,19 +242,15 @@ export default function NursesCarePlanPage() {
                       name="ward" 
                       value={patient.ward} 
                       onChange={handlePatientChange} 
-                      className="info-input-plain"
+                      className="info-input-plain cell-short"
                     />
-                  </div>
-                </td>
-                <td className="cell-bed">
-                  <div className="info-field-inline">
                     <span className="info-lbl-bold">Bed No. :</span>
                     <input 
                       type="text" 
                       name="bed" 
                       value={patient.bed} 
                       onChange={handlePatientChange} 
-                      className="info-input-plain"
+                      className="info-input-plain cell-short"
                     />
                   </div>
                 </td>
@@ -256,17 +262,16 @@ export default function NursesCarePlanPage() {
           <table className="mint-notes-table">
             <thead>
               <tr>
-                <th className="th-mint-date">DATE</th>
-                <th className="th-mint-time">TIME</th>
-                <th className="th-mint-notes">NOTES</th>
-                <th className="th-mint-sign">SIGN</th>
+                <th className="th-progress-date">Date</th>
+                <th className="th-progress-notes">Notes</th>
+                <th className="th-progress-sign">Signature</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id}>
-                  {/* DATE Cell */}
-                  <td className="td-mint-date">
+                  {/* Date Cell */}
+                  <td className="td-progress-date">
                     <input 
                       type="date" 
                       value={row.date} 
@@ -283,18 +288,8 @@ export default function NursesCarePlanPage() {
                     </button>
                   </td>
 
-                  {/* TIME Cell */}
-                  <td className="td-mint-time">
-                    <input 
-                      type="time" 
-                      value={row.time} 
-                      onChange={(e) => handleRowChange(row.id, 'time', e.target.value)} 
-                      className="mint-time-picker"
-                    />
-                  </td>
-
-                  {/* NOTES Cell */}
-                  <td className="td-mint-notes">
+                  {/* Notes Cell */}
+                  <td className="td-progress-notes">
                     <textarea 
                       value={row.notes} 
                       onChange={(e) => handleRowChange(row.id, 'notes', e.target.value)} 
@@ -302,28 +297,28 @@ export default function NursesCarePlanPage() {
                         e.target.style.height = 'auto';
                         e.target.style.height = `${e.target.scrollHeight}px`;
                       }}
-                      placeholder="Notes..." 
+                      placeholder="Consultant clinical notes & observations..." 
                       rows={1} 
                       className="mint-notes-textarea"
                     />
                   </td>
 
-                  {/* SIGN Cell */}
-                  <td className="td-mint-sign">
+                  {/* Signature Cell */}
+                  <td className="td-progress-sign">
                     <div className="sign-select-group">
                       <select 
-                        value={row.sign} 
-                        onChange={(e) => handleRowChange(row.id, 'sign', e.target.value)} 
+                        value={row.signature} 
+                        onChange={(e) => handleRowChange(row.id, 'signature', e.target.value)} 
                         className="sign-select-dropdown"
                       >
-                        <option value="Sadhana">Sadhana</option>
-                        <option value="Priya">Priya</option>
-                        <option value="Anitha">Anitha</option>
+                        <option value="Dr. Ramesh">Dr. Ramesh</option>
+                        <option value="Dr. Suresh">Dr. Suresh</option>
+                        <option value="Dr. Kavitha">Dr. Kavitha</option>
                       </select>
 
                       {/* Signature Stamp Badge */}
                       <div className="signature-stamp-box">
-                        <span className="stamp-sig-text">{row.sign || 'Sign'}</span>
+                        <span className="stamp-sig-text">{row.signature || 'Sign'}</span>
                       </div>
                     </div>
                   </td>
@@ -340,7 +335,7 @@ export default function NursesCarePlanPage() {
               onClick={handleAddRow}
             >
               <Plus size={14} />
-              <span>Add Notes Row</span>
+              <span>Add Progress Row</span>
             </button>
 
             <div className="bottom-btn-row">
@@ -354,11 +349,11 @@ export default function NursesCarePlanPage() {
 
               <button 
                 type="button" 
-                className="btn-mint-save"
+                className="btn-mint-save btn-pink-save"
                 onClick={handleSavePlan}
               >
                 <Save size={14} />
-                <span>Save Plan</span>
+                <span>Save Progress Sheet</span>
               </button>
             </div>
           </div>
@@ -369,4 +364,3 @@ export default function NursesCarePlanPage() {
     </div>
   );
 }
-
