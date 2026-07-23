@@ -4,8 +4,13 @@ import {
   Save, 
   CheckCircle2
 } from 'lucide-react';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+import { findPatientByIpNo } from '../utils/patientRegistry';
+import { saveFormRecord } from '../utils/savedRecordsDB';
 
-export default function VitalsChartPage() {
+const PERSIST_KEY = 'vitals_chart';
+
+export default function VitalsChartPage({ onNavigate }) {
   // Patient Details State
   const [patient, setPatient] = useState({
     name: '',
@@ -47,6 +52,24 @@ export default function VitalsChartPage() {
   const tableRef = useRef(null);
   const [svgLines, setSvgLines] = useState([]);
   const [svgDots, setSvgDots] = useState([]);
+
+  // Restore persisted form on mount
+  useEffect(() => {
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+      if (saved.entry) setEntry(e => ({ ...e, ...saved.entry }));
+      if (saved.dates) setDates(saved.dates);
+      if (saved.readings) setReadings(saved.readings);
+    }
+  }, []);
+
+  // Auto-save to localStorage on every change
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, entry, dates, readings }), 300);
+    return () => clearTimeout(t);
+  }, [patient, entry, dates, readings]);
+
 
   // Time Slots per day matching screenshot:
   // Day: 6, 10, 2 (3 sub-columns)
@@ -206,9 +229,16 @@ export default function VitalsChartPage() {
   };
 
   const handleSave = () => {
+    const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
+    saveFormRecord('Vitals Chart', ip, { patient, entry, dates, readings });
+    clearPersistedForm(PERSIST_KEY);
     setToastMsg('Vitals Chart saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
+
 
   // Update SVG connecting lines and dots based on table DOM layout
   const updateOverlayCoordinates = () => {

@@ -71,23 +71,32 @@ export const findPatientByIpNo = (ipNo) => {
   const patients = getRegisteredPatients();
   const rawSearch = ipNo.trim().toUpperCase();
   const cleanSearch = rawSearch.replace(/[^A-Z0-9]/g, '');
-
-  if (!cleanSearch) return null;
+  const numSearch = rawSearch.replace(/[^0-9]/g, '');
 
   return patients.find((p) => {
     const rawPtIp = (p.ipNo || '').trim().toUpperCase();
     const cleanPtIp = rawPtIp.replace(/[^A-Z0-9]/g, '');
+    const numPtIp = rawPtIp.replace(/[^0-9]/g, '');
+
     const rawPtUhid = (p.uhidNo || '').trim().toUpperCase();
     const cleanPtUhid = rawPtUhid.replace(/[^A-Z0-9]/g, '');
+    const numPtUhid = rawPtUhid.replace(/[^0-9]/g, '');
 
-    return (
-      rawPtIp === rawSearch ||
-      rawPtUhid === rawSearch ||
-      cleanPtIp === cleanSearch ||
-      cleanPtUhid === cleanSearch ||
-      (cleanSearch.length >= 2 && cleanPtIp.endsWith(cleanSearch)) ||
-      (cleanPtIp.length >= 2 && cleanSearch.endsWith(cleanPtIp))
-    );
+    // 1. Exact raw match (e.g. 'IP-01')
+    if (rawPtIp === rawSearch || rawPtUhid === rawSearch) return true;
+    
+    // 2. Exact alphanumeric match (e.g. 'IP01')
+    if (cleanPtIp === cleanSearch || cleanPtUhid === cleanSearch) return true;
+
+    // 3. Exact numeric match (e.g. typing '01' to find 'IP-01', avoiding 'IP-9901')
+    if (numSearch && (numPtIp === numSearch || numPtUhid === numSearch)) return true;
+
+    // 4. Safe suffix match (only if search is >= 3 chars, e.g. '881' to find 'UHID-2026-881')
+    if (cleanSearch.length >= 3) {
+      if (cleanPtIp.endsWith(cleanSearch) || cleanPtUhid.endsWith(cleanSearch)) return true;
+    }
+
+    return false;
   }) || null;
 };
 

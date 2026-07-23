@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Trash2, 
   Save, 
   CheckCircle2
 } from 'lucide-react';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+import { findPatientByIpNo } from '../utils/patientRegistry';
+import { saveFormRecord } from '../utils/savedRecordsDB';
 
-export default function DiabeticChartPage() {
+const PERSIST_KEY = 'diabetic_chart';
+
+export default function DiabeticChartPage({ onNavigate }) {
   // Patient Metadata State
   const [patient, setPatient] = useState({
     name: '',
@@ -55,10 +60,50 @@ export default function DiabeticChartPage() {
 
   const [toastMsg, setToastMsg] = useState('');
 
+  // Restore persisted form on mount
+  useEffect(() => {
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+      if (saved.rows) setRows(saved.rows);
+    }
+  }, []);
+
+  // Auto-save to localStorage on every change
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, rows }), 300);
+    return () => clearTimeout(t);
+  }, [patient, rows]);
+
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      if (found) {
+        setPatient(prev => ({
+          ...prev,
+          name: found.patientName || prev.name,
+          age: found.age || prev.age,
+          sex: found.sex || prev.sex,
+          uhidNo: found.uhidNo || prev.uhidNo,
+          ipNo: found.ipNo || prev.ipNo,
+          ward: found.ward || prev.ward,
+          bed: found.bedNo || prev.bed,
+          doa: found.doa || prev.doa
+        }));
+        setToastMsg('Patient details auto-filled');
+        setTimeout(() => setToastMsg(''), 2000);
+      }
+    }
+  };
+
 
   const handleRowChange = (id, field, value) => {
     setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
@@ -99,12 +144,20 @@ export default function DiabeticChartPage() {
       { id: 2, date: '', time: '', grbsType: 'PPBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
       { id: 3, date: '', time: '', grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' }
     ]);
+    clearPersistedForm(PERSIST_KEY);
   };
 
   const handleSave = () => {
+    const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
+    saveFormRecord('Diabetic Chart', ip, { patient, rows });
+    clearPersistedForm(PERSIST_KEY);
     setToastMsg('Diabetic Chart saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
+
 
   return (
     <div className="diabetic-chart-wrapper">
@@ -205,20 +258,24 @@ export default function DiabeticChartPage() {
                       type="text" 
                       name="uhidNo" 
                       value={patient.uhidNo} 
-                      onChange={handlePatientChange} 
+                      onChange={handlePatientChange}
+                      onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
+                      placeholder="Press Enter to auto-fill"
                     />
                   </div>
                 </td>
-                <td className="cell-ipno">
+                <td colSpan={1}>
                   <div className="info-field-inline">
-                    <span className="info-lbl-bold">IP No. :</span>
+                    <span className="info-lbl-bold">IP No.:</span>
                     <input 
                       type="text" 
                       name="ipNo" 
                       value={patient.ipNo} 
-                      onChange={handlePatientChange} 
+                      onChange={handlePatientChange}
+                      onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
+                      placeholder="Press Enter to auto-fill"
                     />
                   </div>
                 </td>

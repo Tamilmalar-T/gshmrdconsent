@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
@@ -13,6 +13,10 @@ import {
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { saveFormRecord } from '../utils/savedRecordsDB';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+
+const PERSIST_KEY = 'resident_doctor_progress';
+
 
 export default function ResidentDoctorProgressRecordPage({ onNavigate }) {
   // Patient Metadata State
@@ -64,27 +68,51 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate }) {
   const [hasSigned, setHasSigned] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
+  // Restore persisted form on mount
+  useEffect(() => {
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+      if (saved.soap) setSoap(s => ({ ...s, ...saved.soap }));
+    }
+  }, []);
+
+  // Auto-save to localStorage on every change
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, soap }), 300);
+    return () => clearTimeout(t);
+  }, [patient, soap]);
+
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
-    setPatient((prev) => {
-      const next = { ...prev, [name]: value };
-      if (name === 'ipNo' || name === 'uhidNo') {
-        const found = findPatientByIpNo(value);
-        if (found) {
-          next.name = found.patientName || next.name;
-          next.age = found.age || next.age;
-          next.sex = found.sex || next.sex;
-          next.uhidNo = found.uhidNo || next.uhidNo;
-          next.ipNo = found.ipNo || next.ipNo;
-          next.ward = found.ward || next.ward;
-          next.bedNo = found.bedNo || next.bedNo;
-          next.doa = found.doa || next.doa;
-          next.consultantName = found.consultantName || next.consultantName;
-        }
-      }
-      return next;
-    });
+    setPatient((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      if (found) {
+        setPatient(prev => ({
+          ...prev,
+          name: found.patientName || prev.name,
+          age: found.age || prev.age,
+          sex: found.sex || prev.sex,
+          uhidNo: found.uhidNo || prev.uhidNo,
+          ipNo: found.ipNo || prev.ipNo,
+          ward: found.ward || prev.ward,
+          bedNo: found.bedNo || prev.bedNo,
+          doa: found.doa || prev.doa,
+          consultantName: found.consultantName || prev.consultantName
+        }));
+        setToastMsg('Patient details auto-filled');
+        setTimeout(() => setToastMsg(''), 2000);
+      }
+    }
+  };
+
 
   const handleSoapChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -168,8 +196,12 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate }) {
   const handleSave = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
     saveFormRecord('Progress & Reassessment Record - Resident Doctor', ip, { patient, soap });
-    setToastMsg('Progress and Reassessment Record saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    clearPersistedForm(PERSIST_KEY);
+    setToastMsg('Progress record saved successfully!');
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
 
   const handlePrint = () => {
@@ -279,8 +311,10 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate }) {
                     type="text" 
                     name="uhidNo" 
                     value={patient.uhidNo} 
-                    onChange={handlePatientChange} 
+                    onChange={handlePatientChange}
+                    onKeyDown={handleIpKeyDown}
                     className="info-input-plain"
+                    placeholder="Press Enter to auto-fill"
                   />
                 </div>
               </td>
@@ -291,8 +325,10 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate }) {
                     type="text" 
                     name="ipNo" 
                     value={patient.ipNo} 
-                    onChange={handlePatientChange} 
+                    onChange={handlePatientChange}
+                    onKeyDown={handleIpKeyDown}
                     className="info-input-plain"
+                    placeholder="Press Enter to auto-fill"
                   />
                 </div>
               </td>

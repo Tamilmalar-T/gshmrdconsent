@@ -96,3 +96,11 @@ export const deleteSavedRecord = (id) => {
   localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(updated));
   return updated;
 };
+
+// Deletes all draft records (those without an IP No.)
+export const deleteAllDrafts = () => {
+  const records = getSavedRecords();
+  const updated = records.filter((r) => !r.isDraft && r.patientIpNo && r.patientIpNo !== 'Draft (No IP)');
+  localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(updated));
+  return updated;
+};

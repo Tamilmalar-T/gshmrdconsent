@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, Printer, CheckCircle2 } from 'lucide-react';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+import { findPatientByIpNo } from '../utils/patientRegistry';
+import { saveFormRecord } from '../utils/savedRecordsDB';
 
-export default function NursingInitialAssessmentPage() {
+const PERSIST_KEY = 'nursing_initial_assessment';
+
+export default function NursingInitialAssessmentPage({ onNavigate }) {
   // Patient Details
   const [patient, setPatient] = useState({
     name: '',
@@ -66,10 +71,54 @@ export default function NursingInitialAssessmentPage() {
 
   const [toastMsg, setToastMsg] = useState('');
 
+  // Restore persisted form on mount
+  useEffect(() => {
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+      if (saved.vitals) setVitals(v => ({ ...v, ...saved.vitals }));
+      if (saved.exam) setExam(e => ({ ...e, ...saved.exam }));
+      if (saved.casualty) setCasualty(c => ({ ...c, ...saved.casualty }));
+      if (saved.investigations !== undefined) setInvestigations(saved.investigations);
+      if (saved.bottomPg1) setBottomPg1(b => ({ ...b, ...saved.bottomPg1 }));
+      if (saved.pg2) setPg2(p => ({ ...p, ...saved.pg2 }));
+    }
+  }, []);
+
+  // Auto-save to localStorage on every change
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2 }), 300);
+    return () => clearTimeout(t);
+  }, [patient, vitals, exam, casualty, investigations, bottomPg1, pg2]);
+
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      if (found) {
+        setPatient(prev => ({
+          ...prev,
+          name: found.patientName || prev.name,
+          age: found.age || prev.age,
+          sex: found.sex || prev.sex,
+          uhidNo: found.uhidNo || prev.uhidNo,
+          ipNo: found.ipNo || prev.ipNo,
+          ward: found.ward || prev.ward,
+          bedNo: found.bedNo || prev.bedNo
+        }));
+        setToastMsg('Patient details auto-filled');
+        setTimeout(() => setToastMsg(''), 2000);
+      }
+    }
+  };
+
 
   const handleVitalsChange = (e) => {
     const { name, value } = e.target;
@@ -97,8 +146,14 @@ export default function NursingInitialAssessmentPage() {
   };
 
   const handleSave = () => {
+    const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
+    saveFormRecord('Nursing Initial Assessment', ip, { patient, topParams, bottomPg1, pg2 });
+    clearPersistedForm(PERSIST_KEY);
     setToastMsg('Nursing Initial Assessment saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
 
   const handlePrint = () => {
@@ -236,8 +291,10 @@ export default function NursingInitialAssessmentPage() {
                       type="text" 
                       name="uhidNo" 
                       value={patient.uhidNo} 
-                      onChange={handlePatientChange} 
+                      onChange={handlePatientChange}
+                      onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
+                      placeholder="Press Enter to auto-fill"
                     />
                   </div>
                 </td>
@@ -248,8 +305,10 @@ export default function NursingInitialAssessmentPage() {
                       type="text" 
                       name="ipNo" 
                       value={patient.ipNo} 
-                      onChange={handlePatientChange} 
+                      onChange={handlePatientChange}
+                      onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
+                      placeholder="Press Enter to auto-fill"
                     />
                   </div>
                 </td>

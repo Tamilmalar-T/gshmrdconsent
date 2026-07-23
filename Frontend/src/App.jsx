@@ -53,9 +53,9 @@ function App() {
       case 'patient-details':
         return <PatientDetailsPage selectedIpNo={selectedIpNoForView} initialMode="all" onBack={handleBackToForm} onEdit={handleEditRecord} />;
       case 'view-records':
-        return <PatientDetailsPage initialMode="records" onBack={handleBackToForm} onEdit={handleEditRecord} />;
+        return <PatientDetailsPage initialMode="records" onBack={handleBackToForm} onEdit={handleEditRecord} filterTabId={lastFormTab} />;
       case 'view-drafts':
-        return <PatientDetailsPage initialMode="drafts" onBack={handleBackToForm} onEdit={handleEditRecord} />;
+        return <PatientDetailsPage initialMode="drafts" onBack={handleBackToForm} onEdit={handleEditRecord} filterTabId={lastFormTab} />;
       case 'nurse-care-plan':
         return <NursesCarePlanPage onNavigate={handleNavigate} editData={editData} />;
       case 'nurses-daily-assessment':
@@ -69,11 +69,11 @@ function App() {
       case 'general-admission-consent':
         return <ConsentGeneralAdmissionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'vitals-chart':
-        return <VitalsChartPage editData={editData} />;
+        return <VitalsChartPage onNavigate={handleNavigate} editData={editData} />;
       case 'intake-output':
-        return <IntakeOutputRecordPage editData={editData} />;
+        return <IntakeOutputRecordPage onNavigate={handleNavigate} editData={editData} />;
       case 'lab-requisition':
-        return <LabRequisitionPage editData={editData} />;
+        return <LabRequisitionPage onNavigate={handleNavigate} editData={editData} />;
       case 'mrd-checklist':
         return (
           <div className="placeholder-page">
@@ -82,7 +82,7 @@ function App() {
           </div>
         );
       case 'diabetic-chart':
-        return <DiabeticChartPage editData={editData} />;
+        return <DiabeticChartPage onNavigate={handleNavigate} editData={editData} />;
       default:
         return <NursesCarePlanPage />;
     }

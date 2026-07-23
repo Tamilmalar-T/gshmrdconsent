@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
@@ -6,8 +6,13 @@ import {
   Plus, 
   Trash2 
 } from 'lucide-react';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+import { saveFormRecord } from '../utils/savedRecordsDB';
+import { findPatientByIpNo } from '../utils/patientRegistry';
 
-export default function IntakeOutputRecordPage() {
+const PERSIST_KEY = 'intake_output_record';
+
+export default function IntakeOutputRecordPage({ onNavigate }) {
   // Patient Metadata
   const [patient, setPatient] = useState({
     name: '',
@@ -56,6 +61,22 @@ export default function IntakeOutputRecordPage() {
 
   const [toastMsg, setToastMsg] = useState('');
 
+  // Restore persisted form on mount
+  useEffect(() => {
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+      if (saved.rows) setRows(saved.rows);
+    }
+  }, []);
+
+  // Auto-save to localStorage on every change
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, rows }), 300);
+    return () => clearTimeout(t);
+  }, [patient, rows]);
+
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
@@ -95,12 +116,20 @@ export default function IntakeOutputRecordPage() {
       createEmptyRow(4),
       createEmptyRow(5)
     ]);
+    clearPersistedForm(PERSIST_KEY);
   };
 
   const handleSave = () => {
+    const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
+    saveFormRecord('Intake Output Record', ip, { patient, rows });
+    clearPersistedForm(PERSIST_KEY);
     setToastMsg('Intake & Output Record saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
+
 
   const handlePrint = () => {
     window.print();

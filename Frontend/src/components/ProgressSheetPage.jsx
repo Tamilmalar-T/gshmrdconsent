@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Trash2, 
   Save, 
   CheckCircle2
 } from 'lucide-react';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+import { findPatientByIpNo } from '../utils/patientRegistry';
+import { saveFormRecord } from '../utils/savedRecordsDB';
 
-export default function ProgressSheetPage() {
+const PERSIST_KEY = 'progress_sheet';
+
+export default function ProgressSheetPage({ onNavigate }) {
   // Patient Metadata State
   const [patient, setPatient] = useState({
     name: '',
@@ -44,10 +49,51 @@ export default function ProgressSheetPage() {
 
   const [toastMsg, setToastMsg] = useState('');
 
+  // Restore persisted form on mount
+  useEffect(() => {
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+      if (saved.rows) setRows(saved.rows);
+    }
+  }, []);
+
+  // Auto-save to localStorage on every change
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, rows }), 300);
+    return () => clearTimeout(t);
+  }, [patient, rows]);
+
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      if (found) {
+        setPatient(prev => ({
+          ...prev,
+          name: found.patientName || prev.name,
+          age: found.age || prev.age,
+          sex: found.sex || prev.sex,
+          uhidNo: found.uhidNo || prev.uhidNo,
+          ipNo: found.ipNo || prev.ipNo,
+          ward: found.ward || prev.ward,
+          bed: found.bedNo || prev.bed,
+          doa: found.doa || prev.doa,
+          consultantName: found.consultantName || prev.consultantName
+        }));
+        setToastMsg('Patient details auto-filled');
+        setTimeout(() => setToastMsg(''), 2000);
+      }
+    }
+  };
+
 
   const handleRowChange = (id, field, value) => {
     setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
@@ -85,12 +131,21 @@ export default function ProgressSheetPage() {
       { id: 2, date: '', notes: '', signature: 'Dr. Ramesh' },
       { id: 3, date: '', notes: '', signature: 'Dr. Ramesh' }
     ]);
+    clearPersistedForm(PERSIST_KEY);
   };
 
+
   const handleSavePlan = () => {
+    const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
+    saveFormRecord('Progress Sheet', ip, { patient, rows });
+    clearPersistedForm(PERSIST_KEY);
     setToastMsg('Consultant Progress Sheet saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
+
 
   return (
     <div className="progress-sheet-wrapper">

@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, CheckCircle2 } from 'lucide-react';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+import { saveFormRecord } from '../utils/savedRecordsDB';
+import { findPatientByIpNo } from '../utils/patientRegistry';
 
-export default function LabRequisitionPage() {
+const PERSIST_KEY = 'lab_requisition';
+
+export default function LabRequisitionPage({ onNavigate }) {
   // Metadata State
   const [meta, setMeta] = useState({
     name: '',
@@ -37,9 +42,49 @@ export default function LabRequisitionPage() {
 
   const [toastMsg, setToastMsg] = useState('');
 
+  // Restore persisted form on mount
+  useEffect(() => {
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.meta) setMeta(m => ({ ...m, ...saved.meta }));
+      if (saved.selectedTests) setSelectedTests(saved.selectedTests);
+    }
+  }, []);
+
+  // Auto-save to localStorage on every change
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, { meta, selectedTests }), 300);
+    return () => clearTimeout(t);
+  }, [meta, selectedTests]);
+
+
   const handleMetaChange = (e) => {
     const { name, value } = e.target;
     setMeta((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      if (found) {
+        setMeta(prev => ({
+          ...prev,
+          name: found.patientName || prev.name,
+          age: found.age || prev.age,
+          sex: found.sex || prev.sex,
+          uhidNo: found.uhidNo || prev.uhidNo,
+          ipNo: found.ipNo || prev.ipNo,
+          ward: found.ward || prev.ward,
+          bed: found.bedNo || prev.bed,
+          referringDoctor: found.consultantName || prev.referringDoctor,
+          date: found.doa || prev.date
+        }));
+        setToastMsg('Patient details auto-filled');
+        setTimeout(() => setToastMsg(''), 2000);
+      }
+    }
   };
 
   const toggleTest = (testName) => {
@@ -71,12 +116,21 @@ export default function LabRequisitionPage() {
       others: ''
     });
     setSelectedTests({});
+    clearPersistedForm(PERSIST_KEY);
   };
 
+
   const handleSave = () => {
+    const ip = meta.ipNo || meta.uhidNo || 'UNASSIGNED';
+    saveFormRecord('Laboratory Requisition', ip, { meta, selectedTests });
+    clearPersistedForm(PERSIST_KEY);
     setToastMsg('Laboratory Requisition saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
+
 
   // Test Categories Data
   const categoriesCol1 = [

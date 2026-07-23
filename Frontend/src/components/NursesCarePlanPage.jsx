@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
@@ -11,6 +11,10 @@ import {
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { saveFormRecord } from '../utils/savedRecordsDB';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+
+const PERSIST_KEY = 'nurses_care_plan';
+
 
 export default function NursesCarePlanPage({ onNavigate }) {
   // Patient Metadata State
@@ -52,26 +56,50 @@ export default function NursesCarePlanPage({ onNavigate }) {
 
   const [toastMsg, setToastMsg] = useState('');
 
+  // Restore persisted form on mount
+  useEffect(() => {
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+      if (saved.rows) setRows(saved.rows);
+    }
+  }, []);
+
+  // Auto-save to localStorage on every change
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, rows }), 300);
+    return () => clearTimeout(t);
+  }, [patient, rows]);
+
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
-    setPatient((prev) => {
-      const next = { ...prev, [name]: value };
-      if (name === 'ipNo' || name === 'ipOpNo' || name === 'uhidNo') {
-        const found = findPatientByIpNo(value);
-        if (found) {
-          next.name = found.patientName || next.name;
-          next.age = found.age || next.age;
-          next.sex = found.sex || next.sex;
-          next.uhidNo = found.uhidNo || next.uhidNo;
-          next.ipNo = found.ipNo || next.ipNo;
-          next.ward = found.ward || next.ward;
-          next.bed = found.bedNo || next.bed;
-          next.doa = found.doa || next.doa;
-        }
-      }
-      return next;
-    });
+    setPatient((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      if (found) {
+        setPatient(prev => ({
+          ...prev,
+          name: found.patientName || prev.name,
+          age: found.age || prev.age,
+          sex: found.sex || prev.sex,
+          uhidNo: found.uhidNo || prev.uhidNo,
+          ipNo: found.ipNo || prev.ipNo,
+          ward: found.ward || prev.ward,
+          bed: found.bedNo || prev.bed,
+          doa: found.doa || prev.doa
+        }));
+        setToastMsg('Patient details auto-filled');
+        setTimeout(() => setToastMsg(''), 2000);
+      }
+    }
+  };
+
 
   const handleRowChange = (id, field, value) => {
     setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
@@ -109,14 +137,21 @@ export default function NursesCarePlanPage({ onNavigate }) {
       { id: 2, date: '', time: '', notes: '', sign: 'Sadhana' },
       { id: 3, date: '', time: '', notes: '', sign: 'Sadhana' }
     ]);
+    clearPersistedForm(PERSIST_KEY);
   };
+
 
   const handleSavePlan = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
     saveFormRecord('Nurses Care Plan', ip, { patient, rows });
+    clearPersistedForm(PERSIST_KEY);
     setToastMsg('Nurse Care Plan saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
+
 
   return (
     <div className="nurse-care-plan-wrapper">
@@ -218,7 +253,9 @@ export default function NursesCarePlanPage({ onNavigate }) {
                       name="uhidNo" 
                       value={patient.uhidNo} 
                       onChange={handlePatientChange} 
+                      onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
+                      placeholder="Press Enter to auto-fill"
                     />
                   </div>
                 </td>
@@ -230,7 +267,9 @@ export default function NursesCarePlanPage({ onNavigate }) {
                       name="ipNo" 
                       value={patient.ipNo} 
                       onChange={handlePatientChange} 
+                      onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
+                      placeholder="Press Enter to auto-fill"
                     />
                   </div>
                 </td>

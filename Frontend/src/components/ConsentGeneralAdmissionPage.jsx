@@ -12,6 +12,10 @@ import {
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord } from '../utils/savedRecordsDB';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+
+const PERSIST_KEY = 'consent_general_admission';
+
 
 export default function ConsentGeneralAdmissionPage({ onNavigate, editData, editRecordId }) {
   // Page Form Fields
@@ -21,6 +25,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     sex: 'Male',
     uhidNo: '',
     ipNo: '',
+    ipOpNo: '', // Added to prevent uncontrolled input warning
     bedNo: '',
     medicalInsurance: 'Yes',
     doa: '',
@@ -29,6 +34,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     husbandName: '',
     address: '',
     phoneNo: '',
+    mobileNo: '', // Added to match the input name
     informantName: '',
     relationship: '',
     informantAddress: '',
@@ -72,8 +78,19 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     if (editData) {
       setForm(prev => ({ ...prev, ...editData }));
       if (editRecordId) setRecordId(editRecordId);
+    } else {
+      // Restore persisted form data on mount (navigation / refresh)
+      const saved = restoreForm(PERSIST_KEY);
+      if (saved) setForm(prev => ({ ...prev, ...saved }));
     }
   }, [editData, editRecordId]);
+
+  // Auto-save form to localStorage whenever it changes
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, form), 300);
+    return () => clearTimeout(t);
+  }, [form]);
+
 
   const [toastMsg, setToastMsg] = useState('');
   const [recordId, setRecordId] = useState(null); // tracks the current saved record id
@@ -88,29 +105,37 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm((prev) => {
-      const next = {
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      };
-      if (name === 'ipOpNo' || name === 'ipNo' || name === 'uhidNo') {
-        const found = findPatientByIpNo(value);
-        if (found) {
-          next.patientName = found.patientName || next.patientName;
-          next.age = found.age || next.age;
-          next.sex = found.sex || next.sex;
-          next.uhidNo = found.uhidNo || next.uhidNo;
-          next.ipNo = found.ipNo || next.ipNo;
-          next.ipOpNo = found.ipNo || next.ipOpNo;
-          next.bedNo = found.bedNo || next.bedNo;
-          next.medicalInsurance = found.medicalInsurance || next.medicalInsurance;
-          next.doa = found.doa || next.doa;
-          next.ward = found.ward || next.ward;
-        }
-      }
-      return next;
-    });
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      if (found) {
+        setForm(prev => ({
+          ...prev,
+          patientName: found.patientName || prev.patientName,
+          age: found.age || prev.age,
+          sex: found.sex || prev.sex,
+          uhidNo: found.uhidNo || prev.uhidNo,
+          ipNo: found.ipNo || prev.ipNo,
+          ipOpNo: found.ipNo || prev.ipOpNo,
+          bedNo: found.bedNo || prev.bedNo,
+          medicalInsurance: found.medicalInsurance || prev.medicalInsurance,
+          doa: found.doa || prev.doa,
+          ward: found.ward || prev.ward
+        }));
+        setToastMsg('Patient details auto-filled');
+        setTimeout(() => setToastMsg(''), 2000);
+      }
+    }
+  };
+
 
   // Canvas Handlers for Patient Signature
   const startPatientDraw = (e) => {
@@ -259,12 +284,23 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
   };
 
   const handleSave = () => {
+    // Require at least a patient name before saving to avoid empty/accidental drafts
+    if (!form.patientName || !form.patientName.trim()) {
+      setToastMsg('⚠️ Please enter Patient Name before saving.');
+      setTimeout(() => setToastMsg(''), 3000);
+      return;
+    }
     const ip = form.ipOpNo || form.ipNo || form.uhidNo || 'UNASSIGNED';
     const saved = upsertFormRecord(recordId, 'Consent for General Admission', ip, form);
     setRecordId(saved.id);
+    clearPersistedForm(PERSIST_KEY);
     setToastMsg(recordId ? 'Record updated successfully!' : 'Consent form saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
+
 
   const handleClear = () => {
     setForm({
@@ -281,12 +317,14 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
       patientAddress: '', patientMobile: '', officeUhid: '', officeIpNo: '',
       dateOfAdmission: '', timeOfAdmission: '', officeWard: '', officeBed: ''
     });
-    setRecordId(null); // reset so next save creates a new record
+    setRecordId(null);
+    clearPersistedForm(PERSIST_KEY);
     clearPatientSig();
     clearWitnessSig();
     setToastMsg('Form cleared.');
     setTimeout(() => setToastMsg(''), 2000);
   };
+
 
   return (
     <div className="paper-consent-wrapper full-width-layout">
@@ -319,9 +357,10 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
       </div>
 
       {toastMsg && (
-        <div className="no-print alert-success-toast">
+        <div className={`no-print ${toastMsg.startsWith('⚠️') ? 'alert-warning-toast' : 'alert-success-toast'}`}>
           <CheckCircle2 size={18} />
           <span>{toastMsg}</span>
+
         </div>
       )}
 
@@ -392,7 +431,9 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     name="uhidNo" 
                     value={form.uhidNo} 
                     onChange={handleChange} 
+                    onKeyDown={handleIpKeyDown}
                     className="tbl-in"
+                    placeholder="Press Enter to auto-fill"
                   />
                 </div>
               </td>
@@ -404,7 +445,9 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     name="ipOpNo" 
                     value={form.ipOpNo} 
                     onChange={handleChange} 
+                    onKeyDown={handleIpKeyDown}
                     className="tbl-in"
+                    placeholder="Press Enter to auto-fill"
                   />
                 </div>
               </td>

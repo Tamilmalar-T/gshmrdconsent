@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
@@ -16,6 +16,10 @@ import {
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { saveFormRecord } from '../utils/savedRecordsDB';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+
+const PERSIST_KEY = 'nurses_daily_assessment';
+
 
 export default function NursesDailyAssessmentPage({ onNavigate }) {
   // Patient Metadata
@@ -159,26 +163,55 @@ export default function NursesDailyAssessmentPage({ onNavigate }) {
   const [toastMsg, setToastMsg] = useState('');
   const [activePainScore, setActivePainScore] = useState(3);
 
+  // Restore persisted form on mount
+  useEffect(() => {
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+      if (saved.leftParams) setLeftParams(saved.leftParams);
+      if (saved.rightParams) setRightParams(saved.rightParams);
+      if (saved.painRows) setPainRows(saved.painRows);
+      if (saved.activePainScore !== undefined) setActivePainScore(saved.activePainScore);
+      if (saved.dateLeft) setDateLeft(saved.dateLeft);
+      if (saved.dateRight) setDateRight(saved.dateRight);
+    }
+  }, []);
+
+  // Auto-save to localStorage on every change
+  useEffect(() => {
+    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight }), 300);
+    return () => clearTimeout(t);
+  }, [patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight]);
+
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
-    setPatient((prev) => {
-      const next = { ...prev, [name]: value };
-      if (name === 'ipNo' || name === 'uhidNo') {
-        const found = findPatientByIpNo(value);
-        if (found) {
-          next.name = found.patientName || next.name;
-          next.age = found.age || next.age;
-          next.sex = found.sex || next.sex;
-          next.uhidNo = found.uhidNo || next.uhidNo;
-          next.ipNo = found.ipNo || next.ipNo;
-          next.ward = found.ward || next.ward;
-          next.bedNo = found.bedNo || next.bedNo;
-          next.doa = found.doa || next.doa;
-        }
-      }
-      return next;
-    });
+    setPatient((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      if (found) {
+        setPatient(prev => ({
+          ...prev,
+          name: found.patientName || prev.name,
+          age: found.age || prev.age,
+          sex: found.sex || prev.sex,
+          uhidNo: found.uhidNo || prev.uhidNo,
+          ipNo: found.ipNo || prev.ipNo,
+          ward: found.ward || prev.ward,
+          bedNo: found.bedNo || prev.bedNo,
+          doa: found.doa || prev.doa
+        }));
+        setToastMsg('Patient details auto-filled');
+        setTimeout(() => setToastMsg(''), 2000);
+      }
+    }
+  };
+
 
   const handleLeftParamChange = (paramKey, slotKey, value) => {
     setLeftParams((prev) => ({
@@ -226,9 +259,14 @@ export default function NursesDailyAssessmentPage({ onNavigate }) {
   const handleSave = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
     saveFormRecord('Nurses Daily Assessment Care Plan', ip, { patient, leftParams, rightParams, painRows, activePainScore });
+    clearPersistedForm(PERSIST_KEY);
     setToastMsg('Nurses Daily Assessment Care Plan saved successfully!');
-    setTimeout(() => setToastMsg(''), 3000);
+    setTimeout(() => {
+      setToastMsg('');
+      if (onNavigate) onNavigate('view-records');
+    }, 800);
   };
+
 
   const handlePrint = () => {
     window.print();
@@ -353,8 +391,10 @@ export default function NursesDailyAssessmentPage({ onNavigate }) {
                       type="text" 
                       name="uhidNo" 
                       value={patient.uhidNo} 
-                      onChange={handlePatientChange} 
+                      onChange={handlePatientChange}
+                      onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
+                      placeholder="Press Enter to auto-fill"
                     />
                   </div>
                 </td>
@@ -365,8 +405,10 @@ export default function NursesDailyAssessmentPage({ onNavigate }) {
                       type="text" 
                       name="ipNo" 
                       value={patient.ipNo} 
-                      onChange={handlePatientChange} 
+                      onChange={handlePatientChange}
+                      onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
+                      placeholder="Press Enter to auto-fill"
                     />
                   </div>
                 </td>

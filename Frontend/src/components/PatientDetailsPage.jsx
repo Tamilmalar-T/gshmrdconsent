@@ -20,13 +20,14 @@ import {
   getCompletedRecords, 
   getDraftRecords, 
   getRecordsByPatientIp, 
-  deleteSavedRecord 
+  deleteSavedRecord,
+  deleteAllDrafts
 } from '../utils/savedRecordsDB';
 
 // Maps formType string → route tab id
 const FORM_TYPE_TO_TAB = {
   'Consent for General Admission': 'general-admission-consent',
-  'Nurse Care Plan': 'nurse-care-plan',
+  'Nurses Care Plan': 'nurse-care-plan',
   'Nurses Daily Assessment Care Plan': 'nurses-daily-assessment',
   'Nursing Initial Assessment': 'nursing-initial-assessment',
   'Progress & Reassessment Record - Resident Doctor': 'resident-doctor-progress',
@@ -64,7 +65,7 @@ function FormDataViewer({ data }) {
   );
 }
 
-export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', onBack, onEdit }) {
+export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', onBack, onEdit, filterTabId }) {
   const [patients, setPatients] = useState([]);
   const [selectedPatientIp, setSelectedPatientIp] = useState(selectedIpNo || '');
   const [currentPatient, setCurrentPatient] = useState(null);
@@ -101,6 +102,10 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
     else if (viewMode === 'drafts') list = getDraftRecords();
     else list = selectedPatientIp ? getRecordsByPatientIp(selectedPatientIp) : getSavedRecords();
 
+    if (filterTabId) {
+      list = list.filter(r => FORM_TYPE_TO_TAB[r.formType] === filterTabId);
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(r =>
@@ -112,10 +117,18 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
     setDisplayedRecords(list);
   };
 
+
   const handleDeleteRecord = (id) => {
     deleteSavedRecord(id);
     refreshRecords();
     if (activeRecordModal && activeRecordModal.id === id) setActiveRecordModal(null);
+  };
+
+  const handleDeleteAllDrafts = () => {
+    if (!window.confirm('Are you sure you want to delete ALL draft records? This cannot be undone.')) return;
+    deleteAllDrafts();
+    refreshRecords();
+    setActiveRecordModal(null);
   };
 
   const handleEditRecord = (rec) => {
@@ -124,8 +137,13 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
     if (onEdit) onEdit(tabId, rec.data, rec.id);
   };
 
-  const completedCount = getCompletedRecords().length;
-  const draftCount = getDraftRecords().length;
+  const completedCount = filterTabId 
+    ? getCompletedRecords().filter(r => FORM_TYPE_TO_TAB[r.formType] === filterTabId).length
+    : getCompletedRecords().length;
+
+  const draftCount = filterTabId 
+    ? getDraftRecords().filter(r => FORM_TYPE_TO_TAB[r.formType] === filterTabId).length
+    : getDraftRecords().length;
 
   return (
     <div className="daily-assessment-wrapper">
@@ -142,6 +160,12 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
             <button type="button" className="btn btn-secondary" onClick={onBack}>
               <ArrowLeft size={15} />
               <span>Back to Form</span>
+            </button>
+          )}
+          {viewMode === 'drafts' && displayedRecords.length > 0 && (
+            <button type="button" className="btn-delete-all-drafts" onClick={handleDeleteAllDrafts}>
+              <Trash2 size={14} />
+              <span>Delete All Drafts</span>
             </button>
           )}
           <button type="button" className="btn-mint-save" onClick={() => window.print()}>
