@@ -532,7 +532,7 @@ export default function NursingInitialAssessmentPage() {
             {painScaleOptions.map((opt) => (
               <div 
                 key={opt.score} 
-                className={`pain-face-card-sm ${pg2.painScore === opt.score ? 'selected-blue' : ''}`}
+                className={`pain-face-card-sm pain-card-score-${opt.score} ${pg2.painScore === opt.score ? 'selected-pain-card' : ''}`}
                 onClick={() => setPg2((prev) => ({ ...prev, painScore: opt.score }))}
               >
                 <span className="pain-score-num-bold">{opt.score}</span>
@@ -636,11 +636,10 @@ export default function NursingInitialAssessmentPage() {
             <div className="sig-field-item">
               <span className="info-lbl-bold">Time :</span>
               <input 
-                type="text" 
+                type="time" 
                 name="sigTime" 
                 value={pg2.sigTime} 
                 onChange={handlePg2Change} 
-                placeholder="01:49 PM"
                 className="info-input-plain"
               />
             </div>

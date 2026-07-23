@@ -360,25 +360,25 @@ export default function IntakeOutputRecordPage() {
                     </td>
 
                     {/* INTAKE CELLS */}
-                    <td className="td-io-cell"><input type="text" value={row.ivTime} onChange={(e) => handleRowChange(row.id, 'ivTime', e.target.value)} className="io-cell-in" /></td>
+                    <td className="td-io-cell"><input type="time" value={row.ivTime} onChange={(e) => handleRowChange(row.id, 'ivTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
                     <td className="td-io-cell"><input type="text" value={row.ivAmount} onChange={(e) => handleRowChange(row.id, 'ivAmount', e.target.value)} className="io-cell-in" /></td>
                     
-                    <td className="td-io-cell"><input type="text" value={row.oralTime} onChange={(e) => handleRowChange(row.id, 'oralTime', e.target.value)} className="io-cell-in" /></td>
+                    <td className="td-io-cell"><input type="time" value={row.oralTime} onChange={(e) => handleRowChange(row.id, 'oralTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
                     <td className="td-io-cell"><input type="text" value={row.oralAmount} onChange={(e) => handleRowChange(row.id, 'oralAmount', e.target.value)} className="io-cell-in" /></td>
                     
-                    <td className="td-io-cell"><input type="text" value={row.othersIntakeTime} onChange={(e) => handleRowChange(row.id, 'othersIntakeTime', e.target.value)} className="io-cell-in" /></td>
+                    <td className="td-io-cell"><input type="time" value={row.othersIntakeTime} onChange={(e) => handleRowChange(row.id, 'othersIntakeTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
                     <td className="td-io-cell"><input type="text" value={row.othersIntakeAmount} onChange={(e) => handleRowChange(row.id, 'othersIntakeAmount', e.target.value)} className="io-cell-in" /></td>
                     
                     <td className="td-io-cell"><input type="text" value={row.intakeTotalInitials} onChange={(e) => handleRowChange(row.id, 'intakeTotalInitials', e.target.value)} className="io-cell-in" /></td>
 
                     {/* OUTPUT CELLS */}
-                    <td className="td-io-cell"><input type="text" value={row.stomachTime} onChange={(e) => handleRowChange(row.id, 'stomachTime', e.target.value)} className="io-cell-in" /></td>
+                    <td className="td-io-cell"><input type="time" value={row.stomachTime} onChange={(e) => handleRowChange(row.id, 'stomachTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
                     <td className="td-io-cell"><input type="text" value={row.stomachAmount} onChange={(e) => handleRowChange(row.id, 'stomachAmount', e.target.value)} className="io-cell-in" /></td>
 
-                    <td className="td-io-cell"><input type="text" value={row.urineTime} onChange={(e) => handleRowChange(row.id, 'urineTime', e.target.value)} className="io-cell-in" /></td>
+                    <td className="td-io-cell"><input type="time" value={row.urineTime} onChange={(e) => handleRowChange(row.id, 'urineTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
                     <td className="td-io-cell"><input type="text" value={row.urineAmount} onChange={(e) => handleRowChange(row.id, 'urineAmount', e.target.value)} className="io-cell-in" /></td>
 
-                    <td className="td-io-cell"><input type="text" value={row.othersOutputTime} onChange={(e) => handleRowChange(row.id, 'othersOutputTime', e.target.value)} className="io-cell-in" /></td>
+                    <td className="td-io-cell"><input type="time" value={row.othersOutputTime} onChange={(e) => handleRowChange(row.id, 'othersOutputTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
                     <td className="td-io-cell"><input type="text" value={row.othersOutputAmount} onChange={(e) => handleRowChange(row.id, 'othersOutputAmount', e.target.value)} className="io-cell-in" /></td>
 
                     <td className="td-io-cell"><input type="text" value={row.outputTotalInitials} onChange={(e) => handleRowChange(row.id, 'outputTotalInitials', e.target.value)} className="io-cell-in" /></td>

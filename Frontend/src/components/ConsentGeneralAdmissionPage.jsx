@@ -1,34 +1,50 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
   RotateCcw, 
   CheckCircle2, 
-  FileText
+  FileText,
+  Upload,
+  FolderCheck,
+  FileEdit
 } from 'lucide-react';
+import HospitalPaperHeader from './HospitalPaperHeader';
+import { findPatientByIpNo } from '../utils/patientRegistry';
+import { upsertFormRecord } from '../utils/savedRecordsDB';
 
-export default function ConsentGeneralAdmissionPage() {
+export default function ConsentGeneralAdmissionPage({ onNavigate, editData, editRecordId }) {
   // Page Form Fields
   const [form, setForm] = useState({
     patientName: '',
     age: '',
     sex: 'Male',
     uhidNo: '',
-    ipOpNo: '',
-    ward: '',
+    ipNo: '',
     bedNo: '',
-    medicalInsurance: 'No',
+    medicalInsurance: 'Yes',
     doa: '',
     occupation: '',
     fatherName: '',
     husbandName: '',
-    mobileNo: '',
+    address: '',
+    phoneNo: '',
+    informantName: '',
+    relationship: '',
+    informantAddress: '',
+    consentAccepted: false,
+    patientSignDate: '',
+    witnessSignDate: '',
+    patientSignTime: '',
+    witnessSignTime: '',
+    
+    // Legacy fields that might persist
+    ward: '',
     insuranceDetails: '',
     presentAddressLine1: '',
     presentAddressLine2: '',
     employeePensioner: '',
     personFillingForm: '',
-    relationship: '',
     broughtBy: '',
     accidentPoisoning: '',
     modeAccidentPoisoning: '',
@@ -51,7 +67,16 @@ export default function ConsentGeneralAdmissionPage() {
     officeBed: ''
   });
 
+  // Pre-fill form when editing a saved record
+  useEffect(() => {
+    if (editData) {
+      setForm(prev => ({ ...prev, ...editData }));
+      if (editRecordId) setRecordId(editRecordId);
+    }
+  }, [editData, editRecordId]);
+
   const [toastMsg, setToastMsg] = useState('');
+  const [recordId, setRecordId] = useState(null); // tracks the current saved record id
 
   // Canvas Refs & State
   const patientCanvasRef = useRef(null);
@@ -62,8 +87,29 @@ export default function ConsentGeneralAdmissionPage() {
   const [hasWitnessSigned, setHasWitnessSigned] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      };
+      if (name === 'ipOpNo' || name === 'ipNo' || name === 'uhidNo') {
+        const found = findPatientByIpNo(value);
+        if (found) {
+          next.patientName = found.patientName || next.patientName;
+          next.age = found.age || next.age;
+          next.sex = found.sex || next.sex;
+          next.uhidNo = found.uhidNo || next.uhidNo;
+          next.ipNo = found.ipNo || next.ipNo;
+          next.ipOpNo = found.ipNo || next.ipOpNo;
+          next.bedNo = found.bedNo || next.bedNo;
+          next.medicalInsurance = found.medicalInsurance || next.medicalInsurance;
+          next.doa = found.doa || next.doa;
+          next.ward = found.ward || next.ward;
+        }
+      }
+      return next;
+    });
   };
 
   // Canvas Handlers for Patient Signature
@@ -72,8 +118,12 @@ export default function ConsentGeneralAdmissionPage() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
+    const scaleX = canvas.width / (rect.width || 1);
+    const scaleY = canvas.height / (rect.height || 1);
+    const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsDrawingPatient(true);
@@ -83,10 +133,15 @@ export default function ConsentGeneralAdmissionPage() {
   const drawPatient = (e) => {
     if (!isDrawingPatient) return;
     const canvas = patientCanvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
+    const scaleX = canvas.width / (rect.width || 1);
+    const scaleY = canvas.height / (rect.height || 1);
+    const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
     ctx.lineTo(x, y);
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2.2;
@@ -103,14 +158,43 @@ export default function ConsentGeneralAdmissionPage() {
     setHasPatientSigned(false);
   };
 
+  const handlePatientImageUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = patientCanvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const hRatio = canvas.width / img.width;
+        const vRatio = canvas.height / img.height;
+        const ratio = Math.min(hRatio, vRatio);
+        const centerShiftX = (canvas.width - img.width * ratio) / 2;
+        const centerShiftY = (canvas.height - img.height * ratio) / 2;
+        ctx.drawImage(img, 0, 0, img.width, img.height, centerShiftX, centerShiftY, img.width * ratio, img.height * ratio);
+        setHasPatientSigned(true);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   // Canvas Handlers for Witness Signature
   const startWitnessDraw = (e) => {
     const canvas = witnessCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
+    const scaleX = canvas.width / (rect.width || 1);
+    const scaleY = canvas.height / (rect.height || 1);
+    const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsDrawingWitness(true);
@@ -120,10 +204,15 @@ export default function ConsentGeneralAdmissionPage() {
   const drawWitness = (e) => {
     if (!isDrawingWitness) return;
     const canvas = witnessCanvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
+    const scaleX = canvas.width / (rect.width || 1);
+    const scaleY = canvas.height / (rect.height || 1);
+    const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
     ctx.lineTo(x, y);
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2.2;
@@ -140,13 +229,63 @@ export default function ConsentGeneralAdmissionPage() {
     setHasWitnessSigned(false);
   };
 
+  const handleWitnessImageUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = witnessCanvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const hRatio = canvas.width / img.width;
+        const vRatio = canvas.height / img.height;
+        const ratio = Math.min(hRatio, vRatio);
+        const centerShiftX = (canvas.width - img.width * ratio) / 2;
+        const centerShiftY = (canvas.height - img.height * ratio) / 2;
+        ctx.drawImage(img, 0, 0, img.width, img.height, centerShiftX, centerShiftY, img.width * ratio, img.height * ratio);
+        setHasWitnessSigned(true);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
   const handleSave = () => {
-    setToastMsg('Consent form saved successfully!');
+    const ip = form.ipOpNo || form.ipNo || form.uhidNo || 'UNASSIGNED';
+    const saved = upsertFormRecord(recordId, 'Consent for General Admission', ip, form);
+    setRecordId(saved.id);
+    setToastMsg(recordId ? 'Record updated successfully!' : 'Consent form saved successfully!');
     setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  const handleClear = () => {
+    setForm({
+      patientName: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', bedNo: '',
+      medicalInsurance: 'Yes', doa: '', occupation: '', fatherName: '',
+      husbandName: '', address: '', phoneNo: '', informantName: '',
+      relationship: '', informantAddress: '', consentAccepted: false,
+      patientSignDate: '', witnessSignDate: '', patientSignTime: '',
+      witnessSignTime: '', ward: '', insuranceDetails: '',
+      presentAddressLine1: '', presentAddressLine2: '', employeePensioner: '',
+      personFillingForm: '', broughtBy: '', accidentPoisoning: '',
+      modeAccidentPoisoning: '', dateTimeIncident: '', witnessName: '',
+      witnessRelationship: '', witnessAddress: '', witnessMobile: '',
+      patientAddress: '', patientMobile: '', officeUhid: '', officeIpNo: '',
+      dateOfAdmission: '', timeOfAdmission: '', officeWard: '', officeBed: ''
+    });
+    setRecordId(null); // reset so next save creates a new record
+    clearPatientSig();
+    clearWitnessSig();
+    setToastMsg('Form cleared.');
+    setTimeout(() => setToastMsg(''), 2000);
   };
 
   return (
@@ -164,12 +303,16 @@ export default function ConsentGeneralAdmissionPage() {
         </div>
 
         <div className="page-actions">
-          <button className="btn btn-secondary" onClick={handleSave}>
-            <Save size={16} />
-            <span>Save Draft</span>
+          <button className="btn btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
+            <FolderCheck size={15} />
+            <span>View Records</span>
+          </button>
+          <button className="btn btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
+            <FileEdit size={15} />
+            <span>View Drafts</span>
           </button>
           <button className="btn btn-primary" onClick={handlePrint}>
-            <Printer size={16} />
+            <Printer size={15} />
             <span>Print Form</span>
           </button>
         </div>
@@ -186,34 +329,7 @@ export default function ConsentGeneralAdmissionPage() {
       <div className="single-page-fullwidth-sheet">
         
         {/* Hospital Header */}
-        <div className="paper-header-row">
-          {/* Left NABH Diamond Logo */}
-          <div className="nabh-diamond-wrapper">
-            <div className="nabh-diamond">
-              <div className="diamond-inner-text">
-                <span className="nabh-head">NABH</span>
-                <span className="nabh-sub">PRE-ACCREDITED</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Center Logo & Title Block */}
-          <div className="center-hospital-block">
-            <div className="gs-square-logo">
-              <span className="gs-text">GS</span>
-            </div>
-            <div className="hospital-titles">
-              <h2 className="kan-title-large">ಗುರುಶ್ರೀ</h2>
-              <h3 className="kan-title-medium">ಹೈಟೆಕ್ ಮಲ್ಟಿ ಸ್ಪೆಷಾಲಿಟಿ ಆಸ್ಪತ್ರೆ</h3>
-              <p className="kan-address">ಆ ಕೃಪಾ ಕಾಂಪ್ಲೆಕ್ಸ್, ಮಾಗಡಿ ಮುಖ್ಯ ರಸ್ತೆ, ಬೆಂಗಳೂರು - 79.</p>
-              <h1 className="eng-title-large">GURUSHREE</h1>
-              <h2 className="eng-title-medium">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
-              <p className="eng-tagline">A touch of gentle faith</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="header-bottom-border"></div>
+        <HospitalPaperHeader />
 
         {/* Form Banner Title */}
         <div className="form-banner-header">
@@ -223,6 +339,12 @@ export default function ConsentGeneralAdmissionPage() {
 
         {/* Patient Details Table Grid */}
         <table className="patient-info-table">
+          <colgroup>
+            <col style={{ width: '28%' }} />
+            <col style={{ width: '28%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '22%' }} />
+          </colgroup>
           <tbody>
             <tr>
               <td colSpan="2" className="cell-w50">
@@ -494,7 +616,16 @@ export default function ConsentGeneralAdmissionPage() {
             <tr>
               <td className="num-col-cell">1</td>
               <td colSpan="2" className="box-header-title">
-                Name of the Patient /ರೋಗಿಯ ಹೆಸರು
+                <div className="tbl-field">
+                  <span className="tbl-lbl">Name of the Patient /ರೋಗಿಯ ಹೆಸರು :</span>
+                  <input 
+                    type="text" 
+                    name="patientName" 
+                    value={form.patientName} 
+                    onChange={handleChange} 
+                    className="box-in"
+                  />
+                </div>
               </td>
             </tr>
             <tr>
@@ -531,7 +662,7 @@ export default function ConsentGeneralAdmissionPage() {
                   <div className="canvas-box">
                     <canvas 
                       ref={patientCanvasRef} 
-                      width={600} 
+                      width={550} 
                       height={75}
                       onMouseDown={startPatientDraw}
                       onMouseMove={drawPatient}
@@ -542,11 +673,23 @@ export default function ConsentGeneralAdmissionPage() {
                       onTouchEnd={stopPatientDraw}
                       className="canvas-el"
                     />
-                    {!hasPatientSigned && <span className="canvas-placeholder">Draw Patient Signature Here</span>}
+                    {!hasPatientSigned && <span className="canvas-placeholder">Draw or Upload Patient Signature</span>}
                   </div>
-                  <button type="button" onClick={clearPatientSig} className="no-print btn-clear-sig">
-                    <RotateCcw size={12} /> Clear
-                  </button>
+                  <div className="sig-btn-group no-print">
+                    <label className="btn-upload-sig" title="Upload Signature Image">
+                      <Upload size={12} />
+                      <span>Upload Image</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handlePatientImageUpload} 
+                        style={{ display: 'none' }} 
+                      />
+                    </label>
+                    <button type="button" onClick={clearPatientSig} className="btn-clear-sig">
+                      <RotateCcw size={12} /> Clear
+                    </button>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -559,7 +702,16 @@ export default function ConsentGeneralAdmissionPage() {
             <tr>
               <td className="num-col-cell">2</td>
               <td colSpan="2" className="box-header-title">
-                Witness Name /ಸಾಕ್ಷಿಯ ಹೆಸರು
+                <div className="tbl-field">
+                  <span className="tbl-lbl">Witness Name /ಸಾಕ್ಷಿಯ ಹೆಸರು :</span>
+                  <input 
+                    type="text" 
+                    name="witnessName" 
+                    value={form.witnessName} 
+                    onChange={handleChange} 
+                    className="box-in"
+                  />
+                </div>
               </td>
             </tr>
             <tr>
@@ -609,7 +761,7 @@ export default function ConsentGeneralAdmissionPage() {
                   <div className="canvas-box">
                     <canvas 
                       ref={witnessCanvasRef} 
-                      width={600} 
+                      width={550} 
                       height={75}
                       onMouseDown={startWitnessDraw}
                       onMouseMove={drawWitness}
@@ -620,11 +772,23 @@ export default function ConsentGeneralAdmissionPage() {
                       onTouchEnd={stopWitnessDraw}
                       className="canvas-el"
                     />
-                    {!hasWitnessSigned && <span className="canvas-placeholder">Draw Witness Signature Here</span>}
+                    {!hasWitnessSigned && <span className="canvas-placeholder">Draw or Upload Witness Signature</span>}
                   </div>
-                  <button type="button" onClick={clearWitnessSig} className="no-print btn-clear-sig">
-                    <RotateCcw size={12} /> Clear
-                  </button>
+                  <div className="sig-btn-group no-print">
+                    <label className="btn-upload-sig" title="Upload Signature Image">
+                      <Upload size={12} />
+                      <span>Upload Image</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleWitnessImageUpload} 
+                        style={{ display: 'none' }} 
+                      />
+                    </label>
+                    <button type="button" onClick={clearWitnessSig} className="btn-clear-sig">
+                      <RotateCcw size={12} /> Clear
+                    </button>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -675,7 +839,7 @@ export default function ConsentGeneralAdmissionPage() {
                 <td className="off-td-half b-top b-left">
                   <span className="off-lbl">Time of Admission/ಪ್ರವೇಶ ಸಮಯ :</span>
                   <input 
-                    type="text" 
+                    type="time" 
                     name="timeOfAdmission" 
                     value={form.timeOfAdmission} 
                     onChange={handleChange} 
@@ -708,6 +872,18 @@ export default function ConsentGeneralAdmissionPage() {
               </tr>
             </tbody>
           </table>
+        </div>
+
+        {/* Bottom Action Bar */}
+        <div className="no-print form-bottom-actions">
+          <button type="button" className="btn btn-secondary" onClick={handleSave}>
+            <Save size={15} />
+            <span>Save</span>
+          </button>
+          <button type="button" className="btn btn-form-clear" onClick={handleClear}>
+            <RotateCcw size={15} />
+            <span>Clear Form</span>
+          </button>
         </div>
 
       </div>

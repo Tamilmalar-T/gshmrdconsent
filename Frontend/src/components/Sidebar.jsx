@@ -7,16 +7,34 @@ import {
   FileSpreadsheet,
   FileText,
   Info,
-  SquareCheck
+  SquareCheck,
+  ClipboardCheck,
+  ClipboardList,
+  UserPlus
 } from 'lucide-react';
 
 export default function Sidebar({ sidebarOpen, activeTab, setActiveTab }) {
   const menuSections = [
     {
+      title: 'PATIENT REGISTER',
+      items: [
+        { id: 'patient-registration', label: 'Patient Register', icon: UserPlus },
+        { id: 'patient-details', label: 'Patient Details', icon: FileText }
+      ]
+    },
+    {
+      title: 'GENERAL ADMISSION CONSENT',
+      items: [
+        { id: 'general-admission-consent', label: 'Consent for General Admission', icon: ClipboardCheck }
+      ]
+    },
+    {
       title: 'NURSE CARE PLAN',
       items: [
         { id: 'nurse-care-plan', label: 'Nurse Care Plan', icon: Info },
+        { id: 'nurses-daily-assessment', label: 'Nurses Daily Assessment Care Plan', icon: ClipboardList },
         { id: 'nursing-initial-assessment', label: 'Nursing Initial Assessment', icon: FileText },
+        { id: 'resident-doctor-progress', label: 'Progress & Reassessment Record - Resident Doctor', icon: FileText },
         { id: 'progress-sheet', label: 'Progress Sheet', icon: SquareCheck }
       ]
     },

@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
 import { 
+  Printer, 
+  Save, 
   Plus, 
   Trash2, 
-  Save, 
-  CheckCircle2
+  CheckCircle2,
+  FolderCheck,
+  FileEdit
 } from 'lucide-react';
+import HospitalPaperHeader from './HospitalPaperHeader';
+import { findPatientByIpNo } from '../utils/patientRegistry';
+import { saveFormRecord } from '../utils/savedRecordsDB';
 
-export default function NursesCarePlanPage() {
+export default function NursesCarePlanPage({ onNavigate }) {
   // Patient Metadata State
   const [patient, setPatient] = useState({
     name: '',
@@ -48,7 +54,23 @@ export default function NursesCarePlanPage() {
 
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
-    setPatient((prev) => ({ ...prev, [name]: value }));
+    setPatient((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === 'ipNo' || name === 'ipOpNo' || name === 'uhidNo') {
+        const found = findPatientByIpNo(value);
+        if (found) {
+          next.name = found.patientName || next.name;
+          next.age = found.age || next.age;
+          next.sex = found.sex || next.sex;
+          next.uhidNo = found.uhidNo || next.uhidNo;
+          next.ipNo = found.ipNo || next.ipNo;
+          next.ward = found.ward || next.ward;
+          next.bed = found.bedNo || next.bed;
+          next.doa = found.doa || next.doa;
+        }
+      }
+      return next;
+    });
   };
 
   const handleRowChange = (id, field, value) => {
@@ -90,12 +112,37 @@ export default function NursesCarePlanPage() {
   };
 
   const handleSavePlan = () => {
+    const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
+    saveFormRecord('Nurses Care Plan', ip, { patient, rows });
     setToastMsg('Nurse Care Plan saved successfully!');
     setTimeout(() => setToastMsg(''), 3000);
   };
 
   return (
     <div className="nurse-care-plan-wrapper">
+      {/* Top Action Header Bar */}
+      <div className="no-print page-action-bar">
+        <h2 className="vitals-page-heading">Nurses Care Plan</h2>
+        <div className="action-btns-group">
+          <button type="button" className="btn-mint-clear" onClick={handleSavePlan}>
+            <Save size={14} />
+            <span>Save Draft</span>
+          </button>
+          <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
+            <FolderCheck size={14} />
+            <span>View Records</span>
+          </button>
+          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
+            <FileEdit size={14} />
+            <span>View Drafts</span>
+          </button>
+          <button type="button" className="btn-mint-save" onClick={() => window.print()}>
+            <Printer size={14} />
+            <span>Print Form</span>
+          </button>
+        </div>
+      </div>
+
       {toastMsg && (
         <div className="no-print alert-success-toast">
           <CheckCircle2 size={18} />
@@ -109,33 +156,8 @@ export default function NursesCarePlanPage() {
         {/* Inner Mint Form Box */}
         <div className="inner-mint-form-box">
           
-          {/* Top Kannada Text */}
-          <div className="form-top-kannada">ಗುರುಶ್ರೀ ಹೈಟೆಕ್ ಆಸ್ಪತ್ರೆ</div>
-
-          {/* Hospital Header Block */}
-          <div className="care-plan-hospital-header">
-            <div className="nabh-diamond-wrapper">
-              <div className="nabh-diamond">
-                <div className="diamond-inner-text">
-                  <span className="nabh-head">NABH</span>
-                  <span className="nabh-sub">PRE-ACCREDITED</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="center-hospital-brand">
-              <div className="hospital-logo-row">
-                <div className="gs-square-logo">
-                  <span className="gs-text">GS</span>
-                </div>
-                <div className="hospital-titles">
-                  <h1 className="eng-title-large">GURUSHREE</h1>
-                  <h2 className="eng-title-medium">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
-                  <p className="eng-tagline">A touch can instill faith</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Hospital Header */}
+          <HospitalPaperHeader />
 
           {/* Form Title Banner */}
           <div className="care-plan-form-title">

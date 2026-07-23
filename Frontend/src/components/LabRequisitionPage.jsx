@@ -302,7 +302,7 @@ export default function LabRequisitionPage() {
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Time of Collection :</span>
                     <input 
-                      type="text" 
+                      type="time" 
                       name="timeOfCollection" 
                       value={meta.timeOfCollection} 
                       onChange={handleMetaChange} 
@@ -398,7 +398,7 @@ export default function LabRequisitionPage() {
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Time Received :</span>
                     <input 
-                      type="text" 
+                      type="time" 
                       name="timeReceived" 
                       value={meta.timeReceived} 
                       onChange={handleMetaChange} 
