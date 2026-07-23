@@ -3,15 +3,34 @@ import {
   Plus, 
   Trash2, 
   Save, 
-  CheckCircle2
+  CheckCircle2,
+  FolderCheck,
+  FileEdit,
+  Printer
 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
-import { saveFormRecord } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 
 const PERSIST_KEY = 'progress_sheet';
 
-export default function ProgressSheetPage({ onNavigate }) {
+// Helpers to get current date (YYYY-MM-DD) and time (HH:MM) in local timezone
+const getCurrentDate = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const getCurrentTime = () => {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  return `${h}:${min}`;
+};
+
+export default function ProgressSheetPage({ onNavigate, editData, editRecordId }) {
   // Patient Metadata State
   const [patient, setPatient] = useState({
     name: '',
@@ -25,73 +44,121 @@ export default function ProgressSheetPage({ onNavigate }) {
     bed: ''
   });
 
-  // Progress Notes Rows State
   const [rows, setRows] = useState([
-    {
-      id: 1,
-      date: '2026-07-21',
-      notes: '',
-      signature: 'Dr. Ramesh'
-    },
-    {
-      id: 2,
-      date: '',
-      notes: '',
-      signature: 'Dr. Ramesh'
-    },
-    {
-      id: 3,
-      date: '',
-      notes: '',
-      signature: 'Dr. Ramesh'
-    }
+    { id: 1, date: getCurrentDate(), time: getCurrentTime(), notes: '', signature: 'Sadhana' },
+    { id: 2, date: '', time: '', notes: '', signature: 'Sadhana' },
+    { id: 3, date: '', time: '', notes: '', signature: 'Sadhana' }
   ]);
-
+  const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Restore persisted form on mount
+  // Restore persisted form or set edit data on mount
   useEffect(() => {
-    const saved = restoreForm(PERSIST_KEY);
+    if (editData) {
+      if (editData.patient) setPatient(editData.patient);
+      if (editData.rows) setRows(editData.rows);
+      if (editRecordId) setRecordId(editRecordId);
+    } else {
+      const saved = restoreForm(PERSIST_KEY);
+      if (saved) {
+        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+        if (saved.rows) setRows(saved.rows);
+      }
+    }
+  }, [editData, editRecordId]);
+
+  const [systemUsers, setSystemUsers] = useState([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('masters_users');
     if (saved) {
-      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-      if (saved.rows) setRows(saved.rows);
+      setSystemUsers(JSON.parse(saved));
     }
   }, []);
 
-  // Auto-save to localStorage on every change
+  const getDoctorOptions = () => {
+    const activeDocs = systemUsers
+      .filter(u => u.status === 'Active' && ['Doctor', 'Resident Doctor', 'Consultant'].includes(u.userType))
+      .map(u => u.userName);
+    
+    if (activeDocs.length === 0) {
+      return ['Sadhana', 'Dr. Ramesh', 'Dr. Suresh', 'Dr. Kavitha'];
+    }
+    if (!activeDocs.includes('Sadhana')) {
+      activeDocs.unshift('Sadhana');
+    }
+    return activeDocs;
+  };
+
+  const renderSignatureStamp = (doctorName) => {
+    const matchedUser = systemUsers.find(
+      u => u.userName.toLowerCase() === doctorName.toLowerCase()
+    );
+    if (matchedUser && matchedUser.signatureImage) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '36px' }}>
+          <img 
+            src={matchedUser.signatureImage} 
+            alt={`Signature of ${doctorName}`} 
+            style={{ maxHeight: '36px', maxWidth: '100px', objectFit: 'contain' }} 
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="signature-stamp-box">
+        <span className="stamp-sig-text">{doctorName}</span>
+      </div>
+    );
+  };
+
+  // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, rows }), 300);
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, { patient, rows });
+      const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.notes);
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Progress Sheet', patient, { patient, rows }, setRecordId);
+      }
+    }, 1000);
     return () => clearTimeout(t);
-  }, [patient, rows]);
+  }, [patient, rows, recordId]);
 
 
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
   };
+  const triggerAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      setPatient(prev => ({
+        ...prev,
+        name: found.patientName || prev.name,
+        age: found.age || prev.age,
+        sex: found.sex || prev.sex,
+        uhidNo: found.uhidNo || prev.uhidNo,
+        ipNo: found.ipNo || prev.ipNo,
+        ward: found.ward || prev.ward,
+        bed: found.bedNo || prev.bed || '',
+        doa: found.doa || prev.doa,
+        consultantName: found.consultantName || prev.consultantName
+      }));
+      setToastMsg('Patient details auto-filled');
+      setTimeout(() => setToastMsg(''), 2000);
+    }
+  };
 
   const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const value = e.target.value;
-      const found = findPatientByIpNo(value);
-      if (found) {
-        setPatient(prev => ({
-          ...prev,
-          name: found.patientName || prev.name,
-          age: found.age || prev.age,
-          sex: found.sex || prev.sex,
-          uhidNo: found.uhidNo || prev.uhidNo,
-          ipNo: found.ipNo || prev.ipNo,
-          ward: found.ward || prev.ward,
-          bed: found.bedNo || prev.bed,
-          doa: found.doa || prev.doa,
-          consultantName: found.consultantName || prev.consultantName
-        }));
-        setToastMsg('Patient details auto-filled');
-        setTimeout(() => setToastMsg(''), 2000);
-      }
+      triggerAutofill(e.target.value);
     }
+  };
+
+  const handleIpBlur = (e) => {
+    triggerAutofill(e.target.value);
   };
 
 
@@ -102,9 +169,10 @@ export default function ProgressSheetPage({ onNavigate }) {
   const handleAddRow = () => {
     const newRow = {
       id: Date.now(),
-      date: '',
+      date: getCurrentDate(),
+      time: getCurrentTime(),
       notes: '',
-      signature: 'Dr. Ramesh'
+      signature: 'Sadhana'
     };
     setRows([...rows, newRow]);
   };
@@ -127,19 +195,19 @@ export default function ProgressSheetPage({ onNavigate }) {
       bed: ''
     });
     setRows([
-      { id: 1, date: '', notes: '', signature: 'Dr. Ramesh' },
-      { id: 2, date: '', notes: '', signature: 'Dr. Ramesh' },
-      { id: 3, date: '', notes: '', signature: 'Dr. Ramesh' }
+      { id: 1, date: getCurrentDate(), time: getCurrentTime(), notes: '', signature: 'Sadhana' },
+      { id: 2, date: '', time: '', notes: '', signature: 'Sadhana' },
+      { id: 3, date: '', time: '', notes: '', signature: 'Sadhana' }
     ]);
+    setRecordId(null);
     clearPersistedForm(PERSIST_KEY);
   };
-
-
   const handleSavePlan = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    saveFormRecord('Progress Sheet', ip, { patient, rows });
+    const saved = upsertFormRecord(recordId, 'Progress Sheet', ip, { patient, rows });
+    setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg('Consultant Progress Sheet saved successfully!');
+    setToastMsg(recordId ? 'Progress Sheet updated successfully!' : 'Consultant Progress Sheet saved successfully!');
     setTimeout(() => {
       setToastMsg('');
       if (onNavigate) onNavigate('view-records');
@@ -156,6 +224,32 @@ export default function ProgressSheetPage({ onNavigate }) {
         </div>
       )}
 
+      {/* Top Action Header Bar */}
+      <div className="no-print page-action-bar">
+        <h2 className="vitals-page-heading">Progress Sheet - Consultant</h2>
+        <div className="action-btns-group">
+          <button type="button" className="btn-mint-clear" onClick={handleSavePlan}>
+            <Save size={14} />
+            <span>Save Progress Sheet</span>
+          </button>
+          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+            <span>Clear Form</span>
+          </button>
+          <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
+            <FolderCheck size={14} />
+            <span>View Records</span>
+          </button>
+          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
+            <FileEdit size={14} />
+            <span>View Drafts</span>
+          </button>
+          <button type="button" className="btn-mint-save" onClick={() => window.print()}>
+            <Printer size={14} />
+            <span>Print Sheet</span>
+          </button>
+        </div>
+      </div>
+
       {/* Pink Paper Sheet Container */}
       <div className="pink-card-container">
         
@@ -167,14 +261,7 @@ export default function ProgressSheetPage({ onNavigate }) {
 
           {/* Hospital Header Block */}
           <div className="care-plan-hospital-header">
-            <div className="nabh-diamond-wrapper">
-              <div className="nabh-diamond">
-                <div className="diamond-inner-text">
-                  <span className="nabh-head">NABH</span>
-                  <span className="nabh-sub">PRE-ACCREDITED</span>
-                </div>
-              </div>
-            </div>
+           
 
             <div className="center-hospital-brand">
               <div className="hospital-logo-row">
@@ -246,6 +333,8 @@ export default function ProgressSheetPage({ onNavigate }) {
                       name="uhidNo" 
                       value={patient.uhidNo} 
                       onChange={handlePatientChange} 
+                      onKeyDown={handleIpKeyDown}
+                      onBlur={handleIpBlur}
                       className="info-input-plain"
                     />
                   </div>
@@ -261,6 +350,8 @@ export default function ProgressSheetPage({ onNavigate }) {
                       name="ipNo" 
                       value={patient.ipNo} 
                       onChange={handlePatientChange} 
+                      onKeyDown={handleIpKeyDown}
+                      onBlur={handleIpBlur}
                       className="info-input-plain"
                     />
                   </div>
@@ -317,16 +408,18 @@ export default function ProgressSheetPage({ onNavigate }) {
           <table className="mint-notes-table">
             <thead>
               <tr>
-                <th className="th-progress-date">Date</th>
-                <th className="th-progress-notes">Notes</th>
-                <th className="th-progress-sign">Signature</th>
+                <th style={{ width: '15%' }}>DATE</th>
+                <th style={{ width: '12%' }}>TIME</th>
+                <th style={{ width: '47%' }}>NOTES</th>
+                <th style={{ width: '13%' }}>NAME</th>
+                <th style={{ width: '13%' }}>SIGNATURE</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id}>
                   {/* Date Cell */}
-                  <td className="td-progress-date">
+                  <td className="td-progress-date" style={{ verticalAlign: 'top' }}>
                     <input 
                       type="date" 
                       value={row.date} 
@@ -343,8 +436,18 @@ export default function ProgressSheetPage({ onNavigate }) {
                     </button>
                   </td>
 
+                  {/* Time Cell */}
+                  <td className="td-progress-time" style={{ verticalAlign: 'top' }}>
+                    <input 
+                      type="time" 
+                      value={row.time || ''} 
+                      onChange={(e) => handleRowChange(row.id, 'time', e.target.value)} 
+                      className="mint-time-picker"
+                    />
+                  </td>
+
                   {/* Notes Cell */}
-                  <td className="td-progress-notes">
+                  <td className="td-progress-notes" style={{ verticalAlign: 'top' }}>
                     <textarea 
                       value={row.notes} 
                       onChange={(e) => handleRowChange(row.id, 'notes', e.target.value)} 
@@ -358,23 +461,27 @@ export default function ProgressSheetPage({ onNavigate }) {
                     />
                   </td>
 
-                  {/* Signature Cell */}
-                  <td className="td-progress-sign">
-                    <div className="sign-select-group">
+                  {/* Name Cell */}
+                  <td className="td-progress-name" style={{ verticalAlign: 'top' }}>
+                    <div className="name-select-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
                       <select 
-                        value={row.signature} 
+                        value={row.signature || 'Sadhana'} 
                         onChange={(e) => handleRowChange(row.id, 'signature', e.target.value)} 
                         className="sign-select-dropdown"
+                        style={{ width: '100%', fontSize: '11px', padding: '2px 4px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
                       >
-                        <option value="Dr. Ramesh">Dr. Ramesh</option>
-                        <option value="Dr. Suresh">Dr. Suresh</option>
-                        <option value="Dr. Kavitha">Dr. Kavitha</option>
+                        {getDoctorOptions().map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
                       </select>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginTop: '4px' }}>{row.signature || 'Sadhana'}</span>
+                    </div>
+                  </td>
 
-                      {/* Signature Stamp Badge */}
-                      <div className="signature-stamp-box">
-                        <span className="stamp-sig-text">{row.signature || 'Sign'}</span>
-                      </div>
+                  {/* Signature Cell */}
+                  <td className="td-progress-sign" style={{ verticalAlign: 'top', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      {renderSignatureStamp(row.signature || 'Sadhana')}
                     </div>
                   </td>
                 </tr>
@@ -382,7 +489,6 @@ export default function ProgressSheetPage({ onNavigate }) {
             </tbody>
           </table>
 
-          {/* Action Buttons Below Table */}
           <div className="mint-action-controls">
             <button 
               type="button" 

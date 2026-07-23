@@ -2,15 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
-  CheckCircle2
+  CheckCircle2,
+  FolderCheck,
+  FileEdit
 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
-import { saveFormRecord } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 
 const PERSIST_KEY = 'vitals_chart';
 
-export default function VitalsChartPage({ onNavigate }) {
+export default function VitalsChartPage({ onNavigate, editData, editRecordId }) {
   // Patient Details State
   const [patient, setPatient] = useState({
     name: '',
@@ -48,27 +50,42 @@ export default function VitalsChartPage({ onNavigate }) {
     { id: 2, date: '24/07/26', dIdx: 2, sIdx: 5, type: 'temp', val: 101, rIdx: 5 }
   ]);
 
+  const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
   const tableRef = useRef(null);
   const [svgLines, setSvgLines] = useState([]);
   const [svgDots, setSvgDots] = useState([]);
 
-  // Restore persisted form on mount
+  // Restore persisted form or set edit data on mount
   useEffect(() => {
-    const saved = restoreForm(PERSIST_KEY);
-    if (saved) {
-      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-      if (saved.entry) setEntry(e => ({ ...e, ...saved.entry }));
-      if (saved.dates) setDates(saved.dates);
-      if (saved.readings) setReadings(saved.readings);
+    if (editData) {
+      if (editData.patient) setPatient(editData.patient);
+      if (editData.entry) setEntry(editData.entry);
+      if (editData.dates) setDates(editData.dates);
+      if (editData.readings) setReadings(editData.readings);
+      if (editRecordId) setRecordId(editRecordId);
+    } else {
+      const saved = restoreForm(PERSIST_KEY);
+      if (saved) {
+        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+        if (saved.entry) setEntry(e => ({ ...e, ...saved.entry }));
+        if (saved.dates) setDates(saved.dates);
+        if (saved.readings) setReadings(saved.readings);
+      }
     }
-  }, []);
+  }, [editData, editRecordId]);
 
-  // Auto-save to localStorage on every change
+  // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, entry, dates, readings }), 300);
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, { patient, entry, dates, readings });
+      const hasContent = patient.name || patient.ipNo || patient.uhidNo || readings.length > 2;
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Vitals Chart', patient, { patient, entry, dates, readings }, setRecordId);
+      }
+    }, 1000);
     return () => clearTimeout(t);
-  }, [patient, entry, dates, readings]);
+  }, [patient, entry, dates, readings, recordId]);
 
 
   // Time Slots per day matching screenshot:
@@ -105,12 +122,41 @@ export default function VitalsChartPage({ onNavigate }) {
     { pulse: '50',  temp: '',    resp: '20' },
     { pulse: '40',  temp: '',    resp: '10' }
   ];
-
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
   };
 
+  const triggerAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      setPatient(prev => ({
+        ...prev,
+        name: found.patientName || prev.name,
+        age: found.age || prev.age,
+        sex: found.sex || prev.sex,
+        uhidNo: found.uhidNo || prev.uhidNo,
+        ipNo: found.ipNo || prev.ipNo,
+        ward: found.ward || prev.ward,
+        bedNo: found.bedNo || prev.bedNo || prev.bed || '',
+        doa: found.doa || prev.doa
+      }));
+      setToastMsg('Patient details auto-filled');
+      setTimeout(() => setToastMsg(''), 2000);
+    }
+  };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      triggerAutofill(e.target.value);
+    }
+  };
+
+  const handleIpBlur = (e) => {
+    triggerAutofill(e.target.value);
+  };
   const handleEntryChange = (e) => {
     const { name, value } = e.target;
     setEntry((prev) => ({ ...prev, [name]: value }));
@@ -230,13 +276,25 @@ export default function VitalsChartPage({ onNavigate }) {
 
   const handleSave = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    saveFormRecord('Vitals Chart', ip, { patient, entry, dates, readings });
+    const saved = upsertFormRecord(recordId, 'Vitals Chart', ip, { patient, entry, dates, readings });
+    setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg('Vitals Chart saved successfully!');
+    setToastMsg(recordId ? 'Vitals Chart updated successfully!' : 'Vitals Chart saved successfully!');
     setTimeout(() => {
       setToastMsg('');
       if (onNavigate) onNavigate('view-records');
     }, 800);
+  };
+
+  const handleClearForm = () => {
+    setPatient({ name: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', doa: '', ward: '', bedNo: '' });
+    setEntry({ date: '2026-07-22', timeSlot: 'Night_10', pulse: '', temp: '102', resp: '' });
+    setDates(['22/07/26', '23/07/26', '24/07/26']);
+    setReadings([]);
+    setRecordId(null);
+    clearPersistedForm(PERSIST_KEY);
+    setToastMsg('Form cleared.');
+    setTimeout(() => setToastMsg(''), 2000);
   };
 
 
@@ -338,6 +396,17 @@ export default function VitalsChartPage({ onNavigate }) {
             <Save size={14} />
             <span>Save Chart</span>
           </button>
+          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+            <span>Clear Form</span>
+          </button>
+          <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
+            <FolderCheck size={14} />
+            <span>View Records</span>
+          </button>
+          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
+            <FileEdit size={14} />
+            <span>View Drafts</span>
+          </button>
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
             <span>Print Vitals Sheet</span>
@@ -430,7 +499,6 @@ export default function VitalsChartPage({ onNavigate }) {
                   </div>
                 </td>
               </tr>
-
               <tr>
                 <td className="cell-uhid">
                   <div className="info-field-inline">
@@ -440,6 +508,8 @@ export default function VitalsChartPage({ onNavigate }) {
                       name="uhidNo" 
                       value={patient.uhidNo} 
                       onChange={handlePatientChange} 
+                      onKeyDown={handleIpKeyDown}
+                      onBlur={handleIpBlur}
                       className="info-input-plain"
                     />
                   </div>
@@ -452,6 +522,8 @@ export default function VitalsChartPage({ onNavigate }) {
                       name="ipNo" 
                       value={patient.ipNo} 
                       onChange={handlePatientChange} 
+                      onKeyDown={handleIpKeyDown}
+                      onBlur={handleIpBlur}
                       className="info-input-plain"
                     />
                   </div>
@@ -468,6 +540,9 @@ export default function VitalsChartPage({ onNavigate }) {
                     />
                   </div>
                 </td>
+              </tr>
+
+              <tr>
                 <td className="cell-ward">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Ward :</span>

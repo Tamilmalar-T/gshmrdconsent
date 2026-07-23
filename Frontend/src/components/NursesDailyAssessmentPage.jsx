@@ -15,13 +15,22 @@ import {
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
-import { saveFormRecord } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 
 const PERSIST_KEY = 'nurses_daily_assessment';
 
+const getCurrentDate = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+};
+const getCurrentTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+};
 
-export default function NursesDailyAssessmentPage({ onNavigate }) {
+
+export default function NursesDailyAssessmentPage({ onNavigate, editData, editRecordId }) {
   // Patient Metadata
   const [patient, setPatient] = useState({
     name: '',
@@ -35,8 +44,8 @@ export default function NursesDailyAssessmentPage({ onNavigate }) {
   });
 
   // Daily Assessment Grid State
-  const [dateLeft, setDateLeft] = useState('2026-07-23');
-  const [dateRight, setDateRight] = useState('2026-07-23');
+  const [dateLeft, setDateLeft] = useState(getCurrentDate);
+  const [dateRight, setDateRight] = useState(getCurrentDate);
 
   // Left Grid Parameters State (Keyed by param name -> { s1: '', s2: '', s3: '' })
   const [leftParams, setLeftParams] = useState({
@@ -160,28 +169,46 @@ export default function NursesDailyAssessmentPage({ onNavigate }) {
     }
   ]);
 
+  const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
   const [activePainScore, setActivePainScore] = useState(3);
 
-  // Restore persisted form on mount
+  // Restore persisted form or set edit data on mount
   useEffect(() => {
-    const saved = restoreForm(PERSIST_KEY);
-    if (saved) {
-      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-      if (saved.leftParams) setLeftParams(saved.leftParams);
-      if (saved.rightParams) setRightParams(saved.rightParams);
-      if (saved.painRows) setPainRows(saved.painRows);
-      if (saved.activePainScore !== undefined) setActivePainScore(saved.activePainScore);
-      if (saved.dateLeft) setDateLeft(saved.dateLeft);
-      if (saved.dateRight) setDateRight(saved.dateRight);
+    if (editData) {
+      if (editData.patient) setPatient(editData.patient);
+      if (editData.leftParams) setLeftParams(editData.leftParams);
+      if (editData.rightParams) setRightParams(editData.rightParams);
+      if (editData.painRows) setPainRows(editData.painRows);
+      if (editData.activePainScore !== undefined) setActivePainScore(editData.activePainScore);
+      if (editData.dateLeft) setDateLeft(editData.dateLeft);
+      if (editData.dateRight) setDateRight(editData.dateRight);
+      if (editRecordId) setRecordId(editRecordId);
+    } else {
+      const saved = restoreForm(PERSIST_KEY);
+      if (saved) {
+        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+        if (saved.leftParams) setLeftParams(saved.leftParams);
+        if (saved.rightParams) setRightParams(saved.rightParams);
+        if (saved.painRows) setPainRows(saved.painRows);
+        if (saved.activePainScore !== undefined) setActivePainScore(saved.activePainScore);
+        if (saved.dateLeft) setDateLeft(saved.dateLeft);
+        if (saved.dateRight) setDateRight(saved.dateRight);
+      }
     }
-  }, []);
+  }, [editData, editRecordId]);
 
-  // Auto-save to localStorage on every change
+  // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight }), 300);
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, { patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight });
+      const hasContent = patient.name || patient.ipNo || patient.uhidNo || painRows.some(r => r.location || r.action);
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Nurses Daily Assessment Care Plan', patient, { patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight }, setRecordId);
+      }
+    }, 1000);
     return () => clearTimeout(t);
-  }, [patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight]);
+  }, [patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight, recordId]);
 
 
   const handlePatientChange = (e) => {
@@ -258,15 +285,51 @@ export default function NursesDailyAssessmentPage({ onNavigate }) {
 
   const handleSave = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    saveFormRecord('Nurses Daily Assessment Care Plan', ip, { patient, leftParams, rightParams, painRows, activePainScore });
+    const saved = upsertFormRecord(recordId, 'Nurses Daily Assessment Care Plan', ip, { patient, leftParams, rightParams, painRows, activePainScore });
+    setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg('Nurses Daily Assessment Care Plan saved successfully!');
+    setToastMsg(recordId ? 'Assessment updated successfully!' : 'Nurses Daily Assessment Care Plan saved successfully!');
     setTimeout(() => {
       setToastMsg('');
       if (onNavigate) onNavigate('view-records');
     }, 800);
   };
 
+  const handleClearForm = () => {
+    setPatient({
+      name: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', doa: '', ward: '', bedNo: ''
+    });
+    setLeftParams({
+      bp: { s1: '', s2: '', s3: '' }, respiration: { s1: '', s2: '', s3: '' }, pulse: { s1: '', s2: '', s3: '' }, temperature: { s1: '', s2: '', s3: '' }, spo2: { s1: '', s2: '', s3: '' }, othersVitals: { s1: '', s2: '', s3: '' },
+      conscious: { s1: '', s2: '', s3: '' }, unconscious: { s1: '', s2: '', s3: '' }, lethargic: { s1: '', s2: '', s3: '' }, drowsy: { s1: '', s2: '', s3: '' },
+      audible: { s1: '', s2: '', s3: '' }, notAudible: { s1: '', s2: '', s3: '' }, clear: { s1: '', s2: '', s3: '' }, suction: { s1: '', s2: '', s3: '' }, nebulization: { s1: '', s2: '', s3: '' }, steam: { s1: '', s2: '', s3: '' },
+      ventilation: { s1: '', s2: '', s3: '' }, oxygenTherapy: { s1: '', s2: '', s3: '' },
+      icd: { s1: '', s2: '', s3: '' }, rt: { s1: '', s2: '', s3: '' }, abdominal: { s1: '', s2: '', s3: '' }, ostomy: { s1: '', s2: '', s3: '' }, evd: { s1: '', s2: '', s3: '' }, icp: { s1: '', s2: '', s3: '' },
+      dressing: { s1: '', s2: '', s3: '' },
+      grbsReading: { s1: '', s2: '', s3: '' }, insulin: { s1: '', s2: '', s3: '' }, food: { s1: '', s2: '', s3: '' },
+      cooperative: { s1: '', s2: '', s3: '' }, anxious: { s1: '', s2: '', s3: '' }, agitated: { s1: '', s2: '', s3: '' }, familyBedside: { s1: '', s2: '', s3: '' }
+    });
+    setRightParams({
+      given: { s1: '', s2: '', s3: '' }, held: { s1: '', s2: '', s3: '' }, restart: { s1: '', s2: '', s3: '' }, sideEffects: { s1: '', s2: '', s3: '' },
+      mouth: { s1: '', s2: '', s3: '' }, eye: { s1: '', s2: '', s3: '' }, catheterCare: { s1: '', s2: '', s3: '' }, skinCare: { s1: '', s2: '', s3: '' }, perineal: { s1: '', s2: '', s3: '' },
+      positioning: { s1: '', s2: '', s3: '' }, bedsore: { s1: '', s2: '', s3: '' },
+      flatus: { s1: '', s2: '', s3: '' }, nausea: { s1: '', s2: '', s3: '' }, vomiting: { s1: '', s2: '', s3: '' },
+      voiding: { s1: '', s2: '', s3: '' }, guCatheter: { s1: '', s2: '', s3: '' },
+      bloodStart: { s1: '', s2: '', s3: '' }, bloodFinish: { s1: '', s2: '', s3: '' },
+      ambulate: { s1: '', s2: '', s3: '' }, outInBed: { s1: '', s2: '', s3: '' }, inBed: { s1: '', s2: '', s3: '' },
+      orders: { s1: '', s2: '', s3: '' }, site: { s1: '', s2: '', s3: '' },
+      sideRails: { s1: '', s2: '', s3: '' }, lighting: { s1: '', s2: '', s3: '' }, bathroomOdour: { s1: '', s2: '', s3: '' }, education: { s1: '', s2: '', s3: '' },
+      nbm: { s1: '', s2: '', s3: '' }, liquid: { s1: '', s2: '', s3: '' }, soft: { s1: '', s2: '', s3: '' }, regular: { s1: '', s2: '', s3: '' }, special: { s1: '', s2: '', s3: '' }
+    });
+    setPainRows([
+      { id: 1, date: getCurrentDate(), time: getCurrentTime(), location: '', scale: '0', action: '', actionTime: '', reevalScale: '0', reevalTime: '', staffSign: '' }
+    ]);
+    setActivePainScore(3);
+    setRecordId(null);
+    clearPersistedForm(PERSIST_KEY);
+    setToastMsg('Form cleared.');
+    setTimeout(() => setToastMsg(''), 2000);
+  };
 
   const handlePrint = () => {
     window.print();
@@ -303,6 +366,9 @@ export default function NursesDailyAssessmentPage({ onNavigate }) {
           <button type="button" className="btn-mint-clear" onClick={handleSave}>
             <Save size={14} />
             <span>Save Assessment</span>
+          </button>
+          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+            <span>Clear Form</span>
           </button>
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />

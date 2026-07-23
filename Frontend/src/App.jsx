@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
+import LoginPage from './components/LoginPage';
 import PatientRegistrationPage from './components/PatientRegistrationPage';
 import PatientDetailsPage from './components/PatientDetailsPage';
 import VitalsChartPage from './components/VitalsChartPage';
@@ -13,15 +14,31 @@ import ProgressSheetPage from './components/ProgressSheetPage';
 import LabRequisitionPage from './components/LabRequisitionPage';
 import DiabeticChartPage from './components/DiabeticChartPage';
 import IntakeOutputRecordPage from './components/IntakeOutputRecordPage';
+import UserMasterPage from './components/UserMasterPage';
+import TypeMasterPage from './components/TypeMasterPage';
+import CaseSheetMasterPage from './components/CaseSheetMasterPage';
 import './App.css';
 
 function App() {
+  const [loggedInUser, setLoggedInUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('patient-registration');
   const [lastFormTab, setLastFormTab] = useState('general-admission-consent');
   const [selectedIpNoForView, setSelectedIpNoForView] = useState('');
   const [editRecord, setEditRecord] = useState(null);
 
+  // --- Auth Handlers ---
+  const handleLoginSuccess = (user) => {
+    setLoggedInUser(user);
+  };
+
+  const handleLogout = () => {
+    setLoggedInUser(null);
+    setActiveTab('patient-registration');
+    setEditRecord(null);
+  };
+
+  // --- Navigation Handlers ---
   const handleNavigate = (targetTab) => {
     if (activeTab !== 'view-records' && activeTab !== 'view-drafts' && activeTab !== 'patient-details') {
       setLastFormTab(activeTab);
@@ -38,12 +55,12 @@ function App() {
     handleNavigate('patient-details');
   };
 
-  // Called from PatientDetailsPage when Edit is clicked
   const handleEditRecord = (tabId, data, recId) => {
     setEditRecord({ tabId, data, recId });
     setActiveTab(tabId);
   };
 
+  // --- Render Content ---
   const renderContent = () => {
     const editData = editRecord && editRecord.tabId === activeTab ? editRecord.data : null;
     const editRecordId = editRecord && editRecord.tabId === activeTab ? editRecord.recId : null;
@@ -57,23 +74,23 @@ function App() {
       case 'view-drafts':
         return <PatientDetailsPage initialMode="drafts" onBack={handleBackToForm} onEdit={handleEditRecord} filterTabId={lastFormTab} />;
       case 'nurse-care-plan':
-        return <NursesCarePlanPage onNavigate={handleNavigate} editData={editData} />;
+        return <NursesCarePlanPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'nurses-daily-assessment':
-        return <NursesDailyAssessmentPage onNavigate={handleNavigate} editData={editData} />;
+        return <NursesDailyAssessmentPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'resident-doctor-progress':
-        return <ResidentDoctorProgressRecordPage onNavigate={handleNavigate} editData={editData} />;
+        return <ResidentDoctorProgressRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'nursing-initial-assessment':
-        return <NursingInitialAssessmentPage onNavigate={handleNavigate} editData={editData} />;
+        return <NursingInitialAssessmentPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'progress-sheet':
-        return <ProgressSheetPage onNavigate={handleNavigate} editData={editData} />;
+        return <ProgressSheetPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'general-admission-consent':
         return <ConsentGeneralAdmissionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'vitals-chart':
-        return <VitalsChartPage onNavigate={handleNavigate} editData={editData} />;
+        return <VitalsChartPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'intake-output':
-        return <IntakeOutputRecordPage onNavigate={handleNavigate} editData={editData} />;
+        return <IntakeOutputRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'lab-requisition':
-        return <LabRequisitionPage onNavigate={handleNavigate} editData={editData} />;
+        return <LabRequisitionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'mrd-checklist':
         return (
           <div className="placeholder-page">
@@ -82,15 +99,31 @@ function App() {
           </div>
         );
       case 'diabetic-chart':
-        return <DiabeticChartPage onNavigate={handleNavigate} editData={editData} />;
+        return <DiabeticChartPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'user-master':
+        return <UserMasterPage />;
+      case 'type-master':
+        return <TypeMasterPage />;
+      case 'case-sheet-master':
+        return <CaseSheetMasterPage />;
       default:
-        return <NursesCarePlanPage />;
+        return <NursesCarePlanPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
     }
   };
 
+  // --- Show Login Screen if not authenticated ---
+  if (!loggedInUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="app-container">
-      <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      <Header 
+        sidebarOpen={sidebarOpen} 
+        setSidebarOpen={setSidebarOpen} 
+        loggedInUser={loggedInUser}
+        onLogout={handleLogout}
+      />
       <div className="app-body">
         <Sidebar 
           sidebarOpen={sidebarOpen} 

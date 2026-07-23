@@ -4,15 +4,17 @@ import {
   Save, 
   CheckCircle2, 
   Plus, 
-  Trash2 
+  Trash2,
+  FolderCheck,
+  FileEdit
 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
-import { saveFormRecord } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 
 const PERSIST_KEY = 'intake_output_record';
 
-export default function IntakeOutputRecordPage({ onNavigate }) {
+export default function IntakeOutputRecordPage({ onNavigate, editData, editRecordId }) {
   // Patient Metadata
   const [patient, setPatient] = useState({
     name: '',
@@ -59,29 +61,71 @@ export default function IntakeOutputRecordPage({ onNavigate }) {
     createEmptyRow(8)
   ]);
 
+  const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Restore persisted form on mount
+  // Restore persisted form or set edit data on mount
   useEffect(() => {
-    const saved = restoreForm(PERSIST_KEY);
-    if (saved) {
-      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-      if (saved.rows) setRows(saved.rows);
+    if (editData) {
+      if (editData.patient) setPatient(editData.patient);
+      if (editData.rows) setRows(editData.rows);
+      if (editRecordId) setRecordId(editRecordId);
+    } else {
+      const saved = restoreForm(PERSIST_KEY);
+      if (saved) {
+        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+        if (saved.rows) setRows(saved.rows);
+      }
     }
-  }, []);
+  }, [editData, editRecordId]);
 
-  // Auto-save to localStorage on every change
+  // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, rows }), 300);
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, { patient, rows });
+      const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.oralType || r.oralAmount || r.urine || r.rtAspirate);
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Intake Output Record', patient, { patient, rows }, setRecordId);
+      }
+    }, 1000);
     return () => clearTimeout(t);
-  }, [patient, rows]);
-
-
+  }, [patient, rows, recordId]);
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
   };
 
+  const triggerAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      setPatient(prev => ({
+        ...prev,
+        name: found.patientName || prev.name,
+        age: found.age || prev.age,
+        sex: found.sex || prev.sex,
+        uhidNo: found.uhidNo || prev.uhidNo,
+        ipNo: found.ipNo || prev.ipNo,
+        ward: found.ward || prev.ward,
+        bedNo: found.bedNo || prev.bedNo || prev.bed || '',
+        doa: found.doa || prev.doa,
+        consultantName: found.consultantName || prev.consultantName
+      }));
+      setToastMsg('Patient details auto-filled');
+      setTimeout(() => setToastMsg(''), 2000);
+    }
+  };
+
+  const handleIpKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      triggerAutofill(e.target.value);
+    }
+  };
+
+  const handleIpBlur = (e) => {
+    triggerAutofill(e.target.value);
+  };
   const handleRowChange = (id, field, value) => {
     setRows((prev) => 
       prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
@@ -116,14 +160,16 @@ export default function IntakeOutputRecordPage({ onNavigate }) {
       createEmptyRow(4),
       createEmptyRow(5)
     ]);
+    setRecordId(null);
     clearPersistedForm(PERSIST_KEY);
   };
 
   const handleSave = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    saveFormRecord('Intake Output Record', ip, { patient, rows });
+    const saved = upsertFormRecord(recordId, 'Intake Output Record', ip, { patient, rows });
+    setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg('Intake & Output Record saved successfully!');
+    setToastMsg(recordId ? 'Intake & Output Record updated successfully!' : 'Intake & Output Record saved successfully!');
     setTimeout(() => {
       setToastMsg('');
       if (onNavigate) onNavigate('view-records');
@@ -151,6 +197,17 @@ export default function IntakeOutputRecordPage({ onNavigate }) {
           <button type="button" className="btn-mint-clear" onClick={handleSave}>
             <Save size={14} />
             <span>Save Record</span>
+          </button>
+          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+            <span>Clear Form</span>
+          </button>
+          <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
+            <FolderCheck size={14} />
+            <span>View Records</span>
+          </button>
+          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
+            <FileEdit size={14} />
+            <span>View Drafts</span>
           </button>
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
@@ -240,7 +297,6 @@ export default function IntakeOutputRecordPage({ onNavigate }) {
                   </div>
                 </td>
               </tr>
-
               <tr>
                 <td className="cell-uhid">
                   <div className="info-field-inline">
@@ -250,6 +306,8 @@ export default function IntakeOutputRecordPage({ onNavigate }) {
                       name="uhidNo" 
                       value={patient.uhidNo} 
                       onChange={handlePatientChange} 
+                      onKeyDown={handleIpKeyDown}
+                      onBlur={handleIpBlur}
                       className="info-input-plain"
                     />
                   </div>
@@ -262,6 +320,8 @@ export default function IntakeOutputRecordPage({ onNavigate }) {
                       name="ipNo" 
                       value={patient.ipNo} 
                       onChange={handlePatientChange} 
+                      onKeyDown={handleIpKeyDown}
+                      onBlur={handleIpBlur}
                       className="info-input-plain"
                     />
                   </div>

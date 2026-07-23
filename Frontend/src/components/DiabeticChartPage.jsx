@@ -3,15 +3,27 @@ import {
   Plus, 
   Trash2, 
   Save, 
-  CheckCircle2
+  CheckCircle2,
+  FolderCheck,
+  FileEdit,
+  Printer
 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
-import { saveFormRecord } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 
 const PERSIST_KEY = 'diabetic_chart';
 
-export default function DiabeticChartPage({ onNavigate }) {
+const getCurrentDate = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+};
+const getCurrentTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+};
+
+export default function DiabeticChartPage({ onNavigate, editData, editRecordId }) {
   // Patient Metadata State
   const [patient, setPatient] = useState({
     name: '',
@@ -26,54 +38,86 @@ export default function DiabeticChartPage({ onNavigate }) {
 
   // Diabetic Grid Rows State
   const [rows, setRows] = useState([
-    {
-      id: 1,
-      date: '2026-07-21',
-      time: '07:00',
-      grbsType: 'FBS',
-      grbs: '135 mg/dL',
-      reading: 'Normal',
-      medication: 'Inj. Human Actrapid 6 U',
-      sign: 'Sadhana'
-    },
-    {
-      id: 2,
-      date: '',
-      time: '',
-      grbsType: 'PPBS',
-      grbs: '',
-      reading: '',
-      medication: '',
-      sign: 'Sadhana'
-    },
-    {
-      id: 3,
-      date: '',
-      time: '',
-      grbsType: 'FBS',
-      grbs: '',
-      reading: '',
-      medication: '',
-      sign: 'Sadhana'
-    }
+    { id: 1, date: getCurrentDate(), time: getCurrentTime(), grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
+    { id: 2, date: '', time: '', grbsType: 'PPBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
+    { id: 3, date: '', time: '', grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' }
   ]);
 
+  const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Restore persisted form on mount
+  // Restore persisted form or set edit data on mount
   useEffect(() => {
-    const saved = restoreForm(PERSIST_KEY);
+    if (editData) {
+      if (editData.patient) setPatient(editData.patient);
+      if (editData.rows) setRows(editData.rows);
+      if (editRecordId) setRecordId(editRecordId);
+    } else {
+      const saved = restoreForm(PERSIST_KEY);
+      if (saved) {
+        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+        if (saved.rows) setRows(saved.rows);
+      }
+    }
+  }, [editData, editRecordId]);
+
+  const [systemUsers, setSystemUsers] = useState([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('masters_users');
     if (saved) {
-      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-      if (saved.rows) setRows(saved.rows);
+      setSystemUsers(JSON.parse(saved));
     }
   }, []);
 
+  const getNurseOptions = () => {
+    const activeNurses = systemUsers
+      .filter(u => u.status === 'Active' && u.userType === 'Nurse')
+      .map(u => u.userName);
+    
+    if (activeNurses.length === 0) {
+      return ['Sadhana', 'Priya', 'Anitha'];
+    }
+    if (!activeNurses.includes('Sadhana')) {
+      activeNurses.unshift('Sadhana');
+    }
+    return activeNurses;
+  };
+
+  const renderSignatureStamp = (nurseName) => {
+    const matchedUser = systemUsers.find(
+      u => u.userName.toLowerCase() === nurseName.toLowerCase()
+    );
+    if (matchedUser && matchedUser.signatureImage) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '36px', marginTop: '4px' }}>
+          <img 
+            src={matchedUser.signatureImage} 
+            alt={`Signature of ${nurseName}`} 
+            style={{ maxHeight: '36px', maxWidth: '100px', objectFit: 'contain' }} 
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="signature-stamp-box">
+        <span className="stamp-sig-text">{nurseName || 'Sign'}</span>
+      </div>
+    );
+  };
+
   // Auto-save to localStorage on every change
+  // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, rows }), 300);
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, { patient, rows });
+      const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.grbs || r.reading || r.medication);
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Diabetic Chart', patient, { patient, rows }, setRecordId);
+      }
+    }, 1000);
     return () => clearTimeout(t);
-  }, [patient, rows]);
+  }, [patient, rows, recordId]);
 
 
   const handlePatientChange = (e) => {
@@ -112,8 +156,8 @@ export default function DiabeticChartPage({ onNavigate }) {
   const handleAddRow = () => {
     const newRow = {
       id: Date.now(),
-      date: '',
-      time: '',
+      date: getCurrentDate(),
+      time: getCurrentTime(),
       grbsType: 'FBS',
       grbs: '',
       reading: '',
@@ -140,24 +184,29 @@ export default function DiabeticChartPage({ onNavigate }) {
       doa: ''
     });
     setRows([
-      { id: 1, date: '', time: '', grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
+      { id: 1, date: getCurrentDate(), time: getCurrentTime(), grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
       { id: 2, date: '', time: '', grbsType: 'PPBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
       { id: 3, date: '', time: '', grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' }
     ]);
+    setRecordId(null);
     clearPersistedForm(PERSIST_KEY);
   };
 
   const handleSave = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    saveFormRecord('Diabetic Chart', ip, { patient, rows });
+    const saved = upsertFormRecord(recordId, 'Diabetic Chart', ip, { patient, rows });
+    setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg('Diabetic Chart saved successfully!');
+    setToastMsg(recordId ? 'Diabetic Chart updated successfully!' : 'Diabetic Chart saved successfully!');
     setTimeout(() => {
       setToastMsg('');
       if (onNavigate) onNavigate('view-records');
     }, 800);
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
 
   return (
     <div className="diabetic-chart-wrapper">
@@ -167,6 +216,32 @@ export default function DiabeticChartPage({ onNavigate }) {
           <span>{toastMsg}</span>
         </div>
       )}
+
+      {/* Top Action Header Bar */}
+      <div className="no-print page-action-bar">
+        <h2 className="vitals-page-heading">Diabetic Chart</h2>
+        <div className="action-btns-group">
+          <button type="button" className="btn-mint-clear" onClick={handleSave}>
+            <Save size={14} />
+            <span>Save Chart</span>
+          </button>
+          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+            <span>Clear Form</span>
+          </button>
+          <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
+            <FolderCheck size={14} />
+            <span>View Records</span>
+          </button>
+          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
+            <FileEdit size={14} />
+            <span>View Drafts</span>
+          </button>
+          <button type="button" className="btn-mint-save" onClick={handlePrint}>
+            <Printer size={14} />
+            <span>Print Chart</span>
+          </button>
+        </div>
+      </div>
 
       {/* Sheet Container */}
       <div className="lab-card-container">
@@ -416,15 +491,13 @@ export default function DiabeticChartPage({ onNavigate }) {
                         onChange={(e) => handleRowChange(row.id, 'sign', e.target.value)} 
                         className="sign-select-dropdown"
                       >
-                        <option value="Sadhana">Sadhana</option>
-                        <option value="Priya">Priya</option>
-                        <option value="Anitha">Anitha</option>
+                        {getNurseOptions().map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
                       </select>
 
                       {/* Signature Stamp Badge */}
-                      <div className="signature-stamp-box">
-                        <span className="stamp-sig-text">{row.sign || 'Sign'}</span>
-                      </div>
+                      {renderSignatureStamp(row.sign)}
                     </div>
                   </td>
                 </tr>

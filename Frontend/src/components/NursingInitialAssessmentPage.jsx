@@ -1,12 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Printer, CheckCircle2 } from 'lucide-react';
+import { 
+  Save, 
+  Printer, 
+  CheckCircle2,
+  FolderCheck,
+  FileEdit
+} from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
-import { saveFormRecord } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 
 const PERSIST_KEY = 'nursing_initial_assessment';
 
-export default function NursingInitialAssessmentPage({ onNavigate }) {
+const getCurrentDate = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+};
+const getCurrentTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+};
+
+export default function NursingInitialAssessmentPage({ onNavigate, editData, editRecordId }) {
   // Patient Details
   const [patient, setPatient] = useState({
     name: '',
@@ -65,31 +80,49 @@ export default function NursingInitialAssessmentPage({ onNavigate }) {
     dvtRisk: 'No',
     pressureSoreRisk: 'No',
     nurseSignature: 'Sadhana',
-    sigDate: '2026-07-21',
-    sigTime: '01:49 PM'
+    sigDate: getCurrentDate(),
+    sigTime: getCurrentTime()
   });
 
+  const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Restore persisted form on mount
+  // Restore persisted form or set edit data on mount
   useEffect(() => {
-    const saved = restoreForm(PERSIST_KEY);
-    if (saved) {
-      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-      if (saved.vitals) setVitals(v => ({ ...v, ...saved.vitals }));
-      if (saved.exam) setExam(e => ({ ...e, ...saved.exam }));
-      if (saved.casualty) setCasualty(c => ({ ...c, ...saved.casualty }));
-      if (saved.investigations !== undefined) setInvestigations(saved.investigations);
-      if (saved.bottomPg1) setBottomPg1(b => ({ ...b, ...saved.bottomPg1 }));
-      if (saved.pg2) setPg2(p => ({ ...p, ...saved.pg2 }));
+    if (editData) {
+      if (editData.patient) setPatient(editData.patient);
+      if (editData.vitals) setVitals(editData.vitals);
+      if (editData.exam) setExam(editData.exam);
+      if (editData.casualty) setCasualty(editData.casualty);
+      if (editData.investigations !== undefined) setInvestigations(editData.investigations);
+      if (editData.bottomPg1) setBottomPg1(editData.bottomPg1);
+      if (editData.pg2) setPg2(editData.pg2);
+      if (editRecordId) setRecordId(editRecordId);
+    } else {
+      const saved = restoreForm(PERSIST_KEY);
+      if (saved) {
+        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+        if (saved.vitals) setVitals(v => ({ ...v, ...saved.vitals }));
+        if (saved.exam) setExam(e => ({ ...e, ...saved.exam }));
+        if (saved.casualty) setCasualty(c => ({ ...c, ...saved.casualty }));
+        if (saved.investigations !== undefined) setInvestigations(saved.investigations);
+        if (saved.bottomPg1) setBottomPg1(b => ({ ...b, ...saved.bottomPg1 }));
+        if (saved.pg2) setPg2(p => ({ ...p, ...saved.pg2, sigDate: getCurrentDate(), sigTime: getCurrentTime() }));
+      }
     }
-  }, []);
+  }, [editData, editRecordId]);
 
-  // Auto-save to localStorage on every change
+  // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2 }), 300);
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2 });
+      const hasContent = patient.name || patient.ipNo || patient.uhidNo || vitals.bp || vitals.pulse;
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Nursing Initial Assessment', patient, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2 }, setRecordId);
+      }
+    }, 1000);
     return () => clearTimeout(t);
-  }, [patient, vitals, exam, casualty, investigations, bottomPg1, pg2]);
+  }, [patient, vitals, exam, casualty, investigations, bottomPg1, pg2, recordId]);
 
 
   const handlePatientChange = (e) => {
@@ -147,13 +180,32 @@ export default function NursingInitialAssessmentPage({ onNavigate }) {
 
   const handleSave = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    saveFormRecord('Nursing Initial Assessment', ip, { patient, topParams, bottomPg1, pg2 });
+    const saved = upsertFormRecord(recordId, 'Nursing Initial Assessment', ip, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2 });
+    setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg('Nursing Initial Assessment saved successfully!');
+    setToastMsg(recordId ? 'Assessment updated successfully!' : 'Nursing Initial Assessment saved successfully!');
     setTimeout(() => {
       setToastMsg('');
       if (onNavigate) onNavigate('view-records');
     }, 800);
+  };
+
+  const handleClearForm = () => {
+    setPatient({ name: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', ward: '', bedNo: '' });
+    setVitals({ bp: '', pulse: '', temperature: '', respiratoryRate: '', weight: '', grbs: '', saturation: '' });
+    setExam({ levelOfConsciousness: '', gcsE: '', gcsV: '', gcsM: '', respiratoryStatus: '', anyOtherFinding: '', skinIntegrity: '' });
+    setCasualty({ medications: '', dateTime: '' });
+    setInvestigations('');
+    setBottomPg1({ diet: '', vulnerable: 'No', specialCareGiven: '' });
+    setPg2({
+      painScore: 3, pressureSore: 'No', pressureSoreCare: '', restraints: 'No', restraintsUsed: '',
+      fallRisk: 'No', dvtRisk: 'No', pressureSoreRisk: 'No', nurseSignature: 'Sadhana',
+      sigDate: getCurrentDate(), sigTime: getCurrentTime()
+    });
+    setRecordId(null);
+    clearPersistedForm(PERSIST_KEY);
+    setToastMsg('Form cleared.');
+    setTimeout(() => setToastMsg(''), 2000);
   };
 
   const handlePrint = () => {
@@ -193,6 +245,17 @@ export default function NursingInitialAssessmentPage({ onNavigate }) {
           <button type="button" className="btn-mint-clear" onClick={handleSave}>
             <Save size={14} />
             <span>Save Assessment</span>
+          </button>
+          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+            <span>Clear Form</span>
+          </button>
+          <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
+            <FolderCheck size={14} />
+            <span>View Records</span>
+          </button>
+          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
+            <FileEdit size={14} />
+            <span>View Drafts</span>
           </button>
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />

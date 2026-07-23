@@ -38,7 +38,108 @@ const FORM_TYPE_TO_TAB = {
   'Intake Output Record': 'intake-output',
 };
 
-// Renders form data fields as a clean grid instead of raw JSON
+// Formats key names (e.g. CamelCase/snake_case to Title Case)
+const formatKeyName = (str) => {
+  return str
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (s) => s.toUpperCase())
+    .replace(/_/g, ' ')
+    .trim();
+};
+
+// Recursively renders nested object/array values
+function renderDataValue(key, value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  // If it's an array
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="modal-val-empty">None</span>;
+    
+    // Check if array of objects (like rows, readings)
+    if (typeof value[0] === 'object' && value[0] !== null) {
+      const allKeys = Array.from(new Set(value.flatMap(item => Object.keys(item))));
+      // Exclude internal IDs to keep view clean
+      const displayKeys = allKeys.filter(k => k !== 'id' && k !== 'key');
+      
+      return (
+        <div className="modal-nested-table-wrapper">
+          <table className="modal-nested-table">
+            <thead>
+              <tr>
+                {displayKeys.map(k => (
+                  <th key={k}>{formatKeyName(k)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {value.map((item, idx) => (
+                <tr key={idx}>
+                  {displayKeys.map(k => {
+                    const itemVal = item[k];
+                    return (
+                      <td key={k}>
+                        {typeof itemVal === 'boolean' 
+                          ? (itemVal ? 'Yes' : 'No') 
+                          : typeof itemVal === 'object' && itemVal !== null 
+                            ? JSON.stringify(itemVal) 
+                            : String(itemVal ?? '—')}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    
+    // Array of primitives (like dates)
+    return (
+      <div className="modal-val-tags">
+        {value.map((val, idx) => (
+          <span key={idx} className="modal-val-tag">{String(val)}</span>
+        ))}
+      </div>
+    );
+  }
+
+  // If it's an object
+  if (typeof value === 'object') {
+    const entries = Object.entries(value).filter(
+      ([, v]) => v !== '' && v !== null && v !== undefined && v !== false
+    );
+    if (entries.length === 0) return <span className="modal-val-empty">Empty</span>;
+
+    return (
+      <div className="modal-nested-object-card">
+        <div className="modal-nested-grid">
+          {entries.map(([subKey, subVal]) => {
+            const renderedVal = renderDataValue(subKey, subVal);
+            if (renderedVal === null) return null;
+            return (
+              <div key={subKey} className="modal-nested-row">
+                <span className="modal-nested-key">{formatKeyName(subKey)}</span>
+                <div className="modal-nested-val">{renderedVal}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Boolean representation
+  if (typeof value === 'boolean') {
+    return <span className={`badge-bool ${value ? 'bool-yes' : 'bool-no'}`}>{value ? 'Yes' : 'No'}</span>;
+  }
+
+  return <span>{String(value)}</span>;
+}
+
+// Renders form data fields recursively in a clean layout
 function FormDataViewer({ data }) {
   if (!data || typeof data !== 'object') {
     return <p className="modal-no-data">No data available.</p>;
@@ -51,16 +152,17 @@ function FormDataViewer({ data }) {
   }
   return (
     <div className="modal-fields-grid">
-      {entries.map(([key, value]) => (
-        <div key={key} className="modal-field-row">
-          <span className="modal-field-key">
-            {key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}
-          </span>
-          <span className="modal-field-val">
-            {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
-          </span>
-        </div>
-      ))}
+      {entries.map(([key, value]) => {
+        const isComplex = typeof value === 'object' && value !== null;
+        return (
+          <div key={key} className={`modal-field-row ${isComplex ? 'full-width' : ''}`}>
+            <span className="modal-field-key">{formatKeyName(key)}</span>
+            <div className="modal-field-val">
+              {renderDataValue(key, value)}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -73,8 +175,15 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
   const [displayedRecords, setDisplayedRecords] = useState([]);
   const [activeRecordModal, setActiveRecordModal] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFormTab, setSelectedFormTab] = useState(filterTabId || 'general-admission-consent');
 
   useEffect(() => { setViewMode(initialMode); }, [initialMode]);
+
+  useEffect(() => {
+    if (filterTabId) {
+      setSelectedFormTab(filterTabId);
+    }
+  }, [filterTabId]);
 
   useEffect(() => {
     const list = getRegisteredPatients();
@@ -94,7 +203,7 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
     }
   }, [selectedPatientIp]);
 
-  useEffect(() => { refreshRecords(); }, [viewMode, selectedPatientIp, searchQuery]);
+  useEffect(() => { refreshRecords(); }, [viewMode, selectedPatientIp, searchQuery, selectedFormTab]);
 
   const refreshRecords = () => {
     let list = [];
@@ -102,8 +211,8 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
     else if (viewMode === 'drafts') list = getDraftRecords();
     else list = selectedPatientIp ? getRecordsByPatientIp(selectedPatientIp) : getSavedRecords();
 
-    if (filterTabId) {
-      list = list.filter(r => FORM_TYPE_TO_TAB[r.formType] === filterTabId);
+    if (viewMode === 'records' || viewMode === 'drafts') {
+      list = list.filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab);
     }
 
     if (searchQuery.trim()) {
@@ -137,13 +246,9 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
     if (onEdit) onEdit(tabId, rec.data, rec.id);
   };
 
-  const completedCount = filterTabId 
-    ? getCompletedRecords().filter(r => FORM_TYPE_TO_TAB[r.formType] === filterTabId).length
-    : getCompletedRecords().length;
+  const completedCount = getCompletedRecords().filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab).length;
 
-  const draftCount = filterTabId 
-    ? getDraftRecords().filter(r => FORM_TYPE_TO_TAB[r.formType] === filterTabId).length
-    : getDraftRecords().length;
+  const draftCount = getDraftRecords().filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab).length;
 
   return (
     <div className="daily-assessment-wrapper">
@@ -203,6 +308,20 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
                 {patients.length === 0 && <option value="">No patients registered</option>}
                 {patients.map(pt => (
                   <option key={pt.ipNo} value={pt.ipNo}>{pt.ipNo} — {pt.patientName} (UHID: {pt.uhidNo})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Form Selector (records or drafts mode) */}
+        {(viewMode === 'records' || viewMode === 'drafts') && (
+          <div className="pd-selector-bar">
+            <div className="pd-select-field">
+              <label className="pd-label">Select Clinical Form Type:</label>
+              <select value={selectedFormTab} onChange={(e) => setSelectedFormTab(e.target.value)} className="pd-select">
+                {Object.entries(FORM_TYPE_TO_TAB).map(([formName, tabId]) => (
+                  <option key={tabId} value={tabId}>{formName}</option>
                 ))}
               </select>
             </div>

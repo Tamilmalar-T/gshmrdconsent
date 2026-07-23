@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Save, CheckCircle2 } from 'lucide-react';
+import { 
+  Save, 
+  CheckCircle2,
+  FolderCheck,
+  FileEdit,
+  Printer
+} from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
-import { saveFormRecord } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 
 const PERSIST_KEY = 'lab_requisition';
 
-export default function LabRequisitionPage({ onNavigate }) {
+export default function LabRequisitionPage({ onNavigate, editData, editRecordId }) {
   // Metadata State
   const [meta, setMeta] = useState({
     name: '',
@@ -40,52 +46,73 @@ export default function LabRequisitionPage({ onNavigate }) {
     'Blood Culture & Sensitivity': true
   });
 
+  const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Restore persisted form on mount
+  // Restore persisted form or set edit data on mount
   useEffect(() => {
-    const saved = restoreForm(PERSIST_KEY);
-    if (saved) {
-      if (saved.meta) setMeta(m => ({ ...m, ...saved.meta }));
-      if (saved.selectedTests) setSelectedTests(saved.selectedTests);
+    if (editData) {
+      if (editData.meta) setMeta(editData.meta);
+      if (editData.selectedTests) setSelectedTests(editData.selectedTests);
+      if (editRecordId) setRecordId(editRecordId);
+    } else {
+      const saved = restoreForm(PERSIST_KEY);
+      if (saved) {
+        if (saved.meta) setMeta(m => ({ ...m, ...saved.meta }));
+        if (saved.selectedTests) setSelectedTests(saved.selectedTests);
+      }
     }
-  }, []);
+  }, [editData, editRecordId]);
 
-  // Auto-save to localStorage on every change
+  // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => persistForm(PERSIST_KEY, { meta, selectedTests }), 300);
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, { meta, selectedTests });
+      const hasContent = meta.name || meta.ipNo || meta.uhidNo || Object.values(selectedTests).some(val => val === true || val?.length > 0);
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Laboratory Requisition', meta, { meta, selectedTests }, setRecordId);
+      }
+    }, 1000);
     return () => clearTimeout(t);
-  }, [meta, selectedTests]);
+  }, [meta, selectedTests, recordId]);
 
 
   const handleMetaChange = (e) => {
     const { name, value } = e.target;
     setMeta((prev) => ({ ...prev, [name]: value }));
   };
+  const triggerAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      setMeta(prev => ({
+        ...prev,
+        name: found.patientName || prev.name,
+        age: found.age || prev.age,
+        sex: found.sex || prev.sex,
+        uhidNo: found.uhidNo || prev.uhidNo,
+        ipNo: found.ipNo || prev.ipNo,
+        ward: found.ward || prev.ward,
+        bed: found.bedNo || prev.bed || '',
+        referringDoctor: found.consultantName || prev.referringDoctor,
+        date: found.doa || prev.date
+      }));
+      setToastMsg('Patient details auto-filled');
+      setTimeout(() => setToastMsg(''), 2000);
+    }
+  };
 
   const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const value = e.target.value;
-      const found = findPatientByIpNo(value);
-      if (found) {
-        setMeta(prev => ({
-          ...prev,
-          name: found.patientName || prev.name,
-          age: found.age || prev.age,
-          sex: found.sex || prev.sex,
-          uhidNo: found.uhidNo || prev.uhidNo,
-          ipNo: found.ipNo || prev.ipNo,
-          ward: found.ward || prev.ward,
-          bed: found.bedNo || prev.bed,
-          referringDoctor: found.consultantName || prev.referringDoctor,
-          date: found.doa || prev.date
-        }));
-        setToastMsg('Patient details auto-filled');
-        setTimeout(() => setToastMsg(''), 2000);
-      }
+      triggerAutofill(e.target.value);
     }
   };
+
+  const handleIpBlur = (e) => {
+    triggerAutofill(e.target.value);
+  };
+
 
   const toggleTest = (testName) => {
     setSelectedTests((prev) => ({
@@ -116,15 +143,17 @@ export default function LabRequisitionPage({ onNavigate }) {
       others: ''
     });
     setSelectedTests({});
+    setRecordId(null);
     clearPersistedForm(PERSIST_KEY);
   };
 
 
   const handleSave = () => {
     const ip = meta.ipNo || meta.uhidNo || 'UNASSIGNED';
-    saveFormRecord('Laboratory Requisition', ip, { meta, selectedTests });
+    const saved = upsertFormRecord(recordId, 'Laboratory Requisition', ip, { meta, selectedTests });
+    setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg('Laboratory Requisition saved successfully!');
+    setToastMsg(recordId ? 'Laboratory Requisition updated successfully!' : 'Laboratory Requisition saved successfully!');
     setTimeout(() => {
       setToastMsg('');
       if (onNavigate) onNavigate('view-records');
@@ -212,6 +241,32 @@ export default function LabRequisitionPage({ onNavigate }) {
           <span>{toastMsg}</span>
         </div>
       )}
+
+      {/* Top Action Header Bar */}
+      <div className="no-print page-action-bar">
+        <h2 className="vitals-page-heading">Laboratory Requisition</h2>
+        <div className="action-btns-group">
+          <button type="button" className="btn-mint-clear" onClick={handleSave}>
+            <Save size={14} />
+            <span>Save Requisition</span>
+          </button>
+          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+            <span>Clear Form</span>
+          </button>
+          <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
+            <FolderCheck size={14} />
+            <span>View Records</span>
+          </button>
+          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
+            <FileEdit size={14} />
+            <span>View Drafts</span>
+          </button>
+          <button type="button" className="btn-mint-save" onClick={() => window.print()}>
+            <Printer size={14} />
+            <span>Print Form</span>
+          </button>
+        </div>
+      </div>
 
       {/* Lab Sheet Paper Container */}
       <div className="lab-card-container">
@@ -301,6 +356,8 @@ export default function LabRequisitionPage({ onNavigate }) {
                       name="uhidNo" 
                       value={meta.uhidNo} 
                       onChange={handleMetaChange} 
+                      onKeyDown={handleIpKeyDown}
+                      onBlur={handleIpBlur}
                       className="info-input-plain"
                     />
                   </div>
@@ -316,6 +373,8 @@ export default function LabRequisitionPage({ onNavigate }) {
                       name="ipNo" 
                       value={meta.ipNo} 
                       onChange={handleMetaChange} 
+                      onKeyDown={handleIpKeyDown}
+                      onBlur={handleIpBlur}
                       className="info-input-plain"
                     />
                   </div>

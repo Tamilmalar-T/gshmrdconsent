@@ -10,11 +10,22 @@ import {
   SquareCheck,
   ClipboardCheck,
   ClipboardList,
-  UserPlus
+  UserPlus,
+  UserCog,
+  Layers,
+  Settings
 } from 'lucide-react';
 
 export default function Sidebar({ sidebarOpen, activeTab, setActiveTab }) {
   const menuSections = [
+    {
+      title: 'MASTERS',
+      items: [
+        { id: 'user-master', label: 'User Master', icon: UserCog },
+        { id: 'type-master', label: 'Type Master', icon: Layers },
+        { id: 'case-sheet-master', label: 'Case Sheet Master', icon: Settings }
+      ]
+    },
     {
       title: 'PATIENT REGISTER',
       items: [

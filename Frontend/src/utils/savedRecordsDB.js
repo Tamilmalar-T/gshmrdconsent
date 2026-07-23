@@ -18,10 +18,10 @@ export const getSavedRecords = () => {
  * - If existingId is null/undefined, creates a brand-new record.
  * Returns the saved record (with its id).
  */
-export const upsertFormRecord = (existingId, formType, rawIpNo, formData, createdBy) => {
+export const upsertFormRecord = (existingId, formType, rawIpNo, formData, createdBy, forceDraft) => {
   const records = getSavedRecords();
   const cleanIp = (rawIpNo || '').trim().toUpperCase();
-  const isDraft = !cleanIp || cleanIp === 'UNASSIGNED' || cleanIp === 'DRAFT' || cleanIp === 'NO IP';
+  const isDraft = forceDraft !== undefined ? forceDraft : (!cleanIp || cleanIp === 'UNASSIGNED' || cleanIp === 'DRAFT' || cleanIp === 'NO IP');
 
   const patientName =
     formData?.patientName ||
@@ -104,3 +104,16 @@ export const deleteAllDrafts = () => {
   localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(updated));
   return updated;
 };
+
+export const autoSaveFormDraft = (recordId, formType, patient, formData, setRecordId) => {
+  const ip = patient?.ipNo || patient?.uhidNo || 'UNASSIGNED';
+  const records = getSavedRecords();
+  const existing = recordId ? records.find(r => r.id === recordId) : null;
+  const forceDraft = existing ? existing.isDraft : true;
+  const saved = upsertFormRecord(recordId, formType, ip, formData, null, forceDraft);
+  if (saved && saved.id !== recordId) {
+    setRecordId(saved.id);
+  }
+  return saved;
+};
+

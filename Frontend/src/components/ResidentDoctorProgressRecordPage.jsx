@@ -12,13 +12,13 @@ import {
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
-import { saveFormRecord } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 
 const PERSIST_KEY = 'resident_doctor_progress';
 
 
-export default function ResidentDoctorProgressRecordPage({ onNavigate }) {
+export default function ResidentDoctorProgressRecordPage({ onNavigate, editData, editRecordId }) {
   // Patient Metadata State
   const [patient, setPatient] = useState({
     name: '',
@@ -66,22 +66,35 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate }) {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
+  const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Restore persisted form on mount
+  // Restore persisted form or set edit data on mount
   useEffect(() => {
-    const saved = restoreForm(PERSIST_KEY);
-    if (saved) {
-      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-      if (saved.soap) setSoap(s => ({ ...s, ...saved.soap }));
+    if (editData) {
+      if (editData.patient) setPatient(editData.patient);
+      if (editData.soap) setSoap(editData.soap);
+      if (editRecordId) setRecordId(editRecordId);
+    } else {
+      const saved = restoreForm(PERSIST_KEY);
+      if (saved) {
+        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+        if (saved.soap) setSoap(s => ({ ...s, ...saved.soap }));
+      }
     }
-  }, []);
+  }, [editData, editRecordId]);
 
-  // Auto-save to localStorage on every change
+  // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => persistForm(PERSIST_KEY, { patient, soap }), 300);
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, { patient, soap });
+      const hasContent = patient.name || patient.ipNo || patient.uhidNo || soap.subjective || soap.assessment;
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Progress & Reassessment Record - Resident Doctor', patient, { patient, soap }, setRecordId);
+      }
+    }, 1000);
     return () => clearTimeout(t);
-  }, [patient, soap]);
+  }, [patient, soap, recordId]);
 
 
   const handlePatientChange = (e) => {
@@ -195,13 +208,30 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate }) {
 
   const handleSave = () => {
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    saveFormRecord('Progress & Reassessment Record - Resident Doctor', ip, { patient, soap });
+    const saved = upsertFormRecord(recordId, 'Progress & Reassessment Record - Resident Doctor', ip, { patient, soap });
+    setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg('Progress record saved successfully!');
+    setToastMsg(recordId ? 'Progress record updated successfully!' : 'Progress record saved successfully!');
     setTimeout(() => {
       setToastMsg('');
       if (onNavigate) onNavigate('view-records');
     }, 800);
+  };
+
+  const handleClearForm = () => {
+    setPatient({
+      name: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', consultantName: '', doa: '', ward: '', bedNo: ''
+    });
+    setSoap({
+      subjective: '', temp: '', bp: '', pulse: '', rr: '', io: '', labParameters: '', reviewOfSystems: '',
+      assessment: '', planDiagnosisImaging: false, planTreatmentCrossConsult: false, planPatientEducationFollowup: false,
+      planNotes: '', advice: '', doctorName: 'Dr. Sadhana', docDate: '2026-07-23', docTime: '11:16'
+    });
+    clearSig();
+    setRecordId(null);
+    clearPersistedForm(PERSIST_KEY);
+    setToastMsg('Form cleared.');
+    setTimeout(() => setToastMsg(''), 2000);
   };
 
   const handlePrint = () => {
@@ -224,6 +254,9 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate }) {
           <button type="button" className="btn-mint-clear" onClick={handleSave}>
             <Save size={14} />
             <span>Save Record</span>
+          </button>
+          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+            <span>Clear Form</span>
           </button>
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />

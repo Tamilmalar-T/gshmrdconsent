@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
-import { upsertFormRecord } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 
 const PERSIST_KEY = 'consent_general_admission';
@@ -73,6 +73,9 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     officeBed: ''
   });
 
+  const [toastMsg, setToastMsg] = useState('');
+  const [recordId, setRecordId] = useState(null); // tracks the current saved record id
+
   // Pre-fill form when editing a saved record
   useEffect(() => {
     if (editData) {
@@ -85,15 +88,17 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     }
   }, [editData, editRecordId]);
 
-  // Auto-save form to localStorage whenever it changes
+  // Auto-save form to localStorage and database draft whenever it changes
   useEffect(() => {
-    const t = setTimeout(() => persistForm(PERSIST_KEY, form), 300);
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, form);
+      const hasContent = form.patientName || form.ipNo || form.uhidNo;
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Consent for General Admission', { ipNo: form.ipNo, uhidNo: form.uhidNo, name: form.patientName }, form, setRecordId);
+      }
+    }, 1000);
     return () => clearTimeout(t);
-  }, [form]);
-
-
-  const [toastMsg, setToastMsg] = useState('');
-  const [recordId, setRecordId] = useState(null); // tracks the current saved record id
+  }, [form, recordId]);
 
   // Canvas Refs & State
   const patientCanvasRef = useRef(null);
@@ -341,6 +346,14 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
         </div>
 
         <div className="page-actions">
+          <button className="btn btn-primary btn-save-action" onClick={handleSave}>
+            <Save size={15} />
+            <span>Save Record</span>
+          </button>
+          <button className="btn btn-secondary" onClick={handleClear} style={{ background: '#cbd5e1', border: '1px solid #94a3b8', color: '#1e293b' }}>
+            <RotateCcw size={15} />
+            <span>Clear Form</span>
+          </button>
           <button className="btn btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={15} />
             <span>View Records</span>
@@ -349,7 +362,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
             <FileEdit size={15} />
             <span>View Drafts</span>
           </button>
-          <button className="btn btn-primary" onClick={handlePrint}>
+          <button className="btn btn-secondary" onClick={handlePrint}>
             <Printer size={15} />
             <span>Print Form</span>
           </button>
