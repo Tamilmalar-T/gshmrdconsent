@@ -8,6 +8,7 @@ import {
   FileEdit,
   Printer
 } from 'lucide-react';
+import HospitalPaperHeader from './HospitalPaperHeader';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
@@ -39,8 +40,8 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
   // Diabetic Grid Rows State
   const [rows, setRows] = useState([
     { id: 1, date: getCurrentDate(), time: getCurrentTime(), grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
-    { id: 2, date: '', time: '', grbsType: 'PPBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
-    { id: 3, date: '', time: '', grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' }
+    { id: 2, date: getCurrentDate(), time: getCurrentTime(), grbsType: 'PPBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
+    { id: 3, date: getCurrentDate(), time: getCurrentTime(), grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' }
   ]);
 
   const [recordId, setRecordId] = useState(null);
@@ -185,8 +186,8 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
     });
     setRows([
       { id: 1, date: getCurrentDate(), time: getCurrentTime(), grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
-      { id: 2, date: '', time: '', grbsType: 'PPBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
-      { id: 3, date: '', time: '', grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' }
+      { id: 2, date: getCurrentDate(), time: getCurrentTime(), grbsType: 'PPBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' },
+      { id: 3, date: getCurrentDate(), time: getCurrentTime(), grbsType: 'FBS', grbs: '', reading: '', medication: '', sign: 'Sadhana' }
     ]);
     setRecordId(null);
     clearPersistedForm(PERSIST_KEY);
@@ -247,33 +248,8 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
       <div className="lab-card-container">
         <div className="inner-lab-form-box">
           
-          {/* Top Kannada Text */}
-          <div className="form-top-kannada">ಗುರುಶ್ರೀ ಹೈಟೆಕ್ ಆಸ್ಪತ್ರೆ</div>
-
-          {/* Hospital Header Block */}
-          <div className="care-plan-hospital-header">
-            <div className="nabh-diamond-wrapper">
-              <div className="nabh-diamond">
-                <div className="diamond-inner-text">
-                  <span className="nabh-head">NABH</span>
-                  <span className="nabh-sub">PRE-ACCREDITED</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="center-hospital-brand">
-              <div className="hospital-logo-row">
-                <div className="gs-square-logo">
-                  <span className="gs-text">GS</span>
-                </div>
-                <div className="hospital-titles">
-                  <h1 className="eng-title-large">GURUSHREE</h1>
-                  <h2 className="eng-title-medium">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
-                  <p className="eng-tagline">A touch can instill faith</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Hospital Header */}
+          <HospitalPaperHeader />
 
           {/* Form Title Banner */}
           <div className="care-plan-form-title">

@@ -9,10 +9,20 @@ import {
   FileEdit
 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+import HospitalPaperHeader from './HospitalPaperHeader';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 
 const PERSIST_KEY = 'intake_output_record';
+
+const getCurrentDate = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+};
+const getCurrentTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+};
 
 export default function IntakeOutputRecordPage({ onNavigate, editData, editRecordId }) {
   // Patient Metadata
@@ -31,7 +41,7 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
   // Intake & Output Grid Rows
   const createEmptyRow = (id) => ({
     id,
-    date: '2026-07-22',
+    date: getCurrentDate(),
     // INTAKE (6 AM - 6 AM)
     ivTime: '',
     ivAmount: '',
@@ -220,33 +230,8 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
       <div className="vitals-card-container">
         <div className="inner-vitals-form-box">
           
-          {/* Top Kannada Header */}
-          <div className="form-top-kannada">ಗುರುಶ್ರೀ ಹೈಟೆಕ್ ಆಸ್ಪತ್ರೆ</div>
-
-          {/* Hospital Header Block */}
-          <div className="care-plan-hospital-header">
-            <div className="nabh-diamond-wrapper">
-              <div className="nabh-diamond">
-                <div className="diamond-inner-text">
-                  <span className="nabh-head">NABH</span>
-                  <span className="nabh-sub">PRE-ACCREDITED</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="center-hospital-brand">
-              <div className="hospital-logo-row">
-                <div className="gs-square-logo">
-                  <span className="gs-text">GS</span>
-                </div>
-                <div className="hospital-titles">
-                  <h1 className="eng-title-large">GURUSHREE</h1>
-                  <h2 className="eng-title-medium">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
-                  <p className="eng-tagline">A touch can instill faith</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Hospital Header */}
+          <HospitalPaperHeader />
 
           {/* Form Title Banner */}
           <div className="care-plan-form-title">

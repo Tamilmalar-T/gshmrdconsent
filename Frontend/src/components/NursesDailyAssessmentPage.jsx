@@ -157,14 +157,14 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
   const [painRows, setPainRows] = useState([
     {
       id: 1,
-      date: '',
-      time: '',
+      date: getCurrentDate(),
+      time: getCurrentTime(),
       location: '',
       scale: '0',
       action: '',
-      actionTime: '',
+      actionTime: getCurrentTime(),
       reevalScale: '0',
-      reevalTime: '',
+      reevalTime: getCurrentTime(),
       staffSign: ''
     }
   ]);
@@ -265,14 +265,14 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
       ...prev,
       {
         id: Date.now(),
-        date: '',
-        time: '',
+        date: getCurrentDate(),
+        time: getCurrentTime(),
         location: '',
         scale: '0',
         action: '',
-        actionTime: '',
+        actionTime: getCurrentTime(),
         reevalScale: '0',
-        reevalTime: '',
+        reevalTime: getCurrentTime(),
         staffSign: ''
       }
     ]);
@@ -322,7 +322,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
       nbm: { s1: '', s2: '', s3: '' }, liquid: { s1: '', s2: '', s3: '' }, soft: { s1: '', s2: '', s3: '' }, regular: { s1: '', s2: '', s3: '' }, special: { s1: '', s2: '', s3: '' }
     });
     setPainRows([
-      { id: 1, date: getCurrentDate(), time: getCurrentTime(), location: '', scale: '0', action: '', actionTime: '', reevalScale: '0', reevalTime: '', staffSign: '' }
+      { id: 1, date: getCurrentDate(), time: getCurrentTime(), location: '', scale: '0', action: '', actionTime: getCurrentTime(), reevalScale: '0', reevalTime: getCurrentTime(), staffSign: '' }
     ]);
     setActivePainScore(3);
     setRecordId(null);

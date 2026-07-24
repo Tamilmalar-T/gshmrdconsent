@@ -8,6 +8,16 @@ import {
   Stethoscope,
   FileText
 } from 'lucide-react';
+import HospitalPaperHeader from './HospitalPaperHeader';
+
+const getCurrentDate = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+};
+const getCurrentTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+};
 
 export default function ProgressReassessmentRecordPage() {
   // Patient Metadata State
@@ -40,8 +50,8 @@ export default function ProgressReassessmentRecordPage() {
     planEducationCheck: false,
     advice: '',
     doctorName: 'Dr. Resident Doctor',
-    recordDate: '2026-07-23',
-    recordTime: '11:15'
+    recordDate: getCurrentDate(),
+    recordTime: getCurrentTime()
   });
 
   const [toastMsg, setToastMsg] = useState('');
@@ -172,29 +182,7 @@ export default function ProgressReassessmentRecordPage() {
       <div className="yellow-paper-container">
         
         {/* Hospital Header */}
-        <div className="care-plan-hospital-header">
-          <div className="nabh-diamond-wrapper">
-            <div className="nabh-diamond">
-              <div className="diamond-inner-text">
-                <span className="nabh-head">NABH</span>
-                <span className="nabh-sub">PRE-ACCREDITED</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="center-hospital-brand">
-            <div className="hospital-logo-row">
-              <div className="gs-square-logo">
-                <span className="gs-text">GS</span>
-              </div>
-              <div className="hospital-titles">
-                <h1 className="eng-title-large">GURUSHREE</h1>
-                <h2 className="eng-title-medium">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
-                <p className="eng-tagline">A touch can instill faith</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <HospitalPaperHeader />
 
         {/* Title Banner */}
         <div className="care-plan-form-title yellow-form-title">

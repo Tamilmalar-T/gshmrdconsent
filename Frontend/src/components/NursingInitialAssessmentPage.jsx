@@ -7,6 +7,7 @@ import {
   FileEdit
 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 
@@ -268,33 +269,8 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
       <div className="assessment-card-container">
         <div className="inner-assessment-form-box">
           
-          {/* Top Kannada Text */}
-          <div className="form-top-kannada">ಗುರುಶ್ರೀ ಹೈಟೆಕ್ ಆಸ್ಪತ್ರೆ</div>
-
-          {/* Hospital Header Block */}
-          <div className="care-plan-hospital-header">
-            <div className="nabh-diamond-wrapper">
-              <div className="nabh-diamond">
-                <div className="diamond-inner-text">
-                  <span className="nabh-head">NABH</span>
-                  <span className="nabh-sub">PRE-ACCREDITED</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="center-hospital-brand">
-              <div className="hospital-logo-row">
-                <div className="gs-square-logo">
-                  <span className="gs-text">GS</span>
-                </div>
-                <div className="hospital-titles">
-                  <h1 className="eng-title-large">GURUSHREE</h1>
-                  <h2 className="eng-title-medium">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
-                  <p className="eng-tagline">A touch can instill faith</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Hospital Header */}
+          <HospitalPaperHeader />
 
           {/* Form Title Banner */}
           <div className="care-plan-form-title">

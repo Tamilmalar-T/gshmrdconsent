@@ -16,6 +16,14 @@ import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersi
 
 const PERSIST_KEY = 'consent_general_admission';
 
+const getCurrentDate = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+};
+const getCurrentTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+};
 
 export default function ConsentGeneralAdmissionPage({ onNavigate, editData, editRecordId }) {
   // Page Form Fields
@@ -39,10 +47,10 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     relationship: '',
     informantAddress: '',
     consentAccepted: false,
-    patientSignDate: '',
-    witnessSignDate: '',
-    patientSignTime: '',
-    witnessSignTime: '',
+    patientSignDate: getCurrentDate(),
+    witnessSignDate: getCurrentDate(),
+    patientSignTime: getCurrentTime(),
+    witnessSignTime: getCurrentTime(),
     
     // Legacy fields that might persist
     ward: '',
@@ -67,8 +75,8 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     // Office Use Fields
     officeUhid: '',
     officeIpNo: '',
-    dateOfAdmission: '',
-    timeOfAdmission: '',
+    dateOfAdmission: getCurrentDate(),
+    timeOfAdmission: getCurrentTime(),
     officeWard: '',
     officeBed: ''
   });
@@ -313,14 +321,14 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
       medicalInsurance: 'Yes', doa: '', occupation: '', fatherName: '',
       husbandName: '', address: '', phoneNo: '', informantName: '',
       relationship: '', informantAddress: '', consentAccepted: false,
-      patientSignDate: '', witnessSignDate: '', patientSignTime: '',
-      witnessSignTime: '', ward: '', insuranceDetails: '',
+      patientSignDate: getCurrentDate(), witnessSignDate: getCurrentDate(), patientSignTime: getCurrentTime(),
+      witnessSignTime: getCurrentTime(), ward: '', insuranceDetails: '',
       presentAddressLine1: '', presentAddressLine2: '', employeePensioner: '',
       personFillingForm: '', broughtBy: '', accidentPoisoning: '',
       modeAccidentPoisoning: '', dateTimeIncident: '', witnessName: '',
       witnessRelationship: '', witnessAddress: '', witnessMobile: '',
       patientAddress: '', patientMobile: '', officeUhid: '', officeIpNo: '',
-      dateOfAdmission: '', timeOfAdmission: '', officeWard: '', officeBed: ''
+      dateOfAdmission: getCurrentDate(), timeOfAdmission: getCurrentTime(), officeWard: '', officeBed: ''
     });
     setRecordId(null);
     clearPersistedForm(PERSIST_KEY);
@@ -346,14 +354,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
         </div>
 
         <div className="page-actions">
-          <button className="btn btn-primary btn-save-action" onClick={handleSave}>
-            <Save size={15} />
-            <span>Save Record</span>
-          </button>
-          <button className="btn btn-secondary" onClick={handleClear} style={{ background: '#cbd5e1', border: '1px solid #94a3b8', color: '#1e293b' }}>
-            <RotateCcw size={15} />
-            <span>Clear Form</span>
-          </button>
+       
           <button className="btn btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={15} />
             <span>View Records</span>

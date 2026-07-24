@@ -41,8 +41,8 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
   // Notes Rows State
   const [rows, setRows] = useState([
     { id: 1, date: getCurrentDate(), time: getCurrentTime(), notes: '', sign: 'Sadhana' },
-    { id: 2, date: '', time: '', notes: '', sign: 'Sadhana' },
-    { id: 3, date: '', time: '', notes: '', sign: 'Sadhana' }
+    { id: 2, date: getCurrentDate(), time: getCurrentTime(), notes: '', sign: 'Sadhana' },
+    { id: 3, date: getCurrentDate(), time: getCurrentTime(), notes: '', sign: 'Sadhana' }
   ]);
 
   const [recordId, setRecordId] = useState(null);
@@ -183,8 +183,8 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
     });
     setRows([
       { id: 1, date: getCurrentDate(), time: getCurrentTime(), notes: '', sign: 'Sadhana' },
-      { id: 2, date: '', time: '', notes: '', sign: 'Sadhana' },
-      { id: 3, date: '', time: '', notes: '', sign: 'Sadhana' }
+      { id: 2, date: getCurrentDate(), time: getCurrentTime(), notes: '', sign: 'Sadhana' },
+      { id: 3, date: getCurrentDate(), time: getCurrentTime(), notes: '', sign: 'Sadhana' }
     ]);
     setRecordId(null);
     clearPersistedForm(PERSIST_KEY);

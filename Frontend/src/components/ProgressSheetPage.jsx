@@ -8,6 +8,7 @@ import {
   FileEdit,
   Printer
 } from 'lucide-react';
+import HospitalPaperHeader from './HospitalPaperHeader';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
@@ -46,8 +47,8 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
 
   const [rows, setRows] = useState([
     { id: 1, date: getCurrentDate(), time: getCurrentTime(), notes: '', signature: 'Sadhana' },
-    { id: 2, date: '', time: '', notes: '', signature: 'Sadhana' },
-    { id: 3, date: '', time: '', notes: '', signature: 'Sadhana' }
+    { id: 2, date: getCurrentDate(), time: getCurrentTime(), notes: '', signature: 'Sadhana' },
+    { id: 3, date: getCurrentDate(), time: getCurrentTime(), notes: '', signature: 'Sadhana' }
   ]);
   const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
@@ -196,8 +197,8 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
     });
     setRows([
       { id: 1, date: getCurrentDate(), time: getCurrentTime(), notes: '', signature: 'Sadhana' },
-      { id: 2, date: '', time: '', notes: '', signature: 'Sadhana' },
-      { id: 3, date: '', time: '', notes: '', signature: 'Sadhana' }
+      { id: 2, date: getCurrentDate(), time: getCurrentTime(), notes: '', signature: 'Sadhana' },
+      { id: 3, date: getCurrentDate(), time: getCurrentTime(), notes: '', signature: 'Sadhana' }
     ]);
     setRecordId(null);
     clearPersistedForm(PERSIST_KEY);
@@ -256,26 +257,8 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
         {/* Inner Pink Form Box */}
         <div className="inner-pink-form-box">
           
-          {/* Top Kannada Text */}
-          <div className="form-top-kannada">ಗುರುಶ್ರೀ ಹೈಟೆಕ್ ಆಸ್ಪತ್ರೆ</div>
-
-          {/* Hospital Header Block */}
-          <div className="care-plan-hospital-header">
-           
-
-            <div className="center-hospital-brand">
-              <div className="hospital-logo-row">
-                <div className="gs-square-logo">
-                  <span className="gs-text">GS</span>
-                </div>
-                <div className="hospital-titles">
-                  <h1 className="eng-title-large">GURUSHREE</h1>
-                  <h2 className="eng-title-medium">HI-TECH MULTI SPECIALITY HOSPITAL</h2>
-                  <p className="eng-tagline">A touch can instill faith</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Hospital Header */}
+          <HospitalPaperHeader />
 
           {/* Form Title Banner */}
           <div className="care-plan-form-title">

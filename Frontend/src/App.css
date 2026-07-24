@@ -1554,17 +1554,98 @@
   color: #1e1b4b;
 }
 
+/* ── Vitals Chart Legend Corner ── */
+.th-legend-corner {
+  width: 90px;
+  min-width: 90px;
+  background-color: #ffffff;
+  vertical-align: top;
+  padding: 6px 6px;
+  text-align: left;
+  border: 1px solid #0f172a;
+}
+
+.th-axis-header {
+  vertical-align: middle;
+  text-align: center;
+}
+
+.vchart-legend-title {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.vchart-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.vchart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.vlegend-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* ── Readings axis column ── */
+.th-readings-corner {
+  width: 44px;
+  min-width: 44px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #0f172a;
+  background-color: #f1f5f9;
+  text-align: center;
+  vertical-align: middle;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.td-reading-val {
+  width: 44px;
+  min-width: 44px;
+  text-align: right;
+  padding-right: 4px !important;
+  font-size: 10px;
+  font-weight: 700;
+  color: #0f172a;
+  background-color: #f8fafc;
+}
+
 .th-hour-slot {
   font-size: 9.5px;
   font-weight: 600;
   background-color: #ffffff;
-  width: 28px;
+  width: 26px;
+  min-width: 22px;
 }
 
 .td-pulse-axis {
   width: 50px;
   background-color: #fef2f2;
   position: relative;
+  /* Remove internal horizontal row lines from the Pulse label column */
+  border-top: none !important;
+  border-bottom: none !important;
 }
 
 .axis-title-pulse {
@@ -1586,6 +1667,9 @@
   width: 60px;
   background-color: #f8fafc;
   position: relative;
+  /* Remove internal horizontal row lines from the Temp/Resp label column */
+  border-top: none !important;
+  border-bottom: none !important;
 }
 
 .axis-title-temp {
@@ -1625,22 +1709,75 @@
   margin-bottom: 12px;
 }
 
+.entry-grid-row-6 {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .vitals-cell-slot {
-  height: 18px;
+  height: 11px;          /* each row = 2 pulse units */
   cursor: pointer;
   user-select: none;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent,
-    transparent 3px,
-    #94a3b8 3px,
-    #94a3b8 4px
-  );
+  background-color: #ffffff;
   transition: background-color 0.1s;
 }
 
 .vitals-cell-slot:hover {
-  background-color: #e2e8f0;
+  background-color: rgba(186, 230, 253, 0.6);
+}
+
+/* ── Major row (every 10 pulse units / 5 rows): bold top border ── */
+.vitals-major-row .vitals-cell-slot {
+  border-top: 1.5px solid #334155 !important;
+  background-color: #f1f5f9;
+}
+
+.vitals-major-row .vitals-cell-slot:hover {
+  background-color: rgba(186, 230, 253, 0.6);
+}
+
+/* ── Minor rows: faint alternating tint every other minor row ── */
+.vitals-minor-row:nth-child(even) .vitals-cell-slot {
+  background-color: #f8fafc;
+}
+
+.vitals-minor-row:nth-child(even) .vitals-cell-slot:hover {
+  background-color: rgba(186, 230, 253, 0.6);
+}
+
+/* ── Major row: bold top border on axis cells too ── */
+.vitals-major-row .td-pulse-axis {
+  border-top: 1.5px solid #334155 !important;
+  border-bottom: none !important;
+}
+
+.vitals-major-row .td-temp-axis {
+  border-top: 1.5px solid #334155 !important;
+  border-bottom: none !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* ── Vertical Dividers ── */
+/* Between Day and Night groups */
+.vdivider-day-night {
+  border-right: 2px solid #64748b !important;
+}
+
+/* Between date column groups */
+.vdivider-date {
+  border-right: 3px solid #0f172a !important;
 }
 
 .grid-dot {

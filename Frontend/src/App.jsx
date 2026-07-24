@@ -118,17 +118,17 @@ function App() {
 
   return (
     <div className="app-container">
-      <Header 
-        sidebarOpen={sidebarOpen} 
-        setSidebarOpen={setSidebarOpen} 
+      <Header
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
         loggedInUser={loggedInUser}
         onLogout={handleLogout}
       />
       <div className="app-body">
-        <Sidebar 
-          sidebarOpen={sidebarOpen} 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
+        <Sidebar
+          sidebarOpen={sidebarOpen}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
         />
         <main className={`app-main-content ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
           {renderContent()}
