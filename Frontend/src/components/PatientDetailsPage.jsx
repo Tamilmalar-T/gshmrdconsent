@@ -24,6 +24,30 @@ import {
   deleteAllDrafts
 } from '../utils/savedRecordsDB';
 
+import ConsentGeneralAdmissionPage from './ConsentGeneralAdmissionPage';
+import NursesCarePlanPage from './NursesCarePlanPage';
+import NursesDailyAssessmentPage from './NursesDailyAssessmentPage';
+import NursingInitialAssessmentPage from './NursingInitialAssessmentPage';
+import ResidentDoctorProgressRecordPage from './ResidentDoctorProgressRecordPage';
+import ProgressSheetPage from './ProgressSheetPage';
+import LabRequisitionPage from './LabRequisitionPage';
+import DiabeticChartPage from './DiabeticChartPage';
+import VitalsChartPage from './VitalsChartPage';
+import IntakeOutputRecordPage from './IntakeOutputRecordPage';
+
+const COMPONENT_MAP = {
+  'Consent for General Admission': ConsentGeneralAdmissionPage,
+  'Nurses Care Plan': NursesCarePlanPage,
+  'Nurses Daily Assessment Care Plan': NursesDailyAssessmentPage,
+  'Nursing Initial Assessment': NursingInitialAssessmentPage,
+  'Progress & Reassessment Record - Resident Doctor': ResidentDoctorProgressRecordPage,
+  'Progress Sheet': ProgressSheetPage,
+  'Laboratory Requisition': LabRequisitionPage,
+  'Diabetic Chart': DiabeticChartPage,
+  'Vitals Chart': VitalsChartPage,
+  'Intake Output Record': IntakeOutputRecordPage,
+};
+
 // Maps formType string → route tab id
 const FORM_TYPE_TO_TAB = {
   'Consent for General Admission': 'general-admission-consent',
@@ -230,13 +254,17 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
   const handleDeleteRecord = (id) => {
     deleteSavedRecord(id);
     refreshRecords();
-    if (activeRecordModal && activeRecordModal.id === id) setActiveRecordModal(null);
+    if (activeRecordModal && activeRecordModal.id === id) {
+      window.isPrintViewMode = false;
+      setActiveRecordModal(null);
+    }
   };
 
   const handleDeleteAllDrafts = () => {
     if (!window.confirm('Are you sure you want to delete ALL draft records? This cannot be undone.')) return;
     deleteAllDrafts();
     refreshRecords();
+    window.isPrintViewMode = false;
     setActiveRecordModal(null);
   };
 
@@ -252,9 +280,10 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
 
   return (
     <div className="daily-assessment-wrapper">
-
-      {/* Top Action Bar */}
-      <div className="no-print page-action-bar">
+      
+      <div className={activeRecordModal ? "no-print" : ""}>
+        {/* Top Action Bar */}
+        <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">
           {viewMode === 'records' && 'View Records (With IP No.)'}
           {viewMode === 'drafts' && 'View Drafts (Without IP No.)'}
@@ -281,7 +310,7 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
       </div>
 
       {/* Paper Sheet */}
-      <div className="green-paper-container">
+      <div className="white-paper-container">
         <HospitalPaperHeader />
 
         {/* Mode Toggle */}
@@ -314,19 +343,7 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
           </div>
         )}
 
-        {/* Form Selector (records or drafts mode) */}
-        {(viewMode === 'records' || viewMode === 'drafts') && (
-          <div className="pd-selector-bar">
-            <div className="pd-select-field">
-              <label className="pd-label">Select Clinical Form Type:</label>
-              <select value={selectedFormTab} onChange={(e) => setSelectedFormTab(e.target.value)} className="pd-select">
-                {Object.entries(FORM_TYPE_TO_TAB).map(([formName, tabId]) => (
-                  <option key={tabId} value={tabId}>{formName}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
+
 
         {/* Search Bar */}
         <div className="pd-search-strip">
@@ -416,7 +433,15 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
                         ? <span className="badge-draft-tag">Draft</span>
                         : <span className="pd-ip-text">{rec.patientIpNo}</span>}
                     </td>
-                    <td className="pd-cell-name">{rec.patientName || '—'}</td>
+                    <td className="pd-cell-name">
+                      {rec.patientName || 
+                       rec.data?.patientName || 
+                       rec.data?.name || 
+                       rec.data?.patName || 
+                       rec.data?.patient?.name || 
+                       rec.data?.patient?.patientName || 
+                       '—'}
+                    </td>
                     <td className="pd-cell-muted">
                       <Clock size={12} className="inline-icon" />
                       <span>{rec.savedAt}</span>
@@ -424,10 +449,10 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
                     <td className="pd-cell-user">{rec.createdBy || 'Sadhana Admin'}</td>
                     <td className="text-center no-print">
                       <div className="pd-action-row">
-                        <button type="button" className="btn-pd-view" onClick={() => setActiveRecordModal(rec)} title="View Details">
+                        <button type="button" className="btn-pd-view" onClick={() => { window.isPrintViewMode = true; setActiveRecordModal(rec); }} title="View Details">
                           <Eye size={12} /><span>View</span>
                         </button>
-                        <button type="button" className="btn-pd-edit" onClick={() => handleEditRecord(rec)} title="Edit Record">
+                        <button type="button" className="btn-pd-edit" onClick={() => { window.isPrintViewMode = false; handleEditRecord(rec); }} title="Edit Record">
                           <Pencil size={12} /><span>Edit</span>
                         </button>
                         <button type="button" className="btn-tbl-action-delete" onClick={() => handleDeleteRecord(rec.id)} title="Delete">
@@ -442,24 +467,25 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
           </table>
         </div>
       </div>
+      </div>
 
       {/* Detail View Modal */}
       {activeRecordModal && (
-        <div className="modal-overlay no-print">
+        <div className="modal-overlay">
           <div className="modal-content-card modal-wide">
 
-            <div className="modal-header">
+            <div className="modal-header no-print">
               <div className="modal-title">
                 <FileText size={18} />
                 <span>{activeRecordModal.formType} — {activeRecordModal.isDraft ? 'Draft' : 'Saved Record'}</span>
               </div>
-              <button type="button" className="btn-modal-close" onClick={() => setActiveRecordModal(null)}>
+              <button type="button" className="btn-modal-close" onClick={() => { window.isPrintViewMode = false; setActiveRecordModal(null); }}>
                 <X size={18} />
               </button>
             </div>
 
             {/* Meta strip */}
-            <div className="modal-meta-strip">
+            <div className="modal-meta-strip no-print">
               <div className="modal-meta-item">
                 <span className="modal-meta-label">IP No.</span>
                 <span className="modal-meta-value">{activeRecordModal.isDraft ? 'Draft (No IP)' : activeRecordModal.patientIpNo}</span>
@@ -478,18 +504,24 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
               </div>
             </div>
 
-            <div className="modal-body">
-              <FormDataViewer data={activeRecordModal.data} />
+            <div className="modal-body modal-print-view-container">
+              {(() => {
+                const Component = COMPONENT_MAP[activeRecordModal.formType];
+                if (Component) {
+                  return <Component editData={activeRecordModal.data} editRecordId={activeRecordModal.id} />;
+                }
+                return <FormDataViewer data={activeRecordModal.data} />;
+              })()}
             </div>
 
-            <div className="modal-footer">
-              <button type="button" className="btn-pd-edit" onClick={() => handleEditRecord(activeRecordModal)}>
+            <div className="modal-footer no-print">
+              <button type="button" className="btn-pd-edit" onClick={() => { window.isPrintViewMode = false; handleEditRecord(activeRecordModal); }}>
                 <Pencil size={14} /> Edit Record
               </button>
               <button type="button" className="btn-mint-save" onClick={() => window.print()}>
                 <Printer size={14} /> Print
               </button>
-              <button type="button" className="btn-pr-clear" onClick={() => setActiveRecordModal(null)}>
+              <button type="button" className="btn-pr-clear" onClick={() => { window.isPrintViewMode = false; setActiveRecordModal(null); }}>
                 Close
               </button>
             </div>

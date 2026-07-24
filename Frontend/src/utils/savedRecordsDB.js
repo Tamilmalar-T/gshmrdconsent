@@ -27,6 +27,8 @@ export const upsertFormRecord = (existingId, formType, rawIpNo, formData, create
     formData?.patientName ||
     formData?.name ||
     formData?.patName ||
+    formData?.patient?.name ||
+    formData?.patient?.patientName ||
     '';
 
   if (existingId) {
@@ -106,6 +108,7 @@ export const deleteAllDrafts = () => {
 };
 
 export const autoSaveFormDraft = (recordId, formType, patient, formData, setRecordId) => {
+  if (window.isPrintViewMode) return null;
   const ip = patient?.ipNo || patient?.uhidNo || 'UNASSIGNED';
   const records = getSavedRecords();
   const existing = recordId ? records.find(r => r.id === recordId) : null;

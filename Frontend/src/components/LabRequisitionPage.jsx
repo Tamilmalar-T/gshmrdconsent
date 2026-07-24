@@ -412,13 +412,18 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
 
               <tr>
                 <td colSpan={2}>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Collected by :</span>
-                    <input 
-                      type="text" 
+                  <div className="info-field-inline" style={{ alignItems: 'flex-start' }}>
+                    <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Collected by :</span>
+                    <textarea 
                       name="collectedBy" 
                       value={meta.collectedBy} 
                       onChange={handleMetaChange} 
+                      onInput={(e) => {
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${e.target.scrollHeight}px`;
+                      }}
+                      rows={1}
+                      style={{ resize: 'none', overflow: 'hidden' }}
                       className="info-input-plain"
                     />
                   </div>
@@ -463,13 +468,18 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
 
               <tr>
                 <td colSpan={4}>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Clinical Diagnosis / History :</span>
-                    <input 
-                      type="text" 
+                  <div className="info-field-inline" style={{ alignItems: 'flex-start' }}>
+                    <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Clinical Diagnosis / History :</span>
+                    <textarea 
                       name="clinicalDiagnosis" 
                       value={meta.clinicalDiagnosis} 
                       onChange={handleMetaChange} 
+                      onInput={(e) => {
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${e.target.scrollHeight}px`;
+                      }}
+                      rows={1}
+                      style={{ resize: 'none', overflow: 'hidden' }}
                       className="info-input-plain"
                     />
                   </div>
@@ -478,13 +488,18 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
 
               <tr>
                 <td colSpan={4}>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Drug / Anticoagulant Therapy :</span>
-                    <input 
-                      type="text" 
+                  <div className="info-field-inline" style={{ alignItems: 'flex-start' }}>
+                    <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Drug / Anticoagulant Therapy :</span>
+                    <textarea 
                       name="anticoagulantTherapy" 
                       value={meta.anticoagulantTherapy} 
                       onChange={handleMetaChange} 
+                      onInput={(e) => {
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${e.target.scrollHeight}px`;
+                      }}
+                      rows={1}
+                      style={{ resize: 'none', overflow: 'hidden' }}
                       className="info-input-plain"
                     />
                   </div>
@@ -505,13 +520,18 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
                   </div>
                 </td>
                 <td>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Received By :</span>
-                    <input 
-                      type="text" 
+                  <div className="info-field-inline" style={{ alignItems: 'flex-start' }}>
+                    <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Received By :</span>
+                    <textarea 
                       name="receivedBy" 
                       value={meta.receivedBy} 
                       onChange={handleMetaChange} 
+                      onInput={(e) => {
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${e.target.scrollHeight}px`;
+                      }}
+                      rows={1}
+                      style={{ resize: 'none', overflow: 'hidden' }}
                       className="info-input-plain"
                     />
                   </div>
@@ -605,13 +625,18 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
           </div>
 
           {/* Bottom Others Section */}
-          <div className="lab-others-section">
-            <span className="info-lbl-bold">OTHERS :</span>
-            <input 
-              type="text" 
+          <div className="lab-others-section" style={{ alignItems: 'flex-start' }}>
+            <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>OTHERS :</span>
+            <textarea 
               name="others" 
               value={meta.others} 
               onChange={handleMetaChange} 
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              rows={1}
+              style={{ resize: 'none', overflow: 'hidden' }}
               placeholder="Specify additional laboratory test requests..." 
               className="info-input-plain others-input"
             />

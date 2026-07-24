@@ -2270,6 +2270,22 @@
     border: none !important;
     padding: 0 !important;
   }
+  
+  /* Modal Print Fixes */
+  .modal-overlay {
+    position: static !important;
+    overflow: visible !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  .modal-content-card {
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
 }
 
 /* Consent General Admission Page Styles */
@@ -3032,7 +3048,11 @@
 .airway-bg { background-color: #e0f2f1; }
 .oxygen-bg { background-color: #e8eaf6; }
 .drains-bg { background-color: #fff3e0; }
-.wound-bg { background-color: #fbe9e7; }
+.wound-bg { 
+  background-color: #fce4ec; 
+  height: 55px !important; 
+  letter-spacing: 0px !important;
+}
 .grbs-bg { background-color: #f1f8e9; }
 .psych-bg { background-color: #fce4ec; }
 
@@ -3043,7 +3063,11 @@
 .gu-bg { background-color: #e8eaf6; }
 .blood-bg { background-color: #ffebee; }
 .activity-bg { background-color: #f3e5f5; }
-.restrains-bg { background-color: #fff8e1; }
+.restrains-bg { 
+  background-color: #fff8e1; 
+  height: 95px !important;
+  letter-spacing: -0.5px !important;
+}
 .safety-bg { background-color: #e8f5e9; }
 .diet-bg { background-color: #e1f5fe; }
 
@@ -3138,7 +3162,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px 6px;
+  padding: 8px 4px;
   border-radius: 8px;
   border: 1.5px solid #cbd5e1;
   background-color: #ffffff;
@@ -3146,7 +3170,12 @@
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   user-select: none;
   flex: 1;
-  max-width: 72px;
+  max-width: 85px;
+}
+
+.face-card-item {
+  max-width: 150px !important;
+  padding: 12px 10px !important;
 }
 
 .pain-face-card-sm:hover, .face-card-item:hover {
@@ -3177,7 +3206,9 @@
   font-size: 9.5px;
   font-weight: 700;
   color: #334155;
-  white-space: nowrap;
+  text-align: center;
+  line-height: 1.1;
+  padding-top: 2px;
 }
 
 /* Rich Selected Highlight Base Animation */
@@ -3197,83 +3228,83 @@
 /* GREEN TO RED PAIN SCALE SPECTRUM (0 = Green -> 10 = Red)  */
 /* ========================================================= */
 
-/* Score 0 - Green (No Pain) */
-.pain-card-score-0 { border-color: #22c55e; }
+/* Score 0 - Dark Green (No Hurt) */
+.pain-card-score-0 { border-color: #16a34a; }
 .pain-card-score-0 .face-score, .pain-card-score-0 .pain-score-num-bold { color: #15803d; }
 .pain-card-score-0.selected-pain-card {
-  border: 2px solid #16a34a !important;
+  border: 2px solid #15803d !important;
   background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%) !important;
-  box-shadow: 0 0 16px rgba(34, 197, 94, 0.5), 0 4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 16px rgba(22, 163, 74, 0.4), 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .pain-card-score-0.selected-pain-card .face-score,
 .pain-card-score-0.selected-pain-card .pain-score-num-bold,
 .pain-card-score-0.selected-pain-card .face-label,
 .pain-card-score-0.selected-pain-card .pain-score-lbl-sm { color: #14532d !important; font-weight: 800; }
 
-/* Score 1 - Light Green (Just Noticeable) */
+/* Score 1 - Light Green (Hurts Little Bit) */
 .pain-card-score-1 { border-color: #4ade80; }
 .pain-card-score-1 .face-score, .pain-card-score-1 .pain-score-num-bold { color: #16a34a; }
 .pain-card-score-1.selected-pain-card {
   border: 2px solid #22c55e !important;
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
-  box-shadow: 0 0 16px rgba(74, 222, 128, 0.5), 0 4px 10px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%) !important;
+  box-shadow: 0 0 16px rgba(74, 222, 128, 0.4), 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .pain-card-score-1.selected-pain-card .face-score,
 .pain-card-score-1.selected-pain-card .pain-score-num-bold,
 .pain-card-score-1.selected-pain-card .face-label,
 .pain-card-score-1.selected-pain-card .pain-score-lbl-sm { color: #166534 !important; font-weight: 800; }
 
-/* Score 2 - Lime Green (Mild Pain) */
-.pain-card-score-2 { border-color: #84cc16; }
-.pain-card-score-2 .face-score, .pain-card-score-2 .pain-score-num-bold { color: #65a30d; }
+/* Score 2 - Light Orange (Hurts Little More) */
+.pain-card-score-2 { border-color: #fb923c; }
+.pain-card-score-2 .face-score, .pain-card-score-2 .pain-score-num-bold { color: #ea580c; }
 .pain-card-score-2.selected-pain-card {
-  border: 2px solid #84cc16 !important;
-  background: linear-gradient(135deg, #f7fee7 0%, #d9f99d 100%) !important;
-  box-shadow: 0 0 16px rgba(132, 204, 22, 0.5), 0 4px 10px rgba(0, 0, 0, 0.1);
+  border: 2px solid #f97316 !important;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%) !important;
+  box-shadow: 0 0 16px rgba(251, 146, 60, 0.4), 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .pain-card-score-2.selected-pain-card .face-score,
 .pain-card-score-2.selected-pain-card .pain-score-num-bold,
 .pain-card-score-2.selected-pain-card .face-label,
-.pain-card-score-2.selected-pain-card .pain-score-lbl-sm { color: #3f6212 !important; font-weight: 800; }
+.pain-card-score-2.selected-pain-card .pain-score-lbl-sm { color: #c2410c !important; font-weight: 800; }
 
-/* Score 3 - Yellow-Green (Uncomfortable) */
-.pain-card-score-3 { border-color: #a3e635; }
-.pain-card-score-3 .face-score, .pain-card-score-3 .pain-score-num-bold { color: #4d7c0f; }
+/* Score 3 - Orange (Hurts Even More) */
+.pain-card-score-3 { border-color: #f97316; }
+.pain-card-score-3 .face-score, .pain-card-score-3 .pain-score-num-bold { color: #c2410c; }
 .pain-card-score-3.selected-pain-card {
-  border: 2px solid #65a30d !important;
-  background: linear-gradient(135deg, #fefce8 0%, #ecfccb 100%) !important;
-  box-shadow: 0 0 16px rgba(163, 230, 53, 0.5), 0 4px 10px rgba(0, 0, 0, 0.1);
+  border: 2px solid #ea580c !important;
+  background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%) !important;
+  box-shadow: 0 0 16px rgba(249, 115, 22, 0.4), 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .pain-card-score-3.selected-pain-card .face-score,
 .pain-card-score-3.selected-pain-card .pain-score-num-bold,
 .pain-card-score-3.selected-pain-card .face-label,
-.pain-card-score-3.selected-pain-card .pain-score-lbl-sm { color: #365314 !important; font-weight: 800; }
+.pain-card-score-3.selected-pain-card .pain-score-lbl-sm { color: #9a3412 !important; font-weight: 800; }
 
-/* Score 4 - Yellow (Annoying) */
-.pain-card-score-4 { border-color: #eab308; }
-.pain-card-score-4 .face-score, .pain-card-score-4 .pain-score-num-bold { color: #ca8a04; }
+/* Score 4 - Light Red (Hurts Whole Lot) */
+.pain-card-score-4 { border-color: #f87171; }
+.pain-card-score-4 .face-score, .pain-card-score-4 .pain-score-num-bold { color: #dc2626; }
 .pain-card-score-4.selected-pain-card {
-  border: 2px solid #ca8a04 !important;
-  background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%) !important;
-  box-shadow: 0 0 16px rgba(234, 179, 8, 0.5), 0 4px 10px rgba(0, 0, 0, 0.1);
+  border: 2px solid #ef4444 !important;
+  background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%) !important;
+  box-shadow: 0 0 16px rgba(248, 113, 113, 0.4), 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .pain-card-score-4.selected-pain-card .face-score,
 .pain-card-score-4.selected-pain-card .pain-score-num-bold,
 .pain-card-score-4.selected-pain-card .face-label,
-.pain-card-score-4.selected-pain-card .pain-score-lbl-sm { color: #713f12 !important; font-weight: 800; }
+.pain-card-score-4.selected-pain-card .pain-score-lbl-sm { color: #b91c1c !important; font-weight: 800; }
 
-/* Score 5 - Amber / Gold (Moderate) */
-.pain-card-score-5 { border-color: #f59e0b; }
-.pain-card-score-5 .face-score, .pain-card-score-5 .pain-score-num-bold { color: #d97706; }
+/* Score 5 - Dark Red (Hurts Worst) */
+.pain-card-score-5 { border-color: #dc2626; }
+.pain-card-score-5 .face-score, .pain-card-score-5 .pain-score-num-bold { color: #991b1b; }
 .pain-card-score-5.selected-pain-card {
-  border: 2px solid #d97706 !important;
-  background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%) !important;
-  box-shadow: 0 0 16px rgba(245, 158, 11, 0.5), 0 4px 10px rgba(0, 0, 0, 0.1);
+  border: 2px solid #b91c1c !important;
+  background: linear-gradient(135deg, #fef2f2 0%, #fca5a5 100%) !important;
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.4), 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .pain-card-score-5.selected-pain-card .face-score,
 .pain-card-score-5.selected-pain-card .pain-score-num-bold,
 .pain-card-score-5.selected-pain-card .face-label,
-.pain-card-score-5.selected-pain-card .pain-score-lbl-sm { color: #78350f !important; font-weight: 800; }
+.pain-card-score-5.selected-pain-card .pain-score-lbl-sm { color: #7f1d1d !important; font-weight: 800; }
 
 /* Score 6 - Orange (Just Tolerable) */
 .pain-card-score-6 { border-color: #f97316; }
@@ -4451,10 +4482,14 @@
   color: #b91c1c;
 }
 
-/* Override green paper container to white for records/drafts pages */
-.green-paper-container {
-  background: #fff !important;
-  border: 1px solid #e2e8f0 !important;
+/* White paper container for records/drafts pages */
+.white-paper-container {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 24px 28px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  margin-bottom: 24px;
 }
 
 /* Clean white records table */
@@ -4667,4 +4702,94 @@
 
 
 
+
+
+/* Modal Print View Rendering */
+.modal-print-view-container {
+  /* Allow scrolling */
+}
+.modal-print-view-container .page-action-bar,
+.modal-print-view-container .page-header-row,
+.modal-print-view-container .form-bottom-actions,
+.modal-print-view-container .mint-action-controls,
+.modal-print-view-container .btn-pill-delete {
+  display: none !important;
+}
+.modal-print-view-container .green-paper-container,
+.modal-print-view-container .white-paper-container,
+.modal-print-view-container .yellow-paper-container,
+.modal-print-view-container .mint-card-container,
+.modal-print-view-container .pink-card-container,
+.modal-print-view-container .lab-card-container,
+.modal-print-view-container .paper-consent-wrapper,
+.modal-print-view-container .daily-assessment-wrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  max-width: 100% !important;
+}
+.modal-wide {
+  max-width: 1200px;
+  width: 95%;
+}
+.modal-wide .modal-body {
+  max-height: 85vh;
+}
+
+
+.consent-divider-bar {
+  border-top: 2px dashed #94a3b8;
+  margin: 24px 0;
+}
+@media print {
+  .consent-divider-bar {
+    border-top: 1.5px dashed #cbd5e1 !important;
+    margin: 16px 0 !important;
+  }
+}
+
+
+/* Make inputs look like plain text in the on-screen Print View Modal */
+.modal-print-view-container input,
+.modal-print-view-container select,
+.modal-print-view-container textarea {
+  border: none !important;
+  background: transparent !important;
+  color: #000 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+.modal-print-view-container .sig-btn-group,
+.modal-print-view-container .canvas-placeholder {
+  display: none !important;
+}
+
+
+.pain-rating-legend {
+  margin-top: 15px;
+  font-size: 11px;
+  color: #334155;
+}
+.legend-title {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.legend-columns {
+  display: flex;
+  justify-content: space-between;
+}
+.legend-col {
+  width: 48%;
+}
+.legend-col div {
+  margin-bottom: 3px;
+}
+.datetime-flex-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 

@@ -243,13 +243,7 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
       <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">Nursing Initial Assessment</h2>
         <div className="action-btns-group">
-          <button type="button" className="btn-mint-clear" onClick={handleSave}>
-            <Save size={14} />
-            <span>Save Assessment</span>
-          </button>
-          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
-            <span>Clear Form</span>
-          </button>
+        
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />
             <span>View Records</span>
@@ -266,14 +260,13 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
       </div>
 
       {/* PAGE 1 SHEET CONTAINER */}
-      <div className="assessment-card-container">
-        <div className="inner-assessment-form-box">
+      <div className="green-paper-container">
           
           {/* Hospital Header */}
           <HospitalPaperHeader />
 
           {/* Form Title Banner */}
-          <div className="care-plan-form-title">
+          <div className="care-plan-form-title daily-form-title">
             Nursing Initial Assessment
           </div>
 
@@ -489,13 +482,18 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
           <div className="assessment-section-header">Examination :</div>
           <div className="examination-block">
             <div className="exam-row-gcs">
-              <div className="info-field-inline flex-grow-1">
-                <span className="info-lbl-bold">1. Level of consciousness :</span>
-                <input 
-                  type="text" 
+              <div className="info-field-inline flex-grow-1" style={{ alignItems: 'flex-start' }}>
+                <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>1. Level of consciousness :</span>
+                <textarea 
                   name="levelOfConsciousness" 
                   value={exam.levelOfConsciousness} 
                   onChange={handleExamChange} 
+                  onInput={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  rows={1}
+                  style={{ resize: 'none', overflow: 'hidden' }}
                   className="info-input-plain"
                 />
               </div>
@@ -507,35 +505,50 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
               </div>
             </div>
 
-            <div className="info-field-inline exam-field-item">
-              <span className="info-lbl-bold">2. Respiratory Status :</span>
-              <input 
-                type="text" 
+            <div className="info-field-inline exam-field-item" style={{ alignItems: 'flex-start' }}>
+              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>2. Respiratory Status :</span>
+              <textarea 
                 name="respiratoryStatus" 
                 value={exam.respiratoryStatus} 
                 onChange={handleExamChange} 
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                rows={1}
+                style={{ resize: 'none', overflow: 'hidden' }}
                 className="info-input-plain"
               />
             </div>
 
-            <div className="info-field-inline exam-field-item">
-              <span className="info-lbl-bold">3. Any Other Finding :</span>
-              <input 
-                type="text" 
+            <div className="info-field-inline exam-field-item" style={{ alignItems: 'flex-start' }}>
+              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>3. Any Other Finding :</span>
+              <textarea 
                 name="anyOtherFinding" 
                 value={exam.anyOtherFinding} 
                 onChange={handleExamChange} 
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                rows={1}
+                style={{ resize: 'none', overflow: 'hidden' }}
                 className="info-input-plain"
               />
             </div>
 
-            <div className="info-field-inline exam-field-item">
-              <span className="info-lbl-bold">4. Skin integrity :</span>
-              <input 
-                type="text" 
+            <div className="info-field-inline exam-field-item" style={{ alignItems: 'flex-start' }}>
+              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>4. Skin integrity :</span>
+              <textarea 
                 name="skinIntegrity" 
                 value={exam.skinIntegrity} 
                 onChange={handleExamChange} 
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                rows={1}
+                style={{ resize: 'none', overflow: 'hidden' }}
                 className="info-input-plain"
               />
             </div>
@@ -587,13 +600,18 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
 
           {/* BOTTOM SECTION PAGE 1 (Matching Screenshot Format) */}
           <div className="assessment-bottom-rows">
-            <div className="info-field-inline btm-item">
-              <span className="info-lbl-bold">Diet :</span>
-              <input 
-                type="text" 
+            <div className="info-field-inline btm-item" style={{ alignItems: 'flex-start' }}>
+              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Diet :</span>
+              <textarea 
                 name="diet" 
                 value={bottomPg1.diet} 
                 onChange={handleBottomPg1Change} 
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                rows={1}
+                style={{ resize: 'none', overflow: 'hidden' }}
                 placeholder="e.g. Diabetic Diet / Soft Diet / NPO" 
                 className="info-input-plain dotted-line-input"
               />
@@ -605,24 +623,27 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
               <label className="radio-lbl"><input type="radio" name="vulnerable" value="No" checked={bottomPg1.vulnerable === 'No'} onChange={handleBottomPg1Change} /> No</label>
             </div>
 
-            <div className="info-field-inline btm-item">
-              <span className="info-lbl-bold">Any Special care given :</span>
-              <input 
-                type="text" 
+            <div className="info-field-inline btm-item" style={{ alignItems: 'flex-start' }}>
+              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Any Special care given :</span>
+              <textarea 
                 name="specialCareGiven" 
                 value={bottomPg1.specialCareGiven} 
                 onChange={handleBottomPg1Change} 
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                rows={1}
+                style={{ resize: 'none', overflow: 'hidden' }}
                 className="info-input-plain dotted-line-input"
               />
             </div>
           </div>
 
-        </div>
       </div>
 
       {/* PAGE 2 SHEET CONTAINER (Matching User Screenshot Exactly) */}
-      <div className="assessment-card-container page-break-top">
-        <div className="inner-assessment-form-box">
+      <div className="green-paper-container page-break-top">
 
           {/* PAIN ASSESSMENT SCALE HEADER */}
           <div className="pain-scale-title">PAIN ASSESSMENT SCALE</div>
@@ -651,13 +672,18 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
               <label className="radio-lbl"><input type="radio" name="pressureSore" value="Yes" checked={pg2.pressureSore === 'Yes'} onChange={handlePg2Change} /> Yes</label>
               <label className="radio-lbl"><input type="radio" name="pressureSore" value="No" checked={pg2.pressureSore === 'No'} onChange={handlePg2Change} /> No</label>
             </div>
-            <div className="info-field-inline indent-item-block">
-              <span className="info-lbl-bold">Any Special care given :</span>
-              <input 
-                type="text" 
+            <div className="info-field-inline indent-item-block" style={{ alignItems: 'flex-start' }}>
+              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Any Special care given :</span>
+              <textarea 
                 name="pressureSoreCare" 
                 value={pg2.pressureSoreCare} 
                 onChange={handlePg2Change} 
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                rows={1}
+                style={{ resize: 'none', overflow: 'hidden' }}
                 className="info-input-plain dotted-line-input"
               />
             </div>
@@ -670,13 +696,18 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
               <label className="radio-lbl"><input type="radio" name="restraints" value="Yes" checked={pg2.restraints === 'Yes'} onChange={handlePg2Change} /> Yes</label>
               <label className="radio-lbl"><input type="radio" name="restraints" value="No" checked={pg2.restraints === 'No'} onChange={handlePg2Change} /> No</label>
             </div>
-            <div className="info-field-inline indent-item-block">
-              <span className="info-lbl-bold">Restraint used :</span>
-              <input 
-                type="text" 
+            <div className="info-field-inline indent-item-block" style={{ alignItems: 'flex-start' }}>
+              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Restraint used :</span>
+              <textarea 
                 name="restraintsUsed" 
                 value={pg2.restraintsUsed} 
                 onChange={handlePg2Change} 
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                rows={1}
+                style={{ resize: 'none', overflow: 'hidden' }}
                 placeholder="Specify restraints used..."
                 className="info-input-plain dotted-line-input"
               />
@@ -743,7 +774,6 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
             </div>
           </div>
 
-        </div>
       </div>
 
     </div>

@@ -635,7 +635,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
         </div>
 
         {/* Section Divider Line */}
-        <div className="section-divider-bar"></div>
+        <div className="consent-divider-bar"></div>
 
         {/* Rules and Regulations Clauses */}
         <div className="p2-rules-wrapper">

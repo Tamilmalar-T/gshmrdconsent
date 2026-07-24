@@ -229,13 +229,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
       <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">Progress Sheet - Consultant</h2>
         <div className="action-btns-group">
-          <button type="button" className="btn-mint-clear" onClick={handleSavePlan}>
-            <Save size={14} />
-            <span>Save Progress Sheet</span>
-          </button>
-          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
-            <span>Clear Form</span>
-          </button>
+       
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />
             <span>View Records</span>

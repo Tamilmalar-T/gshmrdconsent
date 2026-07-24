@@ -8,6 +8,7 @@ import VitalsChartPage from './components/VitalsChartPage';
 import ConsentGeneralAdmissionPage from './components/ConsentGeneralAdmissionPage';
 import NursesCarePlanPage from './components/NursesCarePlanPage';
 import NursesDailyAssessmentPage from './components/NursesDailyAssessmentPage';
+import BPChartPage from './components/BPChartPage';
 import ResidentDoctorProgressRecordPage from './components/ResidentDoctorProgressRecordPage';
 import NursingInitialAssessmentPage from './components/NursingInitialAssessmentPage';
 import ProgressSheetPage from './components/ProgressSheetPage';
@@ -87,6 +88,8 @@ function App() {
         return <ConsentGeneralAdmissionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'vitals-chart':
         return <VitalsChartPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'bp-chart':
+        return <BPChartPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'intake-output':
         return <IntakeOutputRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'lab-requisition':

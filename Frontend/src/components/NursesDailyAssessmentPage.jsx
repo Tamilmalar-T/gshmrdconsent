@@ -160,12 +160,13 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
       date: getCurrentDate(),
       time: getCurrentTime(),
       location: '',
-      scale: '0',
+      type: '',
+      scale: '',
       action: '',
-      actionTime: getCurrentTime(),
-      reevalScale: '0',
-      reevalTime: getCurrentTime(),
-      staffSign: ''
+      actionTime: '',
+      reevalScale: '',
+      reevalTime: '',
+      sign: 'Sadhana'
     }
   ]);
 
@@ -335,20 +336,35 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
     window.print();
   };
 
-  // 0-10 Pain Assessment Scale Options (Matching Screenshot)
+  // 0-5 Pain Assessment Scale Options (Matching Paper Form)
   const facesScale = [
-    { score: 0, label: 'No Pain', icon: '😊' },
-    { score: 1, label: 'Just Noticeable', icon: '🙂' },
-    { score: 2, label: 'Mild Pain', icon: '😐' },
-    { score: 3, label: 'Uncomfortable', icon: '😟' },
-    { score: 4, label: 'Annoying', icon: '😣' },
-    { score: 5, label: 'Moderate', icon: '😫' },
-    { score: 6, label: 'Just Tolerable', icon: '😖' },
-    { score: 7, label: 'Strong', icon: '😭' },
-    { score: 8, label: 'Severe', icon: '😢' },
-    { score: 9, label: 'Horrible', icon: '🤯' },
-    { score: 10, label: 'Worst Pain', icon: '😡' }
+    { score: 0, label: 'NO HURT', description: 'Face 0 is very happy because he doesnt hurt at all', icon: '😃' },
+    { score: 1, label: 'HURTS LITTLE BIT', description: 'Face 1 hurts just a little bit', icon: '🙂' },
+    { score: 2, label: 'HURTS LITTLE MORE', description: 'Face 2 hurts a little more', icon: '😐' },
+    { score: 3, label: 'HURTS EVEN MORE', description: 'Face 3 hurts even more', icon: '😟' },
+    { score: 4, label: 'HURTS WHOLE LOT', description: 'Face 4 hurts a whole lot', icon: '😣' },
+    { score: 5, label: 'HURTS WORST', description: 'Face 5 hurts tremendously', icon: '😭' }
   ];
+
+  const handleEmojiClick = (score) => {
+    setActivePainScore(score);
+    
+    // Automatically apply to the first empty row if available
+    setPainRows(prev => {
+      const newRows = [...prev];
+      const targetRow = newRows.find(r => !r.scale) || newRows[newRows.length - 1];
+      if (targetRow) {
+        targetRow.scale = score;
+      }
+      return newRows;
+    });
+
+    // Scroll to the table
+    const tableEl = document.getElementById('pain-assessment-table');
+    if (tableEl) {
+      tableEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   return (
     <div className="daily-assessment-wrapper">
@@ -363,13 +379,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
       <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">Nurses Daily Assessment Care Plan</h2>
         <div className="action-btns-group">
-          <button type="button" className="btn-mint-clear" onClick={handleSave}>
-            <Save size={14} />
-            <span>Save Assessment</span>
-          </button>
-          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
-            <span>Clear Form</span>
-          </button>
+         
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />
             <span>View Records</span>
@@ -387,7 +397,6 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
 
       {/* Main Green Paper Form Container */}
       <div className="green-paper-container">
-        <div className="inner-green-form-box">
 
           {/* Hospital Header */}
           <HospitalPaperHeader />
@@ -1049,48 +1058,65 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
               ))}
             </div>
 
+            <div className="pain-rating-legend">
+              <div className="legend-title">Rating is done as follows:</div>
+              <div className="legend-columns">
+                <div className="legend-col">
+                  <div>Face 0 is very happy because he doesnt hurt at all</div>
+                  <div>Face 2 hurts a little more</div>
+                  <div>Face 4 hurts a whole lot</div>
+                </div>
+                <div className="legend-col">
+                  <div>Face 1 hurts just a little bit</div>
+                  <div>Face 3 hurts even more</div>
+                  <div>Face 5 hurts tremendously</div>
+                </div>
+              </div>
+            </div>
+
             {/* Pain Ratings Grid Table */}
-            <div className="mint-table-wrapper">
+            <div className="mint-table-wrapper" id="pain-assessment-table">
               <table className="mint-notes-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '12%' }}>Date</th>
-                    <th style={{ width: '9%' }}>Time</th>
-                    <th style={{ width: '11%' }}>Location</th>
-                    <th style={{ width: '11%' }}>Pain Scale (0-10)</th>
-                    <th style={{ width: '20%' }}>Action Taken</th>
-                    <th style={{ width: '9%' }}>Time</th>
-                    <th style={{ width: '10%' }}>Re-eval Scale</th>
+                    <th style={{ width: '13%' }}>Date & Time</th>
+                    <th style={{ width: '12%' }}>Location</th>
+                    <th style={{ width: '15%' }}>Type - Mild Moderate Severe</th>
+                    <th style={{ width: '8%' }}>Score</th>
                     <th style={{ width: '8%' }}>Time</th>
-                    <th style={{ width: '10%' }}>Staff Sign</th>
+                    <th style={{ width: '16%' }}>Intervention</th>
+                    <th style={{ width: '10%' }}>Score Post Intervention</th>
+                    <th style={{ width: '8%' }}>Time</th>
+                    <th style={{ width: '10%' }}>Staff Name</th>
                   </tr>
                 </thead>
                 <tbody>
                   {painRows.map((row) => (
                     <tr key={row.id}>
                       <td>
-                        <input 
-                          type="date" 
-                          value={row.date} 
-                          onChange={(e) => handlePainRowChange(row.id, 'date', e.target.value)} 
-                          className="mint-date-picker"
-                        />
-                        <button 
-                          type="button" 
-                          className="btn-pill-delete no-print"
-                          onClick={() => handleDeletePainRow(row.id)}
-                        >
-                          <Trash2 size={10} />
-                          <span>Delete</span>
-                        </button>
-                      </td>
-                      <td>
-                        <input 
-                          type="time" 
-                          value={row.time} 
-                          onChange={(e) => handlePainRowChange(row.id, 'time', e.target.value)} 
-                          className="mint-time-picker"
-                        />
+                        <div className="datetime-flex-col">
+                          <input 
+                            type="date" 
+                            value={row.date} 
+                            onChange={(e) => handlePainRowChange(row.id, 'date', e.target.value)} 
+                            className="mint-date-picker"
+                          />
+                          <input 
+                            type="time" 
+                            value={row.time} 
+                            onChange={(e) => handlePainRowChange(row.id, 'time', e.target.value)} 
+                            className="mint-time-picker"
+                          />
+                          <button 
+                            type="button" 
+                            className="btn-pill-delete no-print"
+                            onClick={() => handleDeletePainRow(row.id)}
+                            style={{ alignSelf: 'center', marginTop: '2px' }}
+                          >
+                            <Trash2 size={10} />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </td>
                       <td>
                         <input 
@@ -1099,6 +1125,18 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                           onChange={(e) => handlePainRowChange(row.id, 'location', e.target.value)} 
                           className="mint-time-picker"
                         />
+                      </td>
+                      <td>
+                        <select 
+                          value={row.type || ''} 
+                          onChange={(e) => handlePainRowChange(row.id, 'type', e.target.value)}
+                          className="mint-time-picker"
+                        >
+                          <option value=""></option>
+                          <option value="Mild">Mild</option>
+                          <option value="Moderate">Moderate</option>
+                          <option value="Severe">Severe</option>
+                        </select>
                       </td>
                       <td>
                         <select 
@@ -1173,7 +1211,6 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
             </div>
           </div>
 
-        </div>
       </div>
     </div>
   );

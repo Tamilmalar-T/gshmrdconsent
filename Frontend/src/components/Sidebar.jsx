@@ -1,9 +1,9 @@
 import React from 'react';
-import { 
-  FlaskConical, 
-  CheckSquare, 
-  Activity, 
-  Droplet, 
+import {
+  FlaskConical,
+  CheckSquare,
+  Activity,
+  Droplet,
   FileSpreadsheet,
   FileText,
   Info,
@@ -71,6 +71,7 @@ export default function Sidebar({ sidebarOpen, activeTab, setActiveTab }) {
       title: 'VITALS & I/O RECORD',
       items: [
         { id: 'vitals-chart', label: 'Vitals Chart', icon: Activity },
+        { id: 'bp-chart', label: 'BP Chart', icon: Activity },
         { id: 'intake-output', label: 'Intake & Output Record', icon: Droplet }
       ]
     }

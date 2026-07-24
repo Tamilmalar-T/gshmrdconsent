@@ -656,7 +656,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
 
           {/* Hospital Header Block */}
           <div className="vitals-hospital-header">
-           
+
 
             <div className="center-hospital-brand">
               <div className="hospital-logo-row">

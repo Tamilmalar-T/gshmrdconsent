@@ -440,7 +440,12 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                   name="subjective" 
                   value={soap.subjective} 
                   onChange={handleSoapChange} 
-                  rows={4}
+                  onInput={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  rows={2}
+                  style={{ resize: 'none', overflow: 'hidden' }}
                   placeholder="Enter Subjective complaints and history..."
                   className="soap-textarea"
                 />
@@ -487,7 +492,12 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                     name="reviewOfSystems" 
                     value={soap.reviewOfSystems} 
                     onChange={handleSoapChange} 
+                    onInput={(e) => {
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${e.target.scrollHeight}px`;
+                    }}
                     rows={2}
+                    style={{ resize: 'none', overflow: 'hidden' }}
                     placeholder="Enter physical exam & Review of Systems..."
                     className="soap-textarea-sm"
                   />
@@ -499,7 +509,12 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                     name="labParameters" 
                     value={soap.labParameters} 
                     onChange={handleSoapChange} 
+                    onInput={(e) => {
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${e.target.scrollHeight}px`;
+                    }}
                     rows={2}
+                    style={{ resize: 'none', overflow: 'hidden' }}
                     placeholder="Enter lab & diagnostic parameters..."
                     className="soap-textarea-sm"
                   />
@@ -520,7 +535,12 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                   name="assessment" 
                   value={soap.assessment} 
                   onChange={handleSoapChange} 
-                  rows={4}
+                  onInput={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  rows={2}
+                  style={{ resize: 'none', overflow: 'hidden' }}
                   placeholder="Enter clinical assessment & diagnosis impression..."
                   className="soap-textarea"
                 />
@@ -569,7 +589,12 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                   name="planNotes" 
                   value={soap.planNotes} 
                   onChange={handleSoapChange} 
-                  rows={5}
+                  onInput={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  rows={2}
+                  style={{ resize: 'none', overflow: 'hidden' }}
                   placeholder="Enter treatment plan details, orders, & consultations..."
                   className="soap-textarea"
                 />
@@ -584,7 +609,12 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                   name="advice" 
                   value={soap.advice} 
                   onChange={handleSoapChange} 
-                  rows={4}
+                  onInput={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  rows={2}
+                  style={{ resize: 'none', overflow: 'hidden' }}
                   placeholder="Enter Doctor's advice and instructions..."
                   className="soap-textarea"
                 />
