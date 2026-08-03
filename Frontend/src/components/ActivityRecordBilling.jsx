@@ -64,7 +64,19 @@ const TickBox = ({ className }) => {
 
 const renderInput = (type) => {
   if (type === 'date') return <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} style={{ fontFamily: 'inherit' }} />;
-  if (type === 'time') return <input type="time" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} style={{ fontFamily: 'inherit' }} />;
+  if (type === 'time') return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
+      <input type="time" className="arb-value-input no-icon-time" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => {try{e.target.showPicker()}catch(err){}}} style={{ fontFamily: 'inherit' }} />
+      <span className="clear-time-btn no-print" onClick={(e) => {
+        const input = e.currentTarget.previousElementSibling;
+        if (input) {
+          input.value = '';
+          input.classList.remove('has-value');
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }}>×</span>
+    </div>
+  );
   return <AutoExpandingTextarea className="arb-value-input" />;
 };
 
@@ -118,6 +130,7 @@ export default function ActivityRecordBilling({ onNavigate }) {
     wardTransfers: generateIds(4),
     nebulization: generateIds(4),
     grbs: generateIds(4),
+    abg: generateIds(4),
     support: generateIds(4),
     ventilator: generateIds(4),
     nurses: generateIds(4),
@@ -132,8 +145,92 @@ export default function ActivityRecordBilling({ onNavigate }) {
     advance: generateIds(4)
   });
 
-  const addRow = (key) => setRowIds(p => ({ ...p, [key]: [...p[key], Math.random().toString(36).substr(2, 9)] }));
-  const removeRow = (key, id) => setRowIds(p => ({ ...p, [key]: p[key].filter(rId => rId !== id) }));
+  const addRow = (key) => setRowIds(p => ({ ...p, [key]: [...(p[key] || []), Math.random().toString(36).substr(2, 9)] }));
+  const removeRow = (key, id) => setRowIds(p => ({ ...p, [key]: (p[key] || []).filter(rId => rId !== id) }));
+
+  const handleVentilatorInput = (e) => {
+    const tbody = e.target.closest('tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    let lastConnecting = null;
+
+    rows.forEach(tr => {
+      const inputs = tr.querySelectorAll('input');
+      const textareas = tr.querySelectorAll('textarea');
+      if (inputs.length < 3 || textareas.length < 1) return;
+      
+      const dateVal = inputs[0].value;
+      const connVal = inputs[1].value;
+      const discVal = inputs[2].value;
+      const totalInput = textareas[0];
+
+      let calculated = false;
+
+      if (connVal) {
+        lastConnecting = { date: dateVal, time: connVal };
+      }
+
+      if (discVal) {
+        if (connVal) {
+          let d1 = new Date(`${dateVal || '1970-01-01'}T${connVal}`);
+          let d2 = new Date(`${dateVal || '1970-01-01'}T${discVal}`);
+          if (isNaN(d1) || isNaN(d2)) {
+             const [h1, m1] = connVal.split(':').map(Number);
+             const [h2, m2] = discVal.split(':').map(Number);
+             d1 = new Date(); d1.setHours(h1, m1, 0, 0);
+             d2 = new Date(); d2.setHours(h2, m2, 0, 0);
+             if (d2 < d1) d2.setDate(d2.getDate() + 1);
+          } else if (d2 < d1 && dateVal) {
+             d2.setDate(d2.getDate() + 1);
+          } else if (d2 < d1 && !dateVal) {
+             d2.setDate(d2.getDate() + 1);
+          }
+          
+          const diffMs = d2 - d1;
+          const diffHrs = Math.floor(diffMs / 3600000);
+          const diffMins = Math.floor((diffMs % 3600000) / 60000);
+          const newValue = `${diffHrs}h ${diffMins}m`;
+          
+          if (totalInput.value !== newValue) {
+            totalInput.value = newValue;
+            totalInput.style.height = 'auto';
+            totalInput.style.height = totalInput.scrollHeight + 'px';
+          }
+          calculated = true;
+          lastConnecting = null;
+        } else if (lastConnecting) {
+          let d1 = new Date(`${lastConnecting.date || '1970-01-01'}T${lastConnecting.time}`);
+          let d2 = new Date(`${dateVal || '1970-01-01'}T${discVal}`);
+          
+          if (!isNaN(d1) && !isNaN(d2)) {
+            if (d2 < d1 && (!lastConnecting.date || !dateVal || lastConnecting.date === dateVal)) {
+              d2.setDate(d2.getDate() + 1);
+            }
+            const diffMs = d2 - d1;
+            const diffHrs = Math.floor(diffMs / 3600000);
+            const diffMins = Math.floor((diffMs % 3600000) / 60000);
+            const newValue = `${diffHrs}h ${diffMins}m`;
+            
+            if (totalInput.value !== newValue) {
+              totalInput.value = newValue;
+              totalInput.style.height = 'auto';
+              totalInput.style.height = totalInput.scrollHeight + 'px';
+            }
+            calculated = true;
+            lastConnecting = null;
+          }
+        }
+      }
+
+      if (!calculated) {
+        if (totalInput.value.match(/^\d+h \d+m$/)) {
+          totalInput.value = '';
+          totalInput.style.height = 'auto';
+        }
+      }
+    });
+  };
 
 
   return (
@@ -545,41 +642,54 @@ export default function ActivityRecordBilling({ onNavigate }) {
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={20} className="arb-section-title">NEBULIZATION</th>
+                <th colSpan={10} className="arb-section-title">NEBULIZATION</th>
               </tr>
               <tr>
-                <th className="arb-col-header" colSpan={2}>Date</th>
-                <th className="arb-col-header" colSpan={8}>Time</th>
                 <th className="arb-col-header" colSpan={2}>Date</th>
                 <th className="arb-col-header" colSpan={8}>Time</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.nebulization} tableKey="nebulization" onRemove={removeRow} cols={18} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.nebulization} tableKey="nebulization" onRemove={removeRow} cols={9} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} />
             </tbody>
           </table>
           <AddRowBtn onClick={() => addRow('nebulization')} />
 
           <div className="arb-spacer"></div>
 
-          <table className="arb-table" style={{ borderBottom: 'none' }}>
+          <table className="arb-table">
             <thead>
               <tr>
                 <th colSpan={10} className="arb-section-title">GRBS CHART</th>
-                <th colSpan={10} className="arb-section-title">ABG CHART</th>
               </tr>
               <tr>
-                <th className="arb-col-header" colSpan={2}>Date</th>
-                <th className="arb-col-header" colSpan={8}>Time</th>
                 <th className="arb-col-header" colSpan={2}>Date</th>
                 <th className="arb-col-header" colSpan={8}>Time</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.grbs} tableKey="grbs" onRemove={removeRow} cols={18} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'date', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.grbs} tableKey="grbs" onRemove={removeRow} cols={9} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} />
             </tbody>
           </table>
           <AddRowBtn onClick={() => addRow('grbs')} />
+
+          <div className="arb-spacer"></div>
+
+          <table className="arb-table" style={{ borderBottom: 'none' }}>
+            <thead>
+              <tr>
+                <th colSpan={10} className="arb-section-title">ABG CHART</th>
+              </tr>
+              <tr>
+                <th className="arb-col-header" colSpan={2}>Date</th>
+                <th className="arb-col-header" colSpan={8}>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <EmptyRows ids={rowIds.abg} tableKey="abg" onRemove={removeRow} cols={9} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} />
+            </tbody>
+          </table>
+          <AddRowBtn onClick={() => addRow('abg')} />
         </div>
 
         {/* PAGE 04 */}
@@ -588,36 +698,26 @@ export default function ActivityRecordBilling({ onNavigate }) {
 
           <table className="arb-table">
             <thead>
-              <tr>
-                <th colSpan={12} className="arb-section-title">VISITS : SUPPORT SERVICES</th>
+              <tr> 
+                <th colSpan={6} className="arb-section-title">VISITS : SUPPORT SERVICES</th>
               </tr>
               <tr>
-                <th colSpan={4} className="arb-sub-header">PHYSIOTHERAPY</th>
-                <th colSpan={4} className="arb-sub-header">PHYSIOTHERAPY</th>
-                <th colSpan={2} className="arb-sub-header">DIETICIAN</th>
-                <th colSpan={2} className="arb-sub-header">DIETICIAN</th>
+                <th colSpan={3} className="arb-sub-header">PHYSIOTHERAPY</th>
+                <th colSpan={3} className="arb-sub-header">DIETICIAN</th>
               </tr>
               <tr>
-                {/* Physio 1 */}
+                {/* Physio */}
                 <th className="arb-col-header">DATE</th>
                 <th className="arb-col-header">TREATMENT</th>
-                <th className="arb-col-header">CHARGES</th>
                 <th className="arb-col-header">SIGN.</th>
-                {/* Physio 2 */}
+                {/* Dietician */}
                 <th className="arb-col-header">DATE</th>
-                <th className="arb-col-header">TREATMENT</th>
-                <th className="arb-col-header">CHARGES</th>
-                <th className="arb-col-header">SIGN.</th>
-                {/* Diet 1 */}
-                <th className="arb-col-header">DATE</th>
-                <th className="arb-col-header">SIGN.</th>
-                {/* Diet 2 */}
-                <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">DIET</th>
                 <th className="arb-col-header">SIGN.</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.support} tableKey="support" onRemove={removeRow} cols={12} colTypes={['date', 'text', 'text', 'text', 'date', 'text', 'text', 'text', 'date', 'text', 'date', 'text']} />
+              <EmptyRows ids={rowIds.support} tableKey="support" onRemove={removeRow} cols={6} colTypes={['date', 'text', 'text', 'date', 'text', 'text']} />
             </tbody>
           </table>
           <AddRowBtn onClick={() => addRow('support')} />
@@ -638,7 +738,7 @@ export default function ActivityRecordBilling({ onNavigate }) {
                 <th className="arb-col-header">SIGNATURE</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody onInput={handleVentilatorInput}>
               <EmptyRows ids={rowIds.ventilator} tableKey="ventilator" onRemove={removeRow} cols={6} colTypes={['date', 'time', 'time', 'text', 'text', 'text']} />
             </tbody>
           </table>
@@ -685,21 +785,17 @@ export default function ActivityRecordBilling({ onNavigate }) {
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={12} className="arb-section-title">ECG CHART</th>
+                <th colSpan={4} className="arb-section-title">ECG CHART</th>
               </tr>
               <tr>
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <React.Fragment key={i}>
-                    <th className="arb-col-header">DATE</th>
-                    <th className="arb-col-header">NO.</th>
-                    <th className="arb-col-header">SIGN</th>
-                    <th className="arb-col-header">CHARGES</th>
-                  </React.Fragment>
-                ))}
+                <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">NO.</th>
+                <th className="arb-col-header">SIGN</th>
+                <th className="arb-col-header">CHARGES</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.ecg} tableKey="ecg" onRemove={removeRow} cols={12} colTypes={['date', 'text', 'text', 'text', 'date', 'text', 'text', 'text', 'date', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.ecg} tableKey="ecg" onRemove={removeRow} cols={4} colTypes={['date', 'text', 'text', 'text']} />
             </tbody>
           </table>
           <AddRowBtn onClick={() => addRow('ecg')} />
@@ -709,21 +805,17 @@ export default function ActivityRecordBilling({ onNavigate }) {
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={12} className="arb-section-title">BLOOD TRANSFUSION CHART</th>
+                <th colSpan={4} className="arb-section-title">BLOOD TRANSFUSION CHART</th>
               </tr>
               <tr>
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <React.Fragment key={i}>
-                    <th className="arb-col-header">DATE</th>
-                    <th className="arb-col-header">NO.</th>
-                    <th className="arb-col-header">SIGN</th>
-                    <th className="arb-col-header">CHARGES</th>
-                  </React.Fragment>
-                ))}
+                <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">NO.</th>
+                <th className="arb-col-header">SIGN</th>
+                <th className="arb-col-header">CHARGES</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.blood} tableKey="blood" onRemove={removeRow} cols={12} colTypes={['date', 'text', 'text', 'text', 'date', 'text', 'text', 'text', 'date', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.blood} tableKey="blood" onRemove={removeRow} cols={4} colTypes={['date', 'text', 'text', 'text']} />
             </tbody>
           </table>
           <AddRowBtn onClick={() => addRow('blood')} />
@@ -745,7 +837,7 @@ export default function ActivityRecordBilling({ onNavigate }) {
                 <th className="arb-col-header">SIGNATURE</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody onInput={(e) => handleTimeCalculation(e, 1)}>
               <EmptyRows ids={rowIds.oxygen} tableKey="oxygen" onRemove={removeRow} cols={7} colTypes={['date', 'time', 'time', 'text', 'text', 'text', 'text']} />
             </tbody>
           </table>
@@ -1050,6 +1142,28 @@ export default function ActivityRecordBilling({ onNavigate }) {
           font-style: italic;
           font-size: 13px;
           color: #444;
+        }
+        .no-icon-time::-webkit-calendar-picker-indicator {
+          display: none;
+        }
+        .clear-time-btn {
+          display: none;
+          position: absolute;
+          right: 2px;
+          cursor: pointer;
+          color: #ef4444;
+          font-weight: 900;
+          font-size: 14px;
+          background: #fff;
+          padding: 0 4px;
+          border-radius: 2px;
+          z-index: 5;
+        }
+        .clear-time-btn:hover {
+          background: #fee2e2;
+        }
+        .arb-value-input.has-value + .clear-time-btn {
+          display: block;
         }
 
         @media print {

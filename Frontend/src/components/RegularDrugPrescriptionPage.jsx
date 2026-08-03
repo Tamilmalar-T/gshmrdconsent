@@ -11,7 +11,8 @@ const createEmptyDrugBlock = () => ({
   drugName: '',
   timeHeader: '',
   dateHeaders: ['', '', '', '', '', ''],
-  rows: Array(5).fill(null).map(() => ({
+  rows: Array(1).fill(null).map(() => ({
+    id: Date.now() + Math.random(),
     dose: '', route: '', frequency: '', time: '',
     dates: ['', '', '', '', '', '']
   }))
@@ -136,6 +137,34 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
     }));
   };
 
+  const handleAddRowToBlock = (blockId) => {
+    setDrugBlocks(prev => prev.map(b => {
+      if (b.id === blockId) {
+        return {
+          ...b,
+          rows: [...b.rows, {
+            id: Date.now() + Math.random(),
+            dose: '', route: '', frequency: '', time: '',
+            dates: ['', '', '', '', '', '']
+          }]
+        };
+      }
+      return b;
+    }));
+  };
+
+  const handleRemoveRowFromBlock = (blockId, rowId) => {
+    setDrugBlocks(prev => prev.map(b => {
+      if (b.id === blockId) {
+        return {
+          ...b,
+          rows: b.rows.filter(r => r.id !== rowId)
+        };
+      }
+      return b;
+    }));
+  };
+
   const handlePrint = () => window.print();
 
   const handleSave = () => {
@@ -148,7 +177,7 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
   };
 
   return (
-    <div className="vitals-chart-page-wrapper">
+    <div className="vitals-chart-page-wrapper drug-prescription-wrapper">
       {toastMsg && (
         <div className="no-print alert-success-toast">
           <CheckCircle2 size={18} />
@@ -282,10 +311,10 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
           <div className="drug-blocks-container" style={{ marginTop: '15px' }}>
             {drugBlocks.map((block, blockIndex) => (
               <div key={block.id} className="drug-block-wrapper" style={{ position: 'relative', marginBottom: '15px' }}>
-                
+
                 {drugBlocks.length > 1 && (
-                  <button 
-                    className="no-print btn-remove-block" 
+                  <button
+                    className="no-print btn-remove-block"
                     onClick={() => handleRemoveBlock(block.id)}
                     title="Remove Drug"
                   >
@@ -310,9 +339,12 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
                     {/* Header Row 1 */}
                     <tr>
                       <td colSpan={3} className="drug-name-cell">
-                        <textarea 
-                          className="table-input drug-name-input" 
-                          placeholder="Drug Name" 
+                        <textarea
+                          className="table-input drug-name-input"
+                          placeholder="Drug Name"
+                          rows={1}
+                          style={{ overflow: 'hidden', resize: 'none' }}
+                          onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }}
                           value={block.drugName}
                           onChange={(e) => updateBlock(block.id, 'drugName', e.target.value)}
                         />
@@ -320,25 +352,25 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
                       <td className="center-bold-text" style={{ fontSize: '11px' }}>Time</td>
                       <td colSpan={6} className="center-bold-text" style={{ fontSize: '11px' }}>Date</td>
                     </tr>
-                    
+
                     {/* Header Row 2 */}
                     <tr>
                       <td className="sub-header-label">Dose</td>
                       <td className="sub-header-label">Route</td>
                       <td className="sub-header-label">Frequency</td>
                       <td>
-                        <input 
-                          type="text" 
-                          className="table-input" 
+                        <input
+                          type="text"
+                          className="table-input"
                           value={block.timeHeader}
                           onChange={(e) => updateBlock(block.id, 'timeHeader', e.target.value)}
                         />
                       </td>
                       {block.dateHeaders.map((dh, cIdx) => (
                         <td key={cIdx}>
-                          <input 
-                            type="date" 
-                            className="table-input date-picker-input" 
+                          <input
+                            type="date"
+                            className="table-input date-picker-input"
                             value={dh}
                             onChange={(e) => updateDateHeader(block.id, cIdx, e.target.value)}
                           />
@@ -348,28 +380,38 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
 
                     {/* Data Rows */}
                     {block.rows.map((row, rIdx) => (
-                      <tr key={rIdx}>
+                      <tr key={row.id || rIdx}>
                         <td>
-                          <input type="text" className="table-input" value={row.dose} onChange={(e) => updateRow(block.id, rIdx, 'dose', e.target.value)} />
+                          <textarea className="table-input" rows={1} style={{ overflow: 'hidden', resize: 'none' }} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }} value={row.dose} onChange={(e) => updateRow(block.id, rIdx, 'dose', e.target.value)} />
                         </td>
                         <td>
-                          <input type="text" className="table-input" value={row.route} onChange={(e) => updateRow(block.id, rIdx, 'route', e.target.value)} />
+                          <textarea className="table-input" rows={1} style={{ overflow: 'hidden', resize: 'none' }} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }} value={row.route} onChange={(e) => updateRow(block.id, rIdx, 'route', e.target.value)} />
                         </td>
                         <td>
-                          <input type="text" className="table-input" value={row.frequency} onChange={(e) => updateRow(block.id, rIdx, 'frequency', e.target.value)} />
+                          <textarea className="table-input" rows={1} style={{ overflow: 'hidden', resize: 'none' }} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }} value={row.frequency} onChange={(e) => updateRow(block.id, rIdx, 'frequency', e.target.value)} />
                         </td>
                         <td>
-                          <input type="text" className="table-input" value={row.time} onChange={(e) => updateRow(block.id, rIdx, 'time', e.target.value)} />
+                          <textarea className="table-input" rows={1} style={{ overflow: 'hidden', resize: 'none' }} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }} value={row.time} onChange={(e) => updateRow(block.id, rIdx, 'time', e.target.value)} />
                         </td>
                         {row.dates.map((d, cIdx) => (
-                          <td key={cIdx}>
-                            <input type="text" className="table-input" value={d} onChange={(e) => updateRowDate(block.id, rIdx, cIdx, e.target.value)} />
+                          <td key={cIdx} style={cIdx === row.dates.length - 1 ? { position: 'relative' } : {}}>
+                            <textarea className="table-input" rows={1} style={{ overflow: 'hidden', resize: 'none' }} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }} value={d} onChange={(e) => updateRowDate(block.id, rIdx, cIdx, e.target.value)} />
+                            {cIdx === row.dates.length - 1 && block.rows.length > 1 && (
+                              <button type="button" className="no-print" onClick={() => handleRemoveRowFromBlock(block.id, row.id)} style={{ position: 'absolute', right: '-26px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </td>
                         ))}
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                <div className="no-print" style={{ textAlign: 'right', marginTop: '6px' }}>
+                  <button type="button" onClick={() => handleAddRowToBlock(block.id)} style={{ padding: '6px 12px', fontSize: '12px', fontWeight: '500', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Plus size={14} /> Add Row
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -396,6 +438,9 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
       </div>
 
       <style>{`
+        .drug-prescription-wrapper {
+          max-width: 1350px !important;
+        }
         .drug-prescription-table {
           width: 100%;
           border-collapse: collapse;
@@ -405,7 +450,7 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
         .drug-prescription-table td {
           border: 1px solid #000;
           padding: 0;
-          height: 32px;
+          height: 48px;
         }
         .center-bold-text {
           text-align: center;
