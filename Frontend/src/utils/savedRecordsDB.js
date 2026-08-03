@@ -1,6 +1,66 @@
 // Saved Form Records Database for storing and retrieving filled patient forms and drafts
 
 const SAVED_RECORDS_KEY = 'saved_form_records_db';
+const API_BASE_URL = 'http://localhost:5000/api';
+
+const mapFormTypeToEndpoint = (formType) => {
+  if (!formType) return null;
+  // Convert camelCase or snake_case to kebab-case
+  return formType.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase().replace(/_/g, '-');
+};
+
+const syncToPostgres = async (record) => {
+  try {
+    const endpoint = mapFormTypeToEndpoint(record.formType);
+    if (!endpoint || record.isDraft) return; // Optional: Avoid syncing pure drafts if you want
+
+    // 1. Ensure Patient Exists in PG
+    const patientPayload = {
+      name: record.patientName || 'Unknown Patient',
+      uhid_no: record.data?.patient?.uhidNo || `UHID-${Date.now()}`,
+      ip_no: record.data?.patient?.ipNo || record.patientIpNo || `IP-${Date.now()}`,
+      age: record.data?.patient?.age || '',
+      sex: record.data?.patient?.sex || 'Male',
+      doa: record.data?.patient?.doa || '',
+      ward: record.data?.patient?.ward || '',
+      bed_no: record.data?.patient?.bedNo || ''
+    };
+
+    let patientId = null;
+    let patRes = await fetch(`${API_BASE_URL}/patients`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patientPayload)
+    });
+    let patData = await patRes.json();
+    
+    if (patData.success && patData.data) {
+       patientId = patData.data.id;
+    }
+
+    if (!patientId) {
+      console.warn("Sync warning: Could not find or create patient in Postgres.");
+      return;
+    }
+
+    // 2. Post Form Data to PG
+    const formPayload = {
+      patientId: patientId,
+      formData: record.data
+    };
+
+    let formRes = await fetch(`${API_BASE_URL}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formPayload)
+    });
+    
+    if (!formRes.ok) console.warn("Failed to sync form to Postgres");
+
+  } catch (err) {
+    console.error("Postgres Sync Error:", err);
+  }
+};
 
 export const getSavedRecords = () => {
   try {
@@ -46,6 +106,7 @@ export const upsertFormRecord = (existingId, formType, rawIpNo, formData, create
       };
       records[idx] = updated;
       localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+      syncToPostgres(updated); // Sync to DB
       return updated;
     }
   }
@@ -66,6 +127,7 @@ export const upsertFormRecord = (existingId, formType, rawIpNo, formData, create
   // Prepend new record (most recent first)
   records.unshift(newRecord);
   localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+  syncToPostgres(newRecord); // Sync to DB
   return newRecord;
 };
 
