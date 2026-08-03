@@ -33,6 +33,7 @@ import ProgressSheetPage from './ProgressSheetPage';
 import LabRequisitionPage from './LabRequisitionPage';
 import DiabeticChartPage from './DiabeticChartPage';
 import VitalsChartPage from './VitalsChartPage';
+import BPChartPage from './BPChartPage';
 import IntakeOutputRecordPage from './IntakeOutputRecordPage';
 
 const COMPONENT_MAP = {
@@ -45,6 +46,7 @@ const COMPONENT_MAP = {
   'Laboratory Requisition': LabRequisitionPage,
   'Diabetic Chart': DiabeticChartPage,
   'Vitals Chart': VitalsChartPage,
+  'BP Chart': BPChartPage,
   'Intake Output Record': IntakeOutputRecordPage,
 };
 
@@ -59,6 +61,7 @@ const FORM_TYPE_TO_TAB = {
   'Laboratory Requisition': 'lab-requisition',
   'Diabetic Chart': 'diabetic-chart',
   'Vitals Chart': 'vitals-chart',
+  'BP Chart': 'bp-chart',
   'Intake Output Record': 'intake-output',
 };
 
@@ -191,17 +194,29 @@ function FormDataViewer({ data }) {
   );
 }
 
-export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', onBack, onEdit, filterTabId }) {
+export default function PatientDetailsPage({ selectedIpNo, initialMode = 'records', onBack, onEdit, filterTabId }) {
   const [patients, setPatients] = useState([]);
   const [selectedPatientIp, setSelectedPatientIp] = useState(selectedIpNo || '');
   const [currentPatient, setCurrentPatient] = useState(null);
-  const [viewMode, setViewMode] = useState(initialMode);
+  const [viewMode, setViewMode] = useState(initialMode === 'all' ? 'records' : initialMode);
   const [displayedRecords, setDisplayedRecords] = useState([]);
   const [activeRecordModal, setActiveRecordModal] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFormTab, setSelectedFormTab] = useState(filterTabId || 'general-admission-consent');
 
-  useEffect(() => { setViewMode(initialMode); }, [initialMode]);
+  useEffect(() => { setViewMode(initialMode === 'all' ? 'records' : initialMode); }, [initialMode]);
+
+  useEffect(() => {
+    if (activeRecordModal) {
+      setTimeout(() => {
+        const textareas = document.querySelectorAll('.modal-print-view-container textarea');
+        textareas.forEach(t => {
+          t.style.height = 'auto';
+          t.style.height = `${t.scrollHeight}px`;
+        });
+      }, 100);
+    }
+  }, [activeRecordModal]);
 
   useEffect(() => {
     if (filterTabId) {
@@ -233,7 +248,6 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
     let list = [];
     if (viewMode === 'records') list = getCompletedRecords();
     else if (viewMode === 'drafts') list = getDraftRecords();
-    else list = selectedPatientIp ? getRecordsByPatientIp(selectedPatientIp) : getSavedRecords();
 
     if (viewMode === 'records' || viewMode === 'drafts') {
       list = list.filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab);
@@ -287,7 +301,6 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
         <h2 className="vitals-page-heading">
           {viewMode === 'records' && 'View Records (With IP No.)'}
           {viewMode === 'drafts' && 'View Drafts (Without IP No.)'}
-          {viewMode === 'all' && 'Patient Details & Medical Records'}
         </h2>
         <div className="action-btns-group">
           {onBack && (
@@ -315,9 +328,6 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
 
         {/* Mode Toggle */}
         <div className="pd-mode-toggle-bar no-print">
-          <button type="button" className={`pd-mode-btn ${viewMode === 'all' ? 'active' : ''}`} onClick={() => setViewMode('all')}>
-            <User size={15} /><span>Patient Profile History</span>
-          </button>
           <button type="button" className={`pd-mode-btn ${viewMode === 'records' ? 'active-records' : ''}`} onClick={() => setViewMode('records')}>
             <FolderCheck size={15} /><span>View Records (With IP No.)</span>
             <span className="badge-mode-count records">{completedCount}</span>
@@ -328,80 +338,34 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
           </button>
         </div>
 
-        {/* Patient Selector (all mode) */}
-        {viewMode === 'all' && (
-          <div className="pd-selector-bar">
-            <div className="pd-select-field">
-              <label className="pd-label">Select Registered Patient:</label>
-              <select value={selectedPatientIp} onChange={(e) => setSelectedPatientIp(e.target.value)} className="pd-select">
-                {patients.length === 0 && <option value="">No patients registered</option>}
-                {patients.map(pt => (
-                  <option key={pt.ipNo} value={pt.ipNo}>{pt.ipNo} — {pt.patientName} (UHID: {pt.uhidNo})</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
 
-
-
-        {/* Search Bar */}
-        <div className="pd-search-strip">
-          <div className="pd-search-field">
-            <Search size={14} className="pd-search-icon" />
-            <input
-              type="text"
-              placeholder={viewMode === 'records' ? 'Search records with IP No...' : viewMode === 'drafts' ? 'Search draft records without IP...' : 'Search by form title or IP...'}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pd-search-in"
-            />
-          </div>
-          <span className="pd-records-count-info">
-            Showing {displayedRecords.length} {viewMode === 'records' ? 'completed records' : viewMode === 'drafts' ? 'draft records' : 'entries'}
-          </span>
-        </div>
-
-        {/* Patient Summary Card */}
-        {viewMode === 'all' && currentPatient && (
-          <div className="pd-patient-card">
-            <div className="pd-card-header">
-              <User size={18} /><span>{currentPatient.patientName}</span>
-              <span className="pd-ip-badge">IP NO: {currentPatient.ipNo}</span>
-            </div>
-            <table className="pd-info-table">
-              <tbody>
-                <tr>
-                  <td><strong>Patient Name:</strong> {currentPatient.patientName}</td>
-                  <td><strong>Age / Sex:</strong> {currentPatient.age} / {currentPatient.sex}</td>
-                  <td><strong>UHID No.:</strong> {currentPatient.uhidNo}</td>
-                </tr>
-                <tr>
-                  <td><strong>IP No.:</strong> {currentPatient.ipNo}</td>
-                  <td><strong>Ward / Bed:</strong> {currentPatient.ward} / {currentPatient.bedNo}</td>
-                  <td><strong>Medical Insurance:</strong> {currentPatient.medicalInsurance}</td>
-                </tr>
-                <tr>
-                  <td><strong>DOA (Admission):</strong> {currentPatient.doa}</td>
-                  <td><strong>DOD (Discharge):</strong> {currentPatient.dod || 'N/A (Admitted)'}</td>
-                  <td><strong>Consultant:</strong> {currentPatient.consultantName || 'Dr. Sadhana'}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
 
         {/* Records Table */}
         <div className="pd-records-section">
           <div className="pd-records-header">
             {viewMode === 'records' && <FolderCheck size={16} className="text-green" />}
             {viewMode === 'drafts' && <FileEdit size={16} className="text-amber" />}
-            {viewMode === 'all' && <FileText size={16} />}
             <h3>
               {viewMode === 'records' && 'Completed Saved Records (With IP No.)'}
               {viewMode === 'drafts' && 'Saved Draft Records (Without IP No.)'}
-              {viewMode === 'all' && `Patient Form History (${displayedRecords.length})`}
             </h3>
+          </div>
+
+          {/* Search Bar (Moved here from above) */}
+          <div className="pd-search-strip" style={{marginBottom: '15px'}}>
+            <div className="pd-search-field">
+              <Search size={14} className="pd-search-icon" />
+              <input
+                type="text"
+                placeholder={viewMode === 'records' ? 'Search records with IP No...' : 'Search draft records without IP...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pd-search-in"
+              />
+            </div>
+            <span className="pd-records-count-info">
+              Showing {displayedRecords.length} {viewMode === 'records' ? 'completed records' : 'draft records'}
+            </span>
           </div>
 
           <table className="pd-clean-table">
@@ -420,8 +384,7 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'all', 
                 <tr>
                   <td colSpan={6} className="pd-empty-cell">
                     {viewMode === 'records' ? 'No completed records with IP No. found.'
-                      : viewMode === 'drafts' ? 'No draft records without IP No. found. Saved drafts will appear here.'
-                      : 'No form entries found.'}
+                      : 'No draft records without IP No. found. Saved drafts will appear here.'}
                   </td>
                 </tr>
               ) : (

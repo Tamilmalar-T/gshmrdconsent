@@ -66,6 +66,28 @@ export const registerPatient = (patient) => {
   return updated;
 };
 
+export const updatePatient = (oldIpNo, updatedPatient) => {
+  const patients = getRegisteredPatients();
+  const trimmedOldIp = (oldIpNo || '').trim().toUpperCase();
+  const trimmedNewIp = (updatedPatient.ipNo || '').trim().toUpperCase();
+
+  if (!trimmedNewIp) {
+    throw new Error('IP No. is required.');
+  }
+
+  if (trimmedOldIp !== trimmedNewIp) {
+    const existing = patients.find(p => (p.ipNo || '').trim().toUpperCase() === trimmedNewIp);
+    if (existing) throw new Error('IP No. already exists.');
+  }
+
+  const idx = patients.findIndex(p => (p.ipNo || '').trim().toUpperCase() === trimmedOldIp);
+  if (idx !== -1) {
+    patients[idx] = updatedPatient;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
+  }
+  return patients;
+};
+
 export const findPatientByIpNo = (ipNo) => {
   if (!ipNo || !ipNo.trim()) return null;
   const patients = getRegisteredPatients();

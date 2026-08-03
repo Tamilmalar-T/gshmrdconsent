@@ -6,70 +6,48 @@ import {
   Search, 
   Trash2, 
   Pencil,
-  RotateCcw,
   Users
 } from 'lucide-react';
 
-const STORAGE_KEY = 'masters_users';
+const STORAGE_KEY = 'masters_nurses';
 
-const INITIAL_USERS = [
-  { userId: 'mrd', userName: 'MRD Admin', userType: 'Admin', contact: '', password: '123', status: 'Active', signatureImage: '' },
-  { userId: 'ramesh02', userName: 'Dr. Ramesh', userType: 'Doctor', contact: '9876543211', password: 'password', status: 'Active', signatureImage: '' },
-  { userId: 'suresh03', userName: 'Dr. Suresh', userType: 'Doctor', contact: '9876543212', password: 'password', status: 'Active', signatureImage: '' },
-  { userId: 'kavitha04', userName: 'Dr. Kavitha', userType: 'Doctor', contact: '9876543213', password: 'password', status: 'Active', signatureImage: '' }
+const INITIAL_NURSES = [
+  { nurseId: 'NUR001', nurseName: 'Alice Smith', designation: 'Head Nurse', contact: '9876543221', status: 'Active', signatureImage: '' },
+  { nurseId: 'NUR002', nurseName: 'Bob Johnson', designation: 'Staff Nurse', contact: '9876543222', status: 'Active', signatureImage: '' },
 ];
 
-export default function UserMasterPage() {
+export default function NurseMasterPage() {
   const [form, setForm] = useState({
-    userId: '',
-    userName: '',
-    userType: 'Admin',
+    nurseId: '',
+    nurseName: '',
+    designation: 'Staff Nurse',
     contact: '',
-    password: '',
     status: 'Active',
     signatureImage: ''
   });
 
-  const [users, setUsers] = useState([]);
-  const [userTypes, setUserTypes] = useState([]);
-  const [editingUserId, setEditingUserId] = useState(null);
+  const [nurses, setNurses] = useState([]);
+  const [editingNurseId, setEditingNurseId] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load user types from Type Master
-  useEffect(() => {
-    const savedTypes = localStorage.getItem('masters_types');
-    if (savedTypes) {
-      const parsed = JSON.parse(savedTypes);
-      setUserTypes(parsed.filter(t => t.status === 'Active'));
-    } else {
-      // Fallback default types
-      const defaults = [
-        { typeCode: 'ADM', typeName: 'Admin', status: 'Active' },
-        { typeCode: 'DOC', typeName: 'Doctor', status: 'Active' },
-        { typeCode: 'NUR', typeName: 'Nurse', status: 'Active' },
-        { typeCode: 'RDC', typeName: 'Resident Doctor', status: 'Active' },
-        { typeCode: 'CON', typeName: 'Consultant', status: 'Active' }
-      ];
-      setUserTypes(defaults);
-    }
-  }, []);
+  const designations = ['Staff Nurse', 'Head Nurse', 'Charge Nurse', 'Nursing Supervisor'];
 
   // Load from localStorage or seed initial data
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      setUsers(JSON.parse(saved));
+      setNurses(JSON.parse(saved));
     } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_USERS));
-      setUsers(INITIAL_USERS);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_NURSES));
+      setNurses(INITIAL_NURSES);
     }
   }, []);
 
   const saveToStorage = (updatedList) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
-    setUsers(updatedList);
+    setNurses(updatedList);
   };
 
   const handleChange = (e) => {
@@ -95,15 +73,14 @@ export default function UserMasterPage() {
 
   const handleClear = () => {
     setForm({
-      userId: '',
-      userName: '',
-      userType: 'Admin',
+      nurseId: '',
+      nurseName: '',
+      designation: 'Staff Nurse',
       contact: '',
-      password: '',
       status: 'Active',
       signatureImage: ''
     });
-    setEditingUserId(null);
+    setEditingNurseId(null);
     setErrorMsg('');
   };
 
@@ -113,64 +90,60 @@ export default function UserMasterPage() {
     setSuccessMsg('');
 
     // Validations
-    if (!form.userId.trim()) {
-      setErrorMsg('User ID is required.');
+    if (!form.nurseId.trim()) {
+      setErrorMsg('Nurse ID is required.');
       return;
     }
-    if (!form.userName.trim()) {
-      setErrorMsg('User Full Name is required.');
-      return;
-    }
-    if (!form.password.trim()) {
-      setErrorMsg('Password is required.');
+    if (!form.nurseName.trim()) {
+      setErrorMsg('Nurse Full Name is required.');
       return;
     }
 
-    if (editingUserId) {
+    if (editingNurseId) {
       // Edit mode
-      const updated = users.map((u) => u.userId === editingUserId ? { ...form } : u);
+      const updated = nurses.map((n) => n.nurseId === editingNurseId ? { ...form } : n);
       saveToStorage(updated);
-      setSuccessMsg(`User "${form.userName}" updated successfully!`);
+      setSuccessMsg(`Nurse "${form.nurseName}" updated successfully!`);
       handleClear();
     } else {
       // Add mode
-      if (users.some((u) => u.userId.toLowerCase() === form.userId.toLowerCase())) {
-        setErrorMsg(`User ID "${form.userId}" already exists.`);
+      if (nurses.some((n) => n.nurseId.toLowerCase() === form.nurseId.toLowerCase())) {
+        setErrorMsg(`Nurse ID "${form.nurseId}" already exists.`);
         return;
       }
-      const updated = [...users, form];
+      const updated = [...nurses, form];
       saveToStorage(updated);
-      setSuccessMsg(`User "${form.userName}" added successfully!`);
+      setSuccessMsg(`Nurse "${form.nurseName}" added successfully!`);
       handleClear();
     }
 
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
-  const handleEditClick = (user) => {
-    setForm({ ...user });
-    setEditingUserId(user.userId);
+  const handleEditClick = (nurse) => {
+    setForm({ ...nurse });
+    setEditingNurseId(nurse.nurseId);
     setErrorMsg('');
   };
 
-  const handleDelete = (userId) => {
-    if (confirm('Are you sure you want to delete this user?')) {
-      const updated = users.filter((u) => u.userId !== userId);
+  const handleDelete = (nurseId) => {
+    if (window.confirm('Are you sure you want to delete this nurse?')) {
+      const updated = nurses.filter((n) => n.nurseId !== nurseId);
       saveToStorage(updated);
-      setSuccessMsg('User deleted successfully.');
+      setSuccessMsg('Nurse deleted successfully.');
       setTimeout(() => setSuccessMsg(''), 4000);
-      if (editingUserId === userId) {
+      if (editingNurseId === nurseId) {
         handleClear();
       }
     }
   };
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.userId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.userType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.contact && u.contact.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredNurses = nurses.filter(
+    (n) =>
+      n.nurseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      n.nurseId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      n.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (n.contact && n.contact.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const renderForm = (isEditMode) => (
@@ -185,30 +158,22 @@ export default function UserMasterPage() {
       <form onSubmit={handleSubmit}>
         <div className="pr-form-4col-grid">
           <div className="pr-field">
-            <label className="pr-label">USER ID <span className="req-star">*</span></label>
-            <input type="text" name="userId" value={form.userId} onChange={handleChange} disabled={!!editingUserId} placeholder="e.g. john_doe" className="pr-input" />
+            <label className="pr-label">NURSE ID <span className="req-star">*</span></label>
+            <input type="text" name="nurseId" value={form.nurseId} onChange={handleChange} disabled={!!editingNurseId} placeholder="e.g. NUR001" className="pr-input" />
           </div>
           <div className="pr-field">
             <label className="pr-label">FULL NAME <span className="req-star">*</span></label>
-            <input type="text" name="userName" value={form.userName} onChange={handleChange} placeholder="e.g. John Doe" className="pr-input" />
+            <input type="text" name="nurseName" value={form.nurseName} onChange={handleChange} placeholder="e.g. Alice Smith" className="pr-input" />
           </div>
           <div className="pr-field">
-            <label className="pr-label">USER TYPE <span className="req-star">*</span></label>
-            <select name="userType" value={form.userType} onChange={handleChange} className="pr-select">
-              {userTypes.length > 0 ? (
-                userTypes.map(t => <option key={t.typeCode} value={t.typeName}>{t.typeName}</option>)
-              ) : (
-                <option value="">No types defined — add via Type Master</option>
-              )}
+            <label className="pr-label">DESIGNATION <span className="req-star">*</span></label>
+            <select name="designation" value={form.designation} onChange={handleChange} className="pr-select">
+              {designations.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <div className="pr-field">
             <label className="pr-label">CONTACT NO</label>
             <input type="text" name="contact" value={form.contact} onChange={handleChange} placeholder="10-digit number" className="pr-input" />
-          </div>
-          <div className="pr-field">
-            <label className="pr-label">PASSWORD <span className="req-star">*</span></label>
-            <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="Login password" className="pr-input" />
           </div>
           <div className="pr-field">
             <label className="pr-label">STATUS</label>
@@ -233,7 +198,7 @@ export default function UserMasterPage() {
         <div className="pr-form-footer-actions">
           <button type="button" className="btn-pr-clear" onClick={handleClear}>Cancel</button>
           <button type="submit" className="btn-pr-register" style={{ backgroundColor: isEditMode ? '#6366f1' : '#0284c7' }}>
-            {isEditMode ? 'Update User' : '+ Add User'}
+            {isEditMode ? 'Update Nurse' : '+ Add Nurse'}
           </button>
         </div>
       </form>
@@ -254,9 +219,9 @@ export default function UserMasterPage() {
       {/* Page Header Bar */}
       <div className="pr-page-header">
         <div className="pr-header-titles">
-          <h1 className="pr-main-title">User Master</h1>
+          <h1 className="pr-main-title">Nurse Master</h1>
           <p className="pr-sub-title">
-            Configure system users, assign roles, define passwords, and upload signatures.
+            Configure nurse records, assign designations, and upload signatures.
           </p>
         </div>
 
@@ -265,22 +230,22 @@ export default function UserMasterPage() {
             <Search size={14} className="pr-search-icon" />
             <input 
               type="text" 
-              placeholder="Search users..." 
+              placeholder="Search nurses..." 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
               className="pr-search-input"
             />
-            <span className="pr-records-badge">{users.length} users</span>
+            <span className="pr-records-badge">{nurses.length} nurses</span>
           </div>
         </div>
       </div>
 
-      {/* Add User Form Card (Only shown if NOT editing) */}
-      {!editingUserId && (
+      {/* Add Form Card (Only shown if NOT editing) */}
+      {!editingNurseId && (
         <div className="pr-card-box">
           <div className="pr-card-header-strip" style={{ backgroundColor: '#0284c7' }}>
             <UserPlus size={16} />
-            <span>Add New User</span>
+            <span>Add New Nurse</span>
           </div>
           <div className="pr-card-body">
             {renderForm(false)}
@@ -288,8 +253,8 @@ export default function UserMasterPage() {
         </div>
       )}
 
-      {/* Edit User Modal */}
-      {editingUserId && (
+      {/* Edit Modal */}
+      {editingNurseId && (
         <div className="modal-overlay no-print" style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
@@ -304,7 +269,7 @@ export default function UserMasterPage() {
             <div className="pr-card-header-strip" style={{ backgroundColor: '#6366f1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UserPlus size={16} />
-                <span>Edit User Details: {editingUserId}</span>
+                <span>Edit Nurse Details: {editingNurseId}</span>
               </div>
               <button 
                 onClick={handleClear} 
@@ -324,7 +289,7 @@ export default function UserMasterPage() {
       {/* Registry Table Card */}
       <div className="pr-card-box pr-table-card">
         <div className="pr-table-header-strip">
-          <h3 className="pr-table-title">User Accounts Registry</h3>
+          <h3 className="pr-table-title">Nurse Registry</h3>
           <span className="pr-page-count">Showing Page 1 of 1</span>
         </div>
 
@@ -332,35 +297,33 @@ export default function UserMasterPage() {
           <table className="pr-data-table">
             <thead>
               <tr>
-                <th>USER ID</th>
+                <th>NURSE ID</th>
                 <th>FULL NAME</th>
-                <th>USER TYPE</th>
+                <th>DESIGNATION</th>
                 <th>CONTACT NO</th>
-                <th>PASSWORD</th>
                 <th>SIGNATURE</th>
                 <th>STATUS</th>
                 <th className="text-center no-print">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.length === 0 ? (
+              {filteredNurses.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="pr-empty-cell">
-                    No users found matching search criteria.
+                  <td colSpan={7} className="pr-empty-cell">
+                    No nurses found matching search criteria.
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user.userId}>
-                    <td className="font-bold-ip">{user.userId}</td>
-                    <td className="font-semibold-name">{user.userName}</td>
-                    <td>{user.userType}</td>
-                    <td>{user.contact || '—'}</td>
-                    <td><code style={{ fontSize: '11px', color: '#64748b' }}>••••••••</code></td>
+                filteredNurses.map((nurse) => (
+                  <tr key={nurse.nurseId}>
+                    <td className="font-bold-ip">{nurse.nurseId}</td>
+                    <td className="font-semibold-name">{nurse.nurseName}</td>
+                    <td>{nurse.designation}</td>
+                    <td>{nurse.contact || '—'}</td>
                     <td>
-                      {user.signatureImage ? (
+                      {nurse.signatureImage ? (
                         <img 
-                          src={user.signatureImage} 
+                          src={nurse.signatureImage} 
                           alt="signature" 
                           style={{ height: '24px', maxWidth: '80px', objectFit: 'contain', border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px', backgroundColor: '#ffffff' }} 
                         />
@@ -369,8 +332,8 @@ export default function UserMasterPage() {
                       )}
                     </td>
                     <td>
-                      <span className={`badge-ins-sm ${user.status === 'Active' ? 'ins-yes' : 'ins-no'}`} style={{ backgroundColor: user.status === 'Active' ? '#dcfce7' : '#fee2e2', color: user.status === 'Active' ? '#15803d' : '#b91c1c' }}>
-                        {user.status}
+                      <span className={`badge-ins-sm ${nurse.status === 'Active' ? 'ins-yes' : 'ins-no'}`} style={{ backgroundColor: nurse.status === 'Active' ? '#dcfce7' : '#fee2e2', color: nurse.status === 'Active' ? '#15803d' : '#b91c1c' }}>
+                        {nurse.status}
                       </span>
                     </td>
                     <td className="text-center no-print">
@@ -379,7 +342,7 @@ export default function UserMasterPage() {
                           type="button" 
                           className="btn-export-pdf"
                           style={{ borderColor: '#f97316', color: '#f97316', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'semibold', cursor: 'pointer' }}
-                          onClick={() => handleEditClick(user)}
+                          onClick={() => handleEditClick(nurse)}
                         >
                           <Pencil size={11} />
                           <span>Edit</span>
@@ -388,7 +351,7 @@ export default function UserMasterPage() {
                           type="button" 
                           className="btn-tbl-action-delete"
                           style={{ borderColor: '#ef4444', color: '#ef4444', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'semibold', cursor: 'pointer', border: '1px solid' }}
-                          onClick={() => handleDelete(user.userId)}
+                          onClick={() => handleDelete(nurse.nurseId)}
                         >
                           <Trash2 size={11} />
                           <span>Delete</span>

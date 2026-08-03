@@ -62,8 +62,9 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
+        if (saved.recordId) setRecordId(saved.recordId);
         if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-        if (saved.rows) setRows(saved.rows);
+        if (saved.rows) setRows(saved.rows.map(r => ({ ...r, date: getCurrentDate(), time: getCurrentTime() })));
       }
     }
   }, [editData, editRecordId]);
@@ -78,17 +79,9 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
   }, []);
 
   const getDoctorOptions = () => {
-    const activeDocs = systemUsers
-      .filter(u => u.status === 'Active' && ['Doctor', 'Resident Doctor', 'Consultant'].includes(u.userType))
+    return systemUsers
+      .filter(u => u.status === 'Active')
       .map(u => u.userName);
-    
-    if (activeDocs.length === 0) {
-      return ['Sadhana', 'Dr. Ramesh', 'Dr. Suresh', 'Dr. Kavitha'];
-    }
-    if (!activeDocs.includes('Sadhana')) {
-      activeDocs.unshift('Sadhana');
-    }
-    return activeDocs;
   };
 
   const renderSignatureStamp = (doctorName) => {
@@ -116,7 +109,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
     const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, rows });
+      persistForm(PERSIST_KEY, { patient, rows , recordId});
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.notes);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Progress Sheet', patient, { patient, rows }, setRecordId);
@@ -146,8 +139,6 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
         doa: found.doa || prev.doa,
         consultantName: found.consultantName || prev.consultantName
       }));
-      setToastMsg('Patient details auto-filled');
-      setTimeout(() => setToastMsg(''), 2000);
     }
   };
 
@@ -211,8 +202,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
     setToastMsg(recordId ? 'Progress Sheet updated successfully!' : 'Consultant Progress Sheet saved successfully!');
     setTimeout(() => {
       setToastMsg('');
-      if (onNavigate) onNavigate('view-records');
-    }, 800);
+    }, 2000);
   };
 
 
@@ -234,10 +224,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
-            <FileEdit size={14} />
-            <span>View Drafts</span>
-          </button>
+        
           <button type="button" className="btn-mint-save" onClick={() => window.print()}>
             <Printer size={14} />
             <span>Print Sheet</span>
@@ -398,7 +385,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
                   {/* Date Cell */}
                   <td className="td-progress-date" style={{ verticalAlign: 'top' }}>
                     <input 
-                      type="date" 
+                      type="date" max={getCurrentDate()} 
                       value={row.date} 
                       onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                       className="mint-date-picker"

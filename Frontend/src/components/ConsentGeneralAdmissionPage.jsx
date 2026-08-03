@@ -92,14 +92,17 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     } else {
       // Restore persisted form data on mount (navigation / refresh)
       const saved = restoreForm(PERSIST_KEY);
-      if (saved) setForm(prev => ({ ...prev, ...saved }));
+      if (saved) {
+        setForm(prev => ({ ...prev, ...saved }));
+        if (saved.recordId) setRecordId(saved.recordId);
+      }
     }
   }, [editData, editRecordId]);
 
   // Auto-save form to localStorage and database draft whenever it changes
   useEffect(() => {
     const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, form);
+      persistForm(PERSIST_KEY, { ...form, recordId });
       const hasContent = form.patientName || form.ipNo || form.uhidNo;
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Consent for General Admission', { ipNo: form.ipNo, uhidNo: form.uhidNo, name: form.patientName }, form, setRecordId);
@@ -141,10 +144,12 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
           bedNo: found.bedNo || prev.bedNo,
           medicalInsurance: found.medicalInsurance || prev.medicalInsurance,
           doa: found.doa || prev.doa,
-          ward: found.ward || prev.ward
+          ward: found.ward || prev.ward,
+          officeUhid: found.uhidNo || prev.officeUhid,
+          officeIpNo: found.ipNo || prev.officeIpNo,
+          officeWard: found.ward || prev.officeWard,
+          officeBed: found.bedNo || prev.officeBed
         }));
-        setToastMsg('Patient details auto-filled');
-        setTimeout(() => setToastMsg(''), 2000);
       }
     }
   };
@@ -310,8 +315,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     setToastMsg(recordId ? 'Record updated successfully!' : 'Consent form saved successfully!');
     setTimeout(() => {
       setToastMsg('');
-      if (onNavigate) onNavigate('view-records');
-    }, 800);
+    }, 2000);
   };
 
 
@@ -359,10 +363,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
             <FolderCheck size={15} />
             <span>View Records</span>
           </button>
-          <button className="btn btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
-            <FileEdit size={15} />
-            <span>View Drafts</span>
-          </button>
+        
           <button className="btn btn-secondary" onClick={handlePrint}>
             <Printer size={15} />
             <span>Print Form</span>
@@ -447,7 +448,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     onChange={handleChange} 
                     onKeyDown={handleIpKeyDown}
                     className="tbl-in"
-                    placeholder="Press Enter to auto-fill"
+                    placeholder="Enter UHID number"
                   />
                 </div>
               </td>
@@ -461,7 +462,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     onChange={handleChange} 
                     onKeyDown={handleIpKeyDown}
                     className="tbl-in"
-                    placeholder="Press Enter to auto-fill"
+                    placeholder="Enter IP number"
                   />
                 </div>
               </td>
@@ -947,3 +948,4 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     </div>
   );
 }
+

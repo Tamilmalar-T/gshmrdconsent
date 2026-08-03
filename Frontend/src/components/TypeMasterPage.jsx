@@ -6,7 +6,10 @@ import {
   Search, 
   Trash2, 
   Pencil,
-  Layers
+  Layers,
+  Minus,
+  Maximize2,
+  X
 } from 'lucide-react';
 
 const STORAGE_KEY = 'masters_types';
@@ -27,9 +30,19 @@ export default function TypeMasterPage() {
     status: 'Active'
   });
 
+  const [editForm, setEditForm] = useState({
+    typeCode: '',
+    typeName: '',
+    description: '',
+    status: 'Active'
+  });
+
   const [types, setTypes] = useState([]);
   const [editingTypeCode, setEditingTypeCode] = useState(null);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isEditModalMinimized, setIsEditModalMinimized] = useState(false);
+  const [addErrorMsg, setAddErrorMsg] = useState('');
+  const [editErrorMsg, setEditErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -52,60 +65,89 @@ export default function TypeMasterPage() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-    setErrorMsg('');
+    setAddErrorMsg('');
   };
 
-  const handleClear = () => {
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+    setEditErrorMsg('');
+  };
+
+  const handleClearAdd = () => {
     setForm({
       typeCode: '',
       typeName: '',
       description: '',
       status: 'Active'
     });
-    setEditingTypeCode(null);
-    setErrorMsg('');
+    setAddErrorMsg('');
   };
 
-  const handleSubmit = (e) => {
+  const handleClearEdit = () => {
+    setEditForm({
+      typeCode: '',
+      typeName: '',
+      description: '',
+      status: 'Active'
+    });
+    setEditingTypeCode(null);
+    setIsEditModalOpen(false);
+    setIsEditModalMinimized(false);
+    setEditErrorMsg('');
+  };
+
+  const handleAddSubmit = (e) => {
     e.preventDefault();
-    setErrorMsg('');
+    setAddErrorMsg('');
     setSuccessMsg('');
 
     // Validations
     if (!form.typeCode.trim()) {
-      setErrorMsg('Type Code is required.');
+      setAddErrorMsg('Type Code is required.');
       return;
     }
     if (!form.typeName.trim()) {
-      setErrorMsg('Type Name is required.');
+      setAddErrorMsg('Type Name is required.');
       return;
     }
 
-    if (editingTypeCode) {
-      // Edit mode
-      const updated = types.map((t) => t.typeCode === editingTypeCode ? { ...form } : t);
-      saveToStorage(updated);
-      setSuccessMsg(`User Type "${form.typeName}" updated successfully!`);
-      handleClear();
-    } else {
-      // Add mode
-      if (types.some((t) => t.typeCode.toLowerCase() === form.typeCode.toLowerCase())) {
-        setErrorMsg(`Type Code "${form.typeCode}" already exists.`);
-        return;
-      }
-      const updated = [...types, form];
-      saveToStorage(updated);
-      setSuccessMsg(`User Type "${form.typeName}" added successfully!`);
-      handleClear();
+    if (types.some((t) => t.typeCode.toLowerCase() === form.typeCode.toLowerCase())) {
+      setAddErrorMsg(`Type Code "${form.typeCode}" already exists.`);
+      return;
     }
+    const updated = [...types, form];
+    saveToStorage(updated);
+    setSuccessMsg(`User Type "${form.typeName}" added successfully!`);
+    handleClearAdd();
+
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    setEditErrorMsg('');
+    setSuccessMsg('');
+
+    if (!editForm.typeName.trim()) {
+      setEditErrorMsg('Type Name is required.');
+      return;
+    }
+
+    const updated = types.map((t) => t.typeCode === editingTypeCode ? { ...editForm } : t);
+    saveToStorage(updated);
+    setSuccessMsg(`User Type "${editForm.typeName}" updated successfully!`);
+    handleClearEdit();
 
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
   const handleEditClick = (typeItem) => {
-    setForm({ ...typeItem });
+    setEditForm({ ...typeItem });
     setEditingTypeCode(typeItem.typeCode);
-    setErrorMsg('');
+    setIsEditModalOpen(true);
+    setIsEditModalMinimized(false);
+    setEditErrorMsg('');
   };
 
   const handleDelete = (typeCode) => {
@@ -115,7 +157,7 @@ export default function TypeMasterPage() {
       setSuccessMsg('User Type deleted successfully.');
       setTimeout(() => setSuccessMsg(''), 4000);
       if (editingTypeCode === typeCode) {
-        handleClear();
+        handleClearEdit();
       }
     }
   };
@@ -162,26 +204,26 @@ export default function TypeMasterPage() {
         </div>
       </div>
 
-      {/* Add / Edit Form Card */}
+      {/* Add Form Card */}
       <div className="pr-card-box">
         
         {/* Card Header Strip */}
-        <div className="pr-card-header-strip" style={{ backgroundColor: editingTypeCode ? '#6366f1' : '#0284c7' }}>
+        <div className="pr-card-header-strip" style={{ backgroundColor: '#0284c7' }}>
           <Layers size={16} />
-          <span>{editingTypeCode ? 'Edit User Type details' : 'Add New User Type'}</span>
+          <span>Add New User Type</span>
         </div>
 
         {/* Form Body */}
         <div className="pr-card-body">
           
-          {errorMsg && (
+          {addErrorMsg && (
             <div className="alert-error-banner">
               <AlertCircle size={18} />
-              <span>{errorMsg}</span>
+              <span>{addErrorMsg}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleAddSubmit}>
             <div className="pr-form-4col-grid">
 
               {/* TYPE CODE */}
@@ -192,7 +234,6 @@ export default function TypeMasterPage() {
                   name="typeCode" 
                   value={form.typeCode} 
                   onChange={handleChange} 
-                  disabled={!!editingTypeCode}
                   placeholder="e.g. ADM" 
                   className="pr-input"
                 />
@@ -245,22 +286,161 @@ export default function TypeMasterPage() {
               <button 
                 type="button" 
                 className="btn-pr-clear" 
-                onClick={handleClear}
+                onClick={handleClearAdd}
               >
-                Cancel
+                Clear
               </button>
               <button 
                 type="submit" 
                 className="btn-pr-register"
-                style={{ backgroundColor: editingTypeCode ? '#6366f1' : '#0284c7' }}
+                style={{ backgroundColor: '#0284c7' }}
               >
-                {editingTypeCode ? 'Update User Type' : '+ Add User Type'}
+                + Add User Type
               </button>
             </div>
           </form>
 
         </div>
       </div>
+
+      {/* Edit Form Modal */}
+      {isEditModalOpen && (
+        <div style={isEditModalMinimized ? {
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 1000,
+          width: '320px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)'
+        } : {
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div className="pr-card-box" style={isEditModalMinimized ? { margin: 0 } : { width: '90%', maxWidth: '800px', margin: 0, backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
+            
+            <div className="pr-card-header-strip" style={{ backgroundColor: '#6366f1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={16} />
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
+                  {isEditModalMinimized ? `Edit: ${editForm.typeName}` : 'Edit User Type details'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setIsEditModalMinimized(!isEditModalMinimized)} 
+                  style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  title={isEditModalMinimized ? "Maximize" : "Minimize"}
+                >
+                  {isEditModalMinimized ? <Maximize2 size={16} /> : <Minus size={16} />}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleClearEdit} 
+                  style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  title="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {!isEditModalMinimized && (
+              <div className="pr-card-body">
+                
+                {editErrorMsg && (
+                  <div className="alert-error-banner">
+                    <AlertCircle size={18} />
+                    <span>{editErrorMsg}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleEditSubmit}>
+                  <div className="pr-form-4col-grid">
+
+                    {/* TYPE CODE */}
+                    <div className="pr-field">
+                      <label className="pr-label">TYPE CODE <span className="req-star">*</span></label>
+                      <input 
+                        type="text" 
+                        name="typeCode" 
+                        value={editForm.typeCode} 
+                        onChange={handleEditChange} 
+                        disabled
+                        className="pr-input"
+                        style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                      />
+                    </div>
+
+                    {/* TYPE NAME */}
+                    <div className="pr-field">
+                      <label className="pr-label">TYPE NAME <span className="req-star">*</span></label>
+                      <input 
+                        type="text" 
+                        name="typeName" 
+                        value={editForm.typeName} 
+                        onChange={handleEditChange} 
+                        className="pr-input"
+                      />
+                    </div>
+
+                    {/* DESCRIPTION */}
+                    <div className="pr-field" style={{ gridColumn: 'span 2' }}>
+                      <label className="pr-label">DESCRIPTION</label>
+                      <input 
+                        type="text" 
+                        name="description" 
+                        value={editForm.description} 
+                        onChange={handleEditChange} 
+                        className="pr-input"
+                      />
+                    </div>
+
+                    {/* STATUS */}
+                    <div className="pr-field">
+                      <label className="pr-label">STATUS</label>
+                      <select 
+                        name="status" 
+                        value={editForm.status} 
+                        onChange={handleEditChange} 
+                        className="pr-select"
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </div>
+
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="pr-form-footer-actions">
+                    <button 
+                      type="button" 
+                      className="btn-pr-clear" 
+                      onClick={handleClearEdit}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="btn-pr-register"
+                      style={{ backgroundColor: '#6366f1' }}
+                    >
+                      Update User Type
+                    </button>
+                  </div>
+                </form>
+
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Registry Table Card */}
       <div className="pr-card-box pr-table-card">

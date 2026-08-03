@@ -58,7 +58,8 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
         if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-        if (saved.rows) setRows(saved.rows);
+        if (saved.rows) setRows(saved.rows.map(r => ({ ...r, date: getCurrentDate(), time: getCurrentTime() })));
+        if (saved.recordId) setRecordId(saved.recordId);
       }
     }
   }, [editData, editRecordId]);
@@ -73,17 +74,9 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
   }, []);
 
   const getNurseOptions = () => {
-    const activeNurses = systemUsers
-      .filter(u => u.status === 'Active' && u.userType === 'Nurse')
+    return systemUsers
+      .filter(u => u.status === 'Active')
       .map(u => u.userName);
-    
-    if (activeNurses.length === 0) {
-      return ['Sadhana', 'Priya', 'Anitha'];
-    }
-    if (!activeNurses.includes('Sadhana')) {
-      activeNurses.unshift('Sadhana');
-    }
-    return activeNurses;
   };
 
   const renderSignatureStamp = (nurseName) => {
@@ -111,7 +104,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
     const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, rows });
+      persistForm(PERSIST_KEY, { patient, rows, recordId });
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.notes);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Nurses Care Plan', patient, { patient, rows }, setRecordId);
@@ -143,8 +136,6 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
           bed: found.bedNo || prev.bed,
           doa: found.doa || prev.doa
         }));
-        setToastMsg('Patient details auto-filled');
-        setTimeout(() => setToastMsg(''), 2000);
       }
     }
   };
@@ -199,8 +190,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
     setToastMsg(recordId ? 'Nurse Care Plan updated successfully!' : 'Nurse Care Plan saved successfully!');
     setTimeout(() => {
       setToastMsg('');
-      if (onNavigate) onNavigate('view-records');
-    }, 800);
+    }, 2000);
   };
 
 
@@ -215,10 +205,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
-            <FileEdit size={14} />
-            <span>View Drafts</span>
-          </button>
+       
           <button type="button" className="btn-mint-save" onClick={() => window.print()}>
             <Printer size={14} />
             <span>Print Form</span>
@@ -300,7 +287,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
                       onChange={handlePatientChange} 
                       onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
-                      placeholder="Press Enter to auto-fill"
+                      placeholder="Enter UHID number"
                     />
                   </div>
                 </td>
@@ -314,7 +301,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
                       onChange={handlePatientChange} 
                       onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
-                      placeholder="Press Enter to auto-fill"
+                      placeholder="Enter IP number"
                     />
                   </div>
                 </td>
@@ -374,7 +361,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
                   {/* DATE Cell */}
                   <td className="td-mint-date">
                     <input 
-                      type="date" 
+                      type="date" max={getCurrentDate()} 
                       value={row.date} 
                       onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                       className="mint-date-picker"
@@ -470,4 +457,5 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
     </div>
   );
 }
+
 

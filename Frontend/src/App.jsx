@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import LoginPage from './components/LoginPage';
@@ -18,10 +18,19 @@ import IntakeOutputRecordPage from './components/IntakeOutputRecordPage';
 import UserMasterPage from './components/UserMasterPage';
 import TypeMasterPage from './components/TypeMasterPage';
 import CaseSheetMasterPage from './components/CaseSheetMasterPage';
+import NurseMasterPage from './components/NurseMasterPage';
+import AssessmentMasterPage from './components/AssessmentMasterPage';
+import InvestigationChartPage from './components/InvestigationChartPage';
+import InternalTransferFormPage from './components/InternalTransferFormPage';
+import RegularDrugPrescriptionPage from './components/RegularDrugPrescriptionPage';
+import ActivityRecordBilling from './components/ActivityRecordBilling';
 import './App.css';
 
 function App() {
-  const [loggedInUser, setLoggedInUser] = useState(null);
+  const [loggedInUser, setLoggedInUser] = useState(() => {
+    const saved = localStorage.getItem('logged_in_user');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('patient-registration');
   const [lastFormTab, setLastFormTab] = useState('general-admission-consent');
@@ -30,10 +39,12 @@ function App() {
 
   // --- Auth Handlers ---
   const handleLoginSuccess = (user) => {
+    localStorage.setItem('logged_in_user', JSON.stringify(user));
     setLoggedInUser(user);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('logged_in_user');
     setLoggedInUser(null);
     setActiveTab('patient-registration');
     setEditRecord(null);
@@ -41,7 +52,7 @@ function App() {
 
   // --- Navigation Handlers ---
   const handleNavigate = (targetTab) => {
-    if (activeTab !== 'view-records' && activeTab !== 'view-drafts' && activeTab !== 'patient-details') {
+    if (activeTab !== 'view-records' && activeTab !== 'view-drafts') {
       setLastFormTab(activeTab);
     }
     setActiveTab(targetTab);
@@ -53,13 +64,53 @@ function App() {
 
   const handleViewPatientDetails = (ipNo) => {
     setSelectedIpNoForView(ipNo);
-    handleNavigate('patient-details');
+    handleNavigate('view-records');
   };
 
   const handleEditRecord = (tabId, data, recId) => {
     setEditRecord({ tabId, data, recId });
     setActiveTab(tabId);
   };
+
+  // --- Auto-Resize Textareas Globally ---
+  useEffect(() => {
+    const resizeTextareas = () => {
+      const mainContent = document.querySelector('.app-main-content');
+      const scrollPos = mainContent ? mainContent.scrollTop : window.scrollY;
+      
+      document.querySelectorAll('textarea').forEach(textarea => {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+      });
+
+      if (mainContent) {
+        mainContent.scrollTop = scrollPos;
+      } else {
+        window.scrollTo(0, scrollPos);
+      }
+    };
+
+    // 1) Global event listener for manual typing
+    const handleInput = (e) => {
+      if (e.target.tagName.toLowerCase() === 'textarea') {
+        e.target.style.height = 'auto';
+        e.target.style.height = `${e.target.scrollHeight}px`;
+      }
+    };
+    document.addEventListener('input', handleInput);
+
+    // 2) Run resize after tab switches and state restoration
+    const timer1 = setTimeout(resizeTextareas, 10);
+    const timer2 = setTimeout(resizeTextareas, 100);
+    const timer3 = setTimeout(resizeTextareas, 300);
+
+    return () => {
+      document.removeEventListener('input', handleInput);
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [activeTab, editRecord, selectedIpNoForView]);
 
   // --- Render Content ---
   const renderContent = () => {
@@ -68,8 +119,6 @@ function App() {
     switch (activeTab) {
       case 'patient-registration':
         return <PatientRegistrationPage onViewDetails={handleViewPatientDetails} />;
-      case 'patient-details':
-        return <PatientDetailsPage selectedIpNo={selectedIpNoForView} initialMode="all" onBack={handleBackToForm} onEdit={handleEditRecord} />;
       case 'view-records':
         return <PatientDetailsPage initialMode="records" onBack={handleBackToForm} onEdit={handleEditRecord} filterTabId={lastFormTab} />;
       case 'view-drafts':
@@ -109,6 +158,18 @@ function App() {
         return <TypeMasterPage />;
       case 'case-sheet-master':
         return <CaseSheetMasterPage />;
+      case 'nurse-master':
+        return <NurseMasterPage />;
+      case 'assessment-master':
+        return <AssessmentMasterPage />;
+      case 'investigation-chart':
+        return <InvestigationChartPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'internal-transfer-form':
+        return <InternalTransferFormPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'regular-drug-prescription':
+        return <RegularDrugPrescriptionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'activity-record-billing':
+        return <ActivityRecordBilling onNavigate={handleNavigate} />;
       default:
         return <NursesCarePlanPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
     }

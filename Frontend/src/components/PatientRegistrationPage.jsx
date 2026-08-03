@@ -4,7 +4,8 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Search, 
-  Trash2, 
+  Trash2,
+  Edit2, 
   UserCheck, 
   FileText,
   FileSpreadsheet,
@@ -13,7 +14,7 @@ import {
   Eye
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
-import { getRegisteredPatients, registerPatient, deleteRegisteredPatient } from '../utils/patientRegistry';
+import { getRegisteredPatients, registerPatient, updatePatient, deleteRegisteredPatient } from '../utils/patientRegistry';
 
 export default function PatientRegistrationPage({ onViewDetails }) {
   const [form, setForm] = useState({
@@ -34,6 +35,7 @@ export default function PatientRegistrationPage({ onViewDetails }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingIpNo, setEditingIpNo] = useState(null);
 
   useEffect(() => {
     setPatients(getRegisteredPatients());
@@ -59,6 +61,7 @@ export default function PatientRegistrationPage({ onViewDetails }) {
       dod: '',
       createdBy: 'Admin'
     });
+    setEditingIpNo(null);
     setErrorMsg('');
   };
 
@@ -87,9 +90,15 @@ export default function PatientRegistrationPage({ onViewDetails }) {
     }
 
     try {
-      const updatedList = registerPatient(form);
-      setPatients(updatedList);
-      setSuccessMsg(`Patient "${form.patientName}" registered successfully!`);
+      if (editingIpNo) {
+        const updatedList = updatePatient(editingIpNo, form);
+        setPatients(updatedList);
+        setSuccessMsg(`Patient "${form.patientName}" updated successfully!`);
+      } else {
+        const updatedList = registerPatient(form);
+        setPatients(updatedList);
+        setSuccessMsg(`Patient "${form.patientName}" registered successfully!`);
+      }
       handleClear();
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
@@ -325,8 +334,9 @@ export default function PatientRegistrationPage({ onViewDetails }) {
               <button 
                 type="submit" 
                 className="btn-pr-register"
+                style={{ backgroundColor: editingIpNo ? '#eab308' : '#0070bb' }}
               >
-                + Register Patient
+                {editingIpNo ? <><Edit2 size={14} style={{ marginRight: '6px' }} /> Update Patient</> : '+ Register Patient'}
               </button>
             </div>
           </form>
@@ -390,13 +400,27 @@ export default function PatientRegistrationPage({ onViewDetails }) {
                           type="button" 
                           className="btn-tbl-action-view"
                           onClick={() => onViewDetails && onViewDetails(pt.ipNo)}
-                          title="View Patient Details & Records"
+                          title="View Records"
                         >
                           <Eye size={13} />
                         </button>
                         <button 
                           type="button" 
+                          className="btn-tbl-action-edit"
+                          style={{ background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', marginLeft: '6px' }}
+                          onClick={() => {
+                            setForm({ ...pt });
+                            setEditingIpNo(pt.ipNo);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          title="Edit Patient"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button 
+                          type="button" 
                           className="btn-tbl-action-delete"
+                          style={{ marginLeft: '6px' }}
                           onClick={() => handleDelete(pt.ipNo)}
                           title="Delete Patient"
                         >

@@ -61,6 +61,18 @@ export default function ProgressReassessmentRecordPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
 
+  const [systemUsers, setSystemUsers] = useState([]);
+  useEffect(() => {
+    const saved = localStorage.getItem('masters_users');
+    if (saved) {
+      setSystemUsers(JSON.parse(saved));
+    }
+  }, []);
+
+  const activeDocs = systemUsers
+    .filter(u => u.status === 'Active')
+    .map(u => u.userName);
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
@@ -72,6 +84,33 @@ export default function ProgressReassessmentRecordPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+
+    if (name === 'doctorName') {
+      const user = systemUsers.find(u => u.userName === value);
+      if (user && user.signatureImage) {
+        drawSignatureFromDataUrl(user.signatureImage);
+      } else {
+        clearSig();
+      }
+    }
+  };
+
+  const drawSignatureFromDataUrl = (dataUrl) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = sigCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const hRatio = canvas.width / img.width;
+      const vRatio = canvas.height / img.height;
+      const ratio = Math.min(hRatio, vRatio);
+      const centerShiftX = (canvas.width - img.width * ratio) / 2;
+      const centerShiftY = (canvas.height - img.height * ratio) / 2;
+      ctx.drawImage(img, 0, 0, img.width, img.height, centerShiftX, centerShiftY, img.width * ratio, img.height * ratio);
+      setHasSigned(true);
+    };
+    img.src = dataUrl;
   };
 
   // Canvas Drawing Handlers
@@ -348,26 +387,17 @@ export default function ProgressReassessmentRecordPage() {
               </td>
             </tr>
 
-            {/* SECTION 2: O (Objective) */}
+            {/* SECTION 2: O (Objective) - Header & Vitals */}
             <tr>
-              <td className="td-soap-label-box">
+              <td className="td-soap-label-box" style={{ borderBottom: 'none' }}>
                 <div className="soap-label-header">O (Objective)</div>
                 <div className="soap-label-subtext">
                   is the observed (focused Physical exam)/ measured (vital signs) recorded input-output)
                 </div>
-                <div className="soap-sub-label">Lab parameters :</div>
-                <textarea 
-                  name="labParameters" 
-                  value={soap.labParameters} 
-                  onChange={handleSoapChange} 
-                  placeholder="Enter lab parameters..."
-                  className="soap-textarea-small"
-                  rows={3}
-                />
               </td>
-              <td className="td-soap-input-box p-0">
+              <td className="td-soap-input-box p-0" style={{ borderBottom: 'none' }}>
                 {/* Vitals Bar Top Row */}
-                <div className="soap-vitals-row">
+                <div className="soap-vitals-row" style={{ borderBottom: '1px solid #cbd5e1' }}>
                   <div className="vitals-item">
                     <span>TEMP :</span>
                     <input type="text" name="temp" value={soap.temp} onChange={handleSoapChange} className="soap-vital-in" />
@@ -389,17 +419,40 @@ export default function ProgressReassessmentRecordPage() {
                     <input type="text" name="io" value={soap.io} onChange={handleSoapChange} className="soap-vital-in" />
                   </div>
                 </div>
-
-                {/* Review of Systems Area */}
+              </td>
+            </tr>
+            {/* SECTION 2: O (Objective) - Review of Systems */}
+            <tr>
+              <td className="td-soap-label-box" style={{ borderTop: 'none', borderBottom: 'none', paddingTop: '10px' }}>
+                <div className="soap-sub-label" style={{ fontWeight: 700, color: '#0f172a' }}>Review of Systems :</div>
+              </td>
+              <td className="td-soap-input-box p-0" style={{ borderTop: 'none', borderBottom: 'none' }}>
                 <div className="soap-ros-box">
-                  <div className="ros-label">Review of Systems :</div>
                   <textarea 
                     name="reviewOfSystems" 
                     value={soap.reviewOfSystems} 
                     onChange={handleSoapChange} 
-                    placeholder="Enter review of systems..."
+                    placeholder="Enter physical exam & Review of Systems..."
                     className="soap-textarea"
                     rows={4}
+                  />
+                </div>
+              </td>
+            </tr>
+            {/* SECTION 2: O (Objective) - Lab Parameters */}
+            <tr>
+              <td className="td-soap-label-box" style={{ borderTop: 'none', paddingTop: '10px' }}>
+                <div className="soap-sub-label" style={{ fontWeight: 700, color: '#0f172a' }}>Lab parameters :</div>
+              </td>
+              <td className="td-soap-input-box p-0" style={{ borderTop: 'none' }}>
+                <div className="soap-ros-box" style={{ borderTop: '1px dashed #cbd5e1' }}>
+                  <textarea 
+                    name="labParameters" 
+                    value={soap.labParameters} 
+                    onChange={handleSoapChange} 
+                    placeholder="Enter lab parameters..."
+                    className="soap-textarea"
+                    rows={3}
                   />
                 </div>
               </td>
@@ -504,13 +557,16 @@ export default function ProgressReassessmentRecordPage() {
             <tr>
               <td className="foot-cell">
                 <span className="foot-lbl">Name :</span>
-                <input 
-                  type="text" 
+                <select 
                   name="doctorName" 
                   value={soap.doctorName} 
                   onChange={handleSoapChange} 
-                  className="box-in"
-                />
+                  className="info-select-plain box-in"
+                >
+                  {activeDocs.map(doc => (
+                    <option key={doc} value={doc}>{doc}</option>
+                  ))}
+                </select>
               </td>
               <td className="foot-cell sig-td-cell">
                 <span className="foot-lbl">Signature :</span>
@@ -551,7 +607,7 @@ export default function ProgressReassessmentRecordPage() {
               <td className="foot-cell">
                 <span className="foot-lbl">Date :</span>
                 <input 
-                  type="date" 
+                  type="date" max={getCurrentDate()} 
                   name="recordDate" 
                   value={soap.recordDate} 
                   onChange={handleSoapChange} 

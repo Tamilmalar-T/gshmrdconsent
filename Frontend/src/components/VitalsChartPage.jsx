@@ -4,13 +4,22 @@ import {
   Save,
   CheckCircle2,
   FolderCheck,
-  FileEdit
+  FileEdit,
+  XCircle
 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 
 const PERSIST_KEY = 'vitals_chart';
+
+const getCurrentDate = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 // All 24 hourly time options mapping (6 AM to 5 AM) with explicit chronological timeRank
 const allTimeOptions = [
@@ -65,13 +74,15 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
 
   // Entry Form State
   const [entry, setEntry] = useState({
-    date: new Date().toISOString().slice(0, 10),
+    date: getCurrentDate(),
     timeSlot: '6_AM',
     pulse: '',
     temp: '',
     resp: '',
     bp: ''
   });
+
+  const [errors, setErrors] = useState({});
 
   // Date Columns State — starts empty, populated when user adds readings
   const [dates, setDates] = useState(['', '', '']);
@@ -102,8 +113,9 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
+        if (saved.recordId) setRecordId(saved.recordId);
         if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-        if (saved.entry) setEntry(e => ({ ...e, ...saved.entry }));
+        if (saved.entry) setEntry(e => ({ ...e, ...saved.entry, date: getCurrentDate() }));
         if (saved.dates) {
           const d = [...saved.dates];
           while (d.length < 3) d.push('');
@@ -150,7 +162,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
     const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, entry, dates, readings, slotHours });
+      persistForm(PERSIST_KEY, { patient, entry, dates, readings, slotHours , recordId});
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || readings.length > 2;
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Vitals Chart', patient, { patient, entry, dates, readings, slotHours }, setRecordId);
@@ -207,8 +219,6 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
         bedNo: found.bedNo || prev.bedNo || prev.bed || '',
         doa: found.doa || prev.doa
       }));
-      setToastMsg('Patient details auto-filled');
-      setTimeout(() => setToastMsg(''), 2000);
     }
   };
 
@@ -282,6 +292,22 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
   const handleEntryChange = (e) => {
     const { name, value } = e.target;
     setEntry((prev) => ({ ...prev, [name]: value }));
+
+    let errorMsg = '';
+    if (value.trim() !== '') {
+      if (['pulse', 'temp', 'resp', 'bp'].includes(name)) {
+        const num = parseFloat(value);
+        if (!isNaN(num)) {
+          if (name === 'pulse' && (num < 40 || num > 210)) errorMsg = 'Pulse must be 40–210';
+          if (name === 'temp' && (num < 95 || num > 106)) errorMsg = 'Temp must be 95–106';
+          if (name === 'resp' && (num < 10 || num > 60)) errorMsg = 'Resp must be 10–60';
+          if (name === 'bp' && (num < 40 || num > 210)) errorMsg = 'BP must be 40–210';
+        } else {
+          errorMsg = 'Must be a number';
+        }
+      }
+    }
+    setErrors((prev) => ({ ...prev, [name]: errorMsg }));
   };
 
   // Map Temp value (95–106 °F) → row index (step-2 grid, anchored at pulse=210)
@@ -333,61 +359,100 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
   // Handle Form Submit: Plot / Add Reading
   const handleAddReading = (e) => {
     e.preventDefault();
+
+    if (Object.values(errors).some(msg => msg !== '')) {
+      setToastMsg('⚠ Please fix the validation errors before adding.');
+      setTimeout(() => setToastMsg(''), 3000);
+      return;
+    }
+
     const formattedDate = formatDateString(entry.date);
 
-    // Check if date is in dates array, else add it
-    let dIdx = dates.indexOf(formattedDate);
     let updatedDates = [...dates];
-    if (dIdx === -1) {
+    if (!updatedDates.includes(formattedDate)) {
       const emptyIdx = updatedDates.findIndex(d => d === '');
       if (emptyIdx !== -1) {
         updatedDates[emptyIdx] = formattedDate;
-        dIdx = emptyIdx;
       } else {
         updatedDates.push(formattedDate);
-        dIdx = updatedDates.length - 1;
       }
-      setDates(updatedDates);
     }
 
-    const slotObj = allTimeOptions.find(s => s.key === entry.timeSlot) || allTimeOptions[0];
+    const getTimestamp = (dStr) => {
+      if (!dStr) return Infinity;
+      const [dd, mm, yy] = dStr.split('/');
+      if (dd && mm && yy) {
+        return new Date(2000 + parseInt(yy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10)).getTime();
+      }
+      return Infinity;
+    };
 
+    const sortedDates = [...updatedDates].sort((a, b) => getTimestamp(a) - getTimestamp(b));
+
+    const oldToNewIdx = {};
+    updatedDates.forEach((d, oldIdx) => {
+      if (d) oldToNewIdx[oldIdx] = sortedDates.indexOf(d);
+    });
+    
+    let emptyCounter = sortedDates.findIndex(d => !d);
+    if (emptyCounter !== -1) {
+      updatedDates.forEach((d, oldIdx) => {
+        if (!d) oldToNewIdx[oldIdx] = emptyCounter++;
+      });
+    }
+
+    const targetDIdx = sortedDates.indexOf(formattedDate);
+
+    let currentReadings = readings.map(r => ({
+      ...r,
+      dIdx: oldToNewIdx[r.dIdx] !== undefined ? oldToNewIdx[r.dIdx] : r.dIdx
+    }));
+
+    let currentSlotHours = {};
+    Object.keys(slotHours).forEach(key => {
+      const [oldDIdxStr, sIdxStr] = key.split('_');
+      const oldDIdx = parseInt(oldDIdxStr, 10);
+      const newDIdx = oldToNewIdx[oldDIdx];
+      if (newDIdx !== undefined) {
+        currentSlotHours[`${newDIdx}_${sIdxStr}`] = slotHours[key];
+      }
+    });
+
+    const slotObj = allTimeOptions.find(s => s.key === entry.timeSlot) || allTimeOptions[0];
     const newEntries = [];
-    // Placeholder sIdx=0; will be corrected by applyChronologicalSort below
     const placeholderSIdx = 0;
 
     if (entry.temp) {
       const rIdx = getTempRowIndex(entry.temp);
-      if (rIdx !== -1) newEntries.push({ id: Date.now() + 1, date: formattedDate, dIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'temp', val: parseFloat(entry.temp), rawVal: entry.temp, rIdx });
+      if (rIdx !== -1) newEntries.push({ id: Date.now() + 1, date: formattedDate, dIdx: targetDIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'temp', val: parseFloat(entry.temp), rawVal: entry.temp, rIdx });
     }
     if (entry.pulse) {
       const rIdx = getPulseRowIndex(entry.pulse);
-      if (rIdx !== -1) newEntries.push({ id: Date.now() + 2, date: formattedDate, dIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'pulse', val: parseFloat(entry.pulse), rawVal: entry.pulse, rIdx });
+      if (rIdx !== -1) newEntries.push({ id: Date.now() + 2, date: formattedDate, dIdx: targetDIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'pulse', val: parseFloat(entry.pulse), rawVal: entry.pulse, rIdx });
     }
     if (entry.resp) {
       const rIdx = getRespRowIndex(entry.resp);
-      if (rIdx !== -1) newEntries.push({ id: Date.now() + 3, date: formattedDate, dIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'resp', val: parseFloat(entry.resp), rawVal: entry.resp, rIdx });
+      if (rIdx !== -1) newEntries.push({ id: Date.now() + 3, date: formattedDate, dIdx: targetDIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'resp', val: parseFloat(entry.resp), rawVal: entry.resp, rIdx });
     }
     if (entry.bp) {
       const rIdx = getBpRowIndex(entry.bp);
-      if (rIdx !== -1) newEntries.push({ id: Date.now() + 4, date: formattedDate, dIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'bp', val: parseFloat(entry.bp), rawVal: entry.bp, rIdx });
+      if (rIdx !== -1) newEntries.push({ id: Date.now() + 4, date: formattedDate, dIdx: targetDIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'bp', val: parseFloat(entry.bp), rawVal: entry.bp, rIdx });
     }
 
     if (newEntries.length > 0) {
-      // Merge new entries into existing (replacing same timeKey+type for this date)
       const newTypes = newEntries.map(e => e.type);
       const merged = [
-        ...readings.filter(r => !(r.dIdx === dIdx && r.timeKey === slotObj.key && newTypes.includes(r.type))),
+        ...currentReadings.filter(r => !(r.dIdx === targetDIdx && r.timeKey === slotObj.key && newTypes.includes(r.type))),
         ...newEntries
       ];
 
-      // Chronologically sort all entries for this date and assign correct slot boxes
-      const newSlotHoursBase = { ...slotHours };
-      const { sortedReadings, newSlotHours } = applyChronologicalSort(merged, dIdx, newSlotHoursBase);
+      const { sortedReadings, newSlotHours } = applyChronologicalSort(merged, targetDIdx, currentSlotHours);
 
+      setDates(sortedDates);
       setReadings(sortedReadings);
       setSlotHours(newSlotHours);
       setEntry(prev => ({ ...prev, pulse: '', temp: '', resp: '', bp: '' }));
+      setErrors({});
       setToastMsg(`✔ Vitals plotted for ${formattedDate} (${slotObj.period} ${slotObj.hour})`);
       setTimeout(() => setToastMsg(''), 3000);
     } else {
@@ -408,13 +473,12 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
     setToastMsg(recordId ? 'Vitals Chart updated successfully!' : 'Vitals Chart saved successfully!');
     setTimeout(() => {
       setToastMsg('');
-      if (onNavigate) onNavigate('view-records');
-    }, 800);
+    }, 2000);
   };
 
   const handleClearForm = () => {
     setPatient({ name: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', doa: '', ward: '', bedNo: '' });
-    setEntry({ date: new Date().toISOString().slice(0, 10), timeSlot: '6_AM', pulse: '', temp: '', resp: '', bp: '' });
+    setEntry({ date: getCurrentDate(), timeSlot: '6_AM', pulse: '', temp: '', resp: '', bp: '' });
     setDates(['', '', '']);
     setReadings([]);
     setSlotHours({});
@@ -530,28 +594,6 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
     return () => window.removeEventListener('resize', updateOverlayCoordinates);
   }, [readings, dates]);
 
-  const handleCellClick = (rIdx, dIdx, sIdx) => {
-    const existing = readings.find(r => r.dIdx === dIdx && r.sIdx === sIdx && r.rIdx === rIdx);
-    if (existing) {
-      setReadings(readings.filter(r => r.id !== existing.id));
-    } else {
-      const currentHourLabel = slotHours[`${dIdx}_${sIdx}`];
-      const opt = allTimeOptions.find(o => o.hour === currentHourLabel || o.sIdx === sIdx) || allTimeOptions[0];
-      const newReading = {
-        id: Date.now(),
-        date: dates[dIdx] || '22/07/26',
-        dIdx,
-        sIdx,
-        timeKey: opt.key,
-        timeRank: opt.timeRank,
-        type: 'temp',
-        val: 106 - rIdx / 5,
-        rIdx
-      };
-      setReadings(prev => [...prev, newReading]);
-    }
-  };
-
   const dateSlotsConfig = useMemo(() => {
     return dates.map((_, dIdx) => {
       const uniqueTimes = new Map();
@@ -612,6 +654,42 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
     }
   };
 
+  const handleRemoveDateColumn = (targetDIdx) => {
+    if (window.confirm(`Delete all entries for ${dates[targetDIdx] || 'this column'}?`)) {
+      let updatedReadings = readings.filter(r => r.dIdx !== targetDIdx);
+      
+      updatedReadings = updatedReadings.map(r => {
+        if (r.dIdx > targetDIdx) {
+          return { ...r, dIdx: r.dIdx - 1 };
+        }
+        return r;
+      });
+
+      const newDates = [...dates];
+      newDates.splice(targetDIdx, 1);
+      
+      if (newDates.length < 3) {
+        newDates.push('');
+      }
+      
+      setDates(newDates);
+
+      setSlotHours(prev => {
+        const updated = {};
+        Object.keys(prev).forEach(key => {
+          const [dIdxStr, sIdxStr] = key.split('_');
+          const dIdx = parseInt(dIdxStr, 10);
+          if (dIdx < targetDIdx) {
+            updated[key] = prev[key];
+          } else if (dIdx > targetDIdx) {
+            updated[`${dIdx - 1}_${sIdxStr}`] = prev[key];
+          }
+        });
+        return updated;
+      });
+    }
+  };
+
   return (
     <div className="vitals-chart-page-wrapper">
       {toastMsg && (
@@ -625,21 +703,12 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
       <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">Vitals Chart & Graphic Recording</h2>
         <div className="action-btns-group">
-          <button type="button" className="btn-mint-clear" onClick={handleSave}>
-            <Save size={14} />
-            <span>Save Chart</span>
-          </button>
-          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
-            <span>Clear Form</span>
-          </button>
+       
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
-            <FileEdit size={14} />
-            <span>View Drafts</span>
-          </button>
+        
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
             <span>Print Vitals Sheet</span>
@@ -682,10 +751,16 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
           </div>
 
           {/* Patient Details Table */}
-          <table className="mint-patient-info-table">
+          <table className="mint-patient-info-table" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '25%' }} />
+            </colgroup>
             <tbody>
               <tr>
-                <td colSpan={3} className="cell-patient-name">
+                <td colSpan={2} className="cell-patient-name">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Name of the Patient :</span>
                     <input
@@ -726,7 +801,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                 </td>
               </tr>
               <tr>
-                <td className="cell-uhid">
+                <td colSpan={2} className="cell-uhid">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">UHID No. :</span>
                     <input
@@ -769,7 +844,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
               </tr>
 
               <tr>
-                <td className="cell-ward">
+                <td colSpan={2} className="cell-ward">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Ward :</span>
                     <input
@@ -781,7 +856,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                     />
                   </div>
                 </td>
-                <td className="cell-bed">
+                <td colSpan={2} className="cell-bed">
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">Bed No. :</span>
                     <input
@@ -804,7 +879,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                 <div className="entry-field-group">
                   <label className="entry-label">Date</label>
                   <input
-                    type="date"
+                    type="date" max={getCurrentDate()}
                     name="date"
                     value={entry.date}
                     onChange={handleEntryChange}
@@ -848,18 +923,22 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                 <div className="entry-field-group">
                   <label className="entry-label label-pink">Pulse (bpm)</label>
                   <input type="text" name="pulse" value={entry.pulse} onChange={handleEntryChange} placeholder="40–210" className="entry-input" />
+                  {errors.pulse && <span style={{ color: '#ef4444', fontSize: '10.5px', marginTop: '2px', fontWeight: 600 }}>{errors.pulse}</span>}
                 </div>
                 <div className="entry-field-group">
                   <label className="entry-label label-amber">Temp (°F)</label>
                   <input type="text" name="temp" value={entry.temp} onChange={handleEntryChange} placeholder="95–106" className="entry-input" />
+                  {errors.temp && <span style={{ color: '#ef4444', fontSize: '10.5px', marginTop: '2px', fontWeight: 600 }}>{errors.temp}</span>}
                 </div>
                 <div className="entry-field-group">
                   <label className="entry-label label-blue">Resp. Rate (cpm)</label>
                   <input type="text" name="resp" value={entry.resp} onChange={handleEntryChange} placeholder="10–60" className="entry-input" />
+                  {errors.resp && <span style={{ color: '#ef4444', fontSize: '10.5px', marginTop: '2px', fontWeight: 600 }}>{errors.resp}</span>}
                 </div>
                 <div className="entry-field-group">
                   <label className="entry-label" style={{ color: '#22c55e', fontWeight: 700 }}>BP (mmHg sys)</label>
                   <input type="text" name="bp" value={entry.bp} onChange={handleEntryChange} placeholder="40–210" className="entry-input" />
+                  {errors.bp && <span style={{ color: '#ef4444', fontSize: '10.5px', marginTop: '2px', fontWeight: 600 }}>{errors.bp}</span>}
                 </div>
               </div>
 
@@ -900,7 +979,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                   />
                   <text
                     x={dot.cx}
-                    y={dot.cy - 6}
+                    y={dot.cy + 12}
                     fontSize="9.5px"
                     fontWeight="900"
                     fill={
@@ -932,7 +1011,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                   {dates.map((d, dIdx) => {
                     const { slots } = dateSlotsConfig[dIdx] || { slots: [] };
                     return (
-                      <th key={dIdx} colSpan={slots.length || 6} className="th-date-val" style={{ borderBottom: '1.5px solid #0f172a' }}>
+                      <th key={dIdx} colSpan={slots.length || 6} className="th-date-val" style={{ borderBottom: '1.5px solid #0f172a', position: 'relative' }}>
                         <input
                           type="text"
                           value={d}
@@ -944,6 +1023,28 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                           className="date-grid-input"
                           style={{ fontSize: 12, fontWeight: 900 }}
                         />
+                        {d && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDateColumn(dIdx)}
+                            style={{
+                              position: 'absolute',
+                              right: '4px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: '#ef4444',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            title="Clear Column"
+                          >
+                            <XCircle size={14} />
+                          </button>
+                        )}
                       </th>
                     );
                   })}
@@ -1072,7 +1173,6 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                                     isLastDay ? 'vdivider-day-night' : '',
                                     isLastNight && dIdx < dates.length - 1 ? 'vdivider-date' : ''
                                   ].join(' ').trim()}
-                                  onClick={() => handleCellClick(yIdx, dIdx, slot.slotIdx)}
                                   title={`Pulse ${yRow.pulse}`}
                                 />
                               );
@@ -1093,13 +1193,11 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
             <span className="legend-item"><span style={{ color: '#ec4899', fontSize: 16 }}>●</span> Pulse Rate</span>
             <span className="legend-item"><span style={{ color: '#f59e0b', fontSize: 16 }}>●</span> Temperature (°F)</span>
             <span className="legend-item"><span style={{ color: '#3b82f6', fontSize: 16 }}>●</span> Respiration Rate</span>
-
-            <span className="legend-hint">(Click any cell to toggle a data point)</span>
           </div>
 
           {/* Entered Readings Timeline */}
           {readings.length > 0 && (
-            <div className="no-print readings-timeline-container" style={{ marginTop: '40px', borderTop: '2px solid #0f172a', paddingTop: '20px' }}>
+            <div className="readings-timeline-container" style={{ marginTop: '40px', borderTop: '2px solid #0f172a', paddingTop: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                 <FileEdit size={16} color="#0f172a" />
                 <span style={{ fontSize: 13, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ENTERED READINGS TIMELINE</span>
@@ -1113,7 +1211,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                     <th style={{ padding: '8px', fontWeight: 800, color: '#0369a1' }}>Temp (°F)</th>
                     <th style={{ padding: '8px', fontWeight: 800, color: '#2563eb' }}>Resp. Rate (cpm)</th>
                     <th style={{ padding: '8px', fontWeight: 800, color: '#16a34a' }}>BP (mmHg)</th>
-                    <th style={{ padding: '8px', fontWeight: 800 }}>Action</th>
+                    <th style={{ padding: '8px', fontWeight: 800 }} className="no-print">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1125,7 +1223,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                       <td style={{ padding: '8px', fontWeight: 700 }}>{group.temp || '—'}</td>
                       <td style={{ padding: '8px', fontWeight: 700 }}>{group.resp || '—'}</td>
                       <td style={{ padding: '8px', fontWeight: 700 }}>{group.bp || '—'}</td>
-                      <td style={{ padding: '8px' }}>
+                      <td style={{ padding: '8px' }} className="no-print">
                         <button
                           type="button"
                           onClick={() => handleRemoveReadingGroup(group.date, group.timeKey, group.timeLabel)}
@@ -1138,37 +1236,22 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                   ))}
                 </tbody>
               </table>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '24px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm('Clear all timeline data?')) {
-                      setReadings([]);
-                    }
-                  }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1',
-                    padding: '8px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer'
-                  }}
-                >
-                  <FileEdit size={14} /> Clear All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => alert('Vitals Chart updated successfully.')}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    backgroundColor: '#22c55e', color: '#fff', border: 'none',
-                    padding: '8px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer'
-                  }}
-                >
-                  <Save size={14} /> Update Vitals Chart
-                </button>
-              </div>
             </div>
           )}
 
+        </div>
+        
+        {/* Action Row */}
+        <div className="mint-action-controls no-print" style={{ marginTop: '20px' }}>
+          <div className="bottom-btn-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+              <span>Clear Form</span>
+            </button>
+            <button type="button" className="btn-mint-clear" onClick={handleSave}>
+              <Save size={14} />
+              <span>Save Chart</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

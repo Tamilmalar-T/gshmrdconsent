@@ -17,7 +17,7 @@ const PERSIST_KEY = 'intake_output_record';
 
 const getCurrentDate = () => {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
 };
 const getCurrentTime = () => {
   const now = new Date();
@@ -73,6 +73,7 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
 
   const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
+  const [activeTab, setActiveTab] = useState('both');
 
   // Restore persisted form or set edit data on mount
   useEffect(() => {
@@ -83,6 +84,7 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
+        if (saved.recordId) setRecordId(saved.recordId);
         if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
         if (saved.rows) setRows(saved.rows);
       }
@@ -92,7 +94,7 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
     const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, rows });
+      persistForm(PERSIST_KEY, { patient, rows , recordId});
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.oralType || r.oralAmount || r.urine || r.rtAspirate);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Intake Output Record', patient, { patient, rows }, setRecordId);
@@ -121,8 +123,6 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
         doa: found.doa || prev.doa,
         consultantName: found.consultantName || prev.consultantName
       }));
-      setToastMsg('Patient details auto-filled');
-      setTimeout(() => setToastMsg(''), 2000);
     }
   };
 
@@ -136,10 +136,69 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
   const handleIpBlur = (e) => {
     triggerAutofill(e.target.value);
   };
+  const updateTotalWithInitials = (currentValue, newTotal) => {
+    const val = currentValue || '';
+    if (newTotal === 0) {
+      const match = val.match(/^(\d+(?:\.\d+)?)\s*(.*)/);
+      return match ? match[2] : val;
+    }
+    if (!val) return newTotal.toString();
+    const match = val.match(/^(\d+(?:\.\d+)?)\s*(.*)/);
+    if (match) {
+      const rest = match[2];
+      return rest ? `${newTotal} ${rest}` : newTotal.toString();
+    }
+    return `${newTotal} ${val}`;
+  };
+
+  const extractNumber = (val) => {
+    if (typeof val !== 'string') return parseFloat(val) || 0;
+    const match = val.match(/(\d+(?:\.\d+)?)/);
+    return match ? parseFloat(match[1]) : 0;
+  };
+
+  const recalculateRows = (currentRows) => {
+    let cumulativeIntake = 0;
+    let cumulativeOutput = 0;
+    return currentRows.map((r) => {
+      const newRow = { ...r };
+      
+      const iv = extractNumber(newRow.ivAmount);
+      const oral = extractNumber(newRow.oralAmount);
+      const othersIn = extractNumber(newRow.othersIntakeAmount);
+      const stdIn = iv + oral + othersIn;
+      
+      if (stdIn > 0) {
+        cumulativeIntake += stdIn;
+        newRow.intakeTotalInitials = updateTotalWithInitials(newRow.intakeTotalInitials, cumulativeIntake);
+      } else {
+        newRow.intakeTotalInitials = updateTotalWithInitials(newRow.intakeTotalInitials, 0);
+      }
+      
+      const stom = extractNumber(newRow.stomachAmount);
+      const urine = extractNumber(newRow.urineAmount);
+      const othersOut = extractNumber(newRow.othersOutputAmount);
+      const stdOut = stom + urine + othersOut;
+      
+      if (stdOut > 0) {
+        cumulativeOutput += stdOut;
+        newRow.outputTotalInitials = updateTotalWithInitials(newRow.outputTotalInitials, cumulativeOutput);
+      } else {
+        newRow.outputTotalInitials = updateTotalWithInitials(newRow.outputTotalInitials, 0);
+      }
+      
+      return newRow;
+    });
+  };
+
   const handleRowChange = (id, field, value) => {
-    setRows((prev) => 
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
-    );
+    setRows((prev) => {
+      const updated = prev.map((r) => (r.id === id ? { ...r, [field]: value } : r));
+      if (field === 'intakeTotalInitials' || field === 'outputTotalInitials') {
+        return updated;
+      }
+      return recalculateRows(updated);
+    });
   };
 
   const handleAddRow = () => {
@@ -148,7 +207,10 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
 
   const handleDeleteRow = (id) => {
     if (rows.length === 1) return;
-    setRows((prev) => prev.filter((r) => r.id !== id));
+    setRows((prev) => {
+      const filtered = prev.filter((r) => r.id !== id);
+      return recalculateRows(filtered);
+    });
   };
 
   const handleClearForm = () => {
@@ -182,8 +244,7 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
     setToastMsg(recordId ? 'Intake & Output Record updated successfully!' : 'Intake & Output Record saved successfully!');
     setTimeout(() => {
       setToastMsg('');
-      if (onNavigate) onNavigate('view-records');
-    }, 800);
+    }, 2000);
   };
 
 
@@ -204,21 +265,13 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
       <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">Intake & Output Record</h2>
         <div className="action-btns-group">
-          <button type="button" className="btn-mint-clear" onClick={handleSave}>
-            <Save size={14} />
-            <span>Save Record</span>
-          </button>
-          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
-            <span>Clear Form</span>
-          </button>
+          
+          
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
-            <FileEdit size={14} />
-            <span>View Drafts</span>
-          </button>
+          
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
             <span>Print Sheet</span>
@@ -236,6 +289,13 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
           {/* Form Title Banner */}
           <div className="care-plan-form-title">
             INTAKE & OUTPUT RECORD
+          </div>
+
+          {/* Tabs for switching views */}
+          <div className="no-print io-tabs-container" style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '15px' }}>
+            <button type="button" onClick={() => setActiveTab('intake')} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #0f172a', backgroundColor: activeTab === 'intake' ? '#0f172a' : '#f1f5f9', color: activeTab === 'intake' ? '#ffffff' : '#0f172a', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>Intake Record</button>
+            <button type="button" onClick={() => setActiveTab('output')} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #0f172a', backgroundColor: activeTab === 'output' ? '#0f172a' : '#f1f5f9', color: activeTab === 'output' ? '#ffffff' : '#0f172a', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>Output Record</button>
+            <button type="button" onClick={() => setActiveTab('both')} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #0f172a', backgroundColor: activeTab === 'both' ? '#0f172a' : '#f1f5f9', color: activeTab === 'both' ? '#ffffff' : '#0f172a', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>Intake & Output Record</button>
           </div>
 
           {/* Patient Details Table (Matching Physical Document) */}
@@ -369,46 +429,91 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
           {/* MAIN INTAKE & OUTPUT GRID TABLE */}
           <div className="io-table-scroll-container">
             <table className="io-grid-table">
+              <colgroup>
+                <col style={{ width: '75px' }} />
+                {(activeTab === 'intake' || activeTab === 'both') && (
+                  <React.Fragment>
+                    <col style={{ width: '55px' }} />
+                    <col style={{ width: '75px' }} />
+                    <col style={{ width: '55px' }} />
+                    <col style={{ width: '75px' }} />
+                    <col style={{ width: '55px' }} />
+                    <col style={{ width: '75px' }} />
+                    <col style={{ width: '65px' }} />
+                  </React.Fragment>
+                )}
+                {(activeTab === 'output' || activeTab === 'both') && (
+                  <React.Fragment>
+                    <col style={{ width: '55px' }} />
+                    <col style={{ width: '75px' }} />
+                    <col style={{ width: '55px' }} />
+                    <col style={{ width: '75px' }} />
+                    <col style={{ width: '55px' }} />
+                    <col style={{ width: '75px' }} />
+                    <col style={{ width: '65px' }} />
+                  </React.Fragment>
+                )}
+              </colgroup>
               <thead>
                 {/* Row 1: Super Headers */}
                 <tr>
                   <th rowSpan={3} className="th-io-date">Date</th>
-                  <th colSpan={7} className="th-io-super intake-header">INTAKE 6 AM - 6 AM</th>
-                  <th colSpan={7} className="th-io-super output-header">OUTPUT 6 AM - 6 AM</th>
+                  {(activeTab === 'intake' || activeTab === 'both') && (
+                    <th colSpan={7} className="th-io-super intake-header">INTAKE 6 AM - 6 AM</th>
+                  )}
+                  {(activeTab === 'output' || activeTab === 'both') && (
+                    <th colSpan={7} className="th-io-super output-header">OUTPUT 6 AM - 6 AM</th>
+                  )}
                 </tr>
 
                 {/* Row 2: Category Headers */}
                 <tr>
                   {/* INTAKE Categories */}
-                  <th colSpan={2} className="th-io-cat">I. V.</th>
-                  <th colSpan={2} className="th-io-cat">ORAL</th>
-                  <th colSpan={2} className="th-io-cat">OTHERS</th>
-                  <th rowSpan={2} className="th-io-total">TOTAL & INITIALS</th>
+                  {(activeTab === 'intake' || activeTab === 'both') && (
+                    <React.Fragment>
+                      <th colSpan={2} className="th-io-cat">I. V.</th>
+                      <th colSpan={2} className="th-io-cat">ORAL</th>
+                      <th colSpan={2} className="th-io-cat">OTHERS</th>
+                      <th rowSpan={2} className="th-io-total">TOTAL INITIALS</th>
+                    </React.Fragment>
+                  )}
 
                   {/* OUTPUT Categories */}
-                  <th colSpan={2} className="th-io-cat">STOMACH CONTENTS</th>
-                  <th colSpan={2} className="th-io-cat">URINE</th>
-                  <th colSpan={2} className="th-io-cat">OTHERS</th>
-                  <th rowSpan={2} className="th-io-total">TOTAL & INITIALS</th>
+                  {(activeTab === 'output' || activeTab === 'both') && (
+                    <React.Fragment>
+                      <th colSpan={2} className="th-io-cat">STOMACH CONTENTS</th>
+                      <th colSpan={2} className="th-io-cat">URINE</th>
+                      <th colSpan={2} className="th-io-cat">OTHERS</th>
+                      <th rowSpan={2} className="th-io-total">TOTAL INITIALS</th>
+                    </React.Fragment>
+                  )}
                 </tr>
 
                 {/* Row 3: Sub-Headers (Time / Amount) */}
                 <tr>
                   {/* INTAKE Sub-headers */}
-                  <th className="th-io-sub">Time</th>
-                  <th className="th-io-sub">Amount</th>
-                  <th className="th-io-sub">Time</th>
-                  <th className="th-io-sub">Amount</th>
-                  <th className="th-io-sub">Time</th>
-                  <th className="th-io-sub">Amount</th>
+                  {(activeTab === 'intake' || activeTab === 'both') && (
+                    <React.Fragment>
+                      <th className="th-io-sub">Time</th>
+                      <th className="th-io-sub">Value / mL</th>
+                      <th className="th-io-sub">Time</th>
+                      <th className="th-io-sub">Value / mL</th>
+                      <th className="th-io-sub">Time</th>
+                      <th className="th-io-sub">Value / mL</th>
+                    </React.Fragment>
+                  )}
 
                   {/* OUTPUT Sub-headers */}
-                  <th className="th-io-sub">Time</th>
-                  <th className="th-io-sub">Amount</th>
-                  <th className="th-io-sub">Time</th>
-                  <th className="th-io-sub">Amount</th>
-                  <th className="th-io-sub">Time</th>
-                  <th className="th-io-sub">Amount</th>
+                  {(activeTab === 'output' || activeTab === 'both') && (
+                    <React.Fragment>
+                      <th className="th-io-sub">Time</th>
+                      <th className="th-io-sub">Value / mL</th>
+                      <th className="th-io-sub">Time</th>
+                      <th className="th-io-sub">Value / mL</th>
+                      <th className="th-io-sub">Time</th>
+                      <th className="th-io-sub">Value / mL</th>
+                    </React.Fragment>
+                  )}
                 </tr>
               </thead>
 
@@ -418,10 +523,12 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
                     {/* Date Cell */}
                     <td className="td-io-date">
                       <input 
-                        type="date" 
-                        value={row.date} 
+                        type="text"
+                        placeholder="DD/MM/YYYY" 
+                        value={row.date && row.date.includes('-') ? `${row.date.split('-')[2]}/${row.date.split('-')[1]}/${row.date.split('-')[0]}` : row.date} 
                         onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                         className="io-date-in"
+                        style={{ textAlign: 'center' }}
                       />
                       <button 
                         type="button" 
@@ -434,28 +541,36 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
                     </td>
 
                     {/* INTAKE CELLS */}
-                    <td className="td-io-cell"><input type="time" value={row.ivTime} onChange={(e) => handleRowChange(row.id, 'ivTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
-                    <td className="td-io-cell"><input type="text" value={row.ivAmount} onChange={(e) => handleRowChange(row.id, 'ivAmount', e.target.value)} className="io-cell-in" /></td>
-                    
-                    <td className="td-io-cell"><input type="time" value={row.oralTime} onChange={(e) => handleRowChange(row.id, 'oralTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
-                    <td className="td-io-cell"><input type="text" value={row.oralAmount} onChange={(e) => handleRowChange(row.id, 'oralAmount', e.target.value)} className="io-cell-in" /></td>
-                    
-                    <td className="td-io-cell"><input type="time" value={row.othersIntakeTime} onChange={(e) => handleRowChange(row.id, 'othersIntakeTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
-                    <td className="td-io-cell"><input type="text" value={row.othersIntakeAmount} onChange={(e) => handleRowChange(row.id, 'othersIntakeAmount', e.target.value)} className="io-cell-in" /></td>
-                    
-                    <td className="td-io-cell"><input type="text" value={row.intakeTotalInitials} onChange={(e) => handleRowChange(row.id, 'intakeTotalInitials', e.target.value)} className="io-cell-in" /></td>
+                    {(activeTab === 'intake' || activeTab === 'both') && (
+                      <React.Fragment>
+                        <td className="td-io-cell"><input type="time" value={row.ivTime} onChange={(e) => handleRowChange(row.id, 'ivTime', e.target.value)} className="io-cell-in io-time-picker" onClick={(e) => e.target.showPicker && e.target.showPicker()} /></td>
+                        <td className="td-io-cell"><textarea rows={1} value={row.ivAmount} onChange={(e) => handleRowChange(row.id, 'ivAmount', e.target.value)} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className="io-cell-in io-textarea" /></td>
+                        
+                        <td className="td-io-cell"><input type="time" value={row.oralTime} onChange={(e) => handleRowChange(row.id, 'oralTime', e.target.value)} className="io-cell-in io-time-picker" onClick={(e) => e.target.showPicker && e.target.showPicker()} /></td>
+                        <td className="td-io-cell"><textarea rows={1} value={row.oralAmount} onChange={(e) => handleRowChange(row.id, 'oralAmount', e.target.value)} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className="io-cell-in io-textarea" /></td>
+                        
+                        <td className="td-io-cell"><input type="time" value={row.othersIntakeTime} onChange={(e) => handleRowChange(row.id, 'othersIntakeTime', e.target.value)} className="io-cell-in io-time-picker" onClick={(e) => e.target.showPicker && e.target.showPicker()} /></td>
+                        <td className="td-io-cell"><textarea rows={1} value={row.othersIntakeAmount} onChange={(e) => handleRowChange(row.id, 'othersIntakeAmount', e.target.value)} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className="io-cell-in io-textarea" /></td>
+                        
+                        <td className="td-io-cell"><textarea rows={1} value={row.intakeTotalInitials} onChange={(e) => handleRowChange(row.id, 'intakeTotalInitials', e.target.value)} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className="io-cell-in io-textarea" /></td>
+                      </React.Fragment>
+                    )}
 
                     {/* OUTPUT CELLS */}
-                    <td className="td-io-cell"><input type="time" value={row.stomachTime} onChange={(e) => handleRowChange(row.id, 'stomachTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
-                    <td className="td-io-cell"><input type="text" value={row.stomachAmount} onChange={(e) => handleRowChange(row.id, 'stomachAmount', e.target.value)} className="io-cell-in" /></td>
+                    {(activeTab === 'output' || activeTab === 'both') && (
+                      <React.Fragment>
+                        <td className="td-io-cell"><input type="time" value={row.stomachTime} onChange={(e) => handleRowChange(row.id, 'stomachTime', e.target.value)} className="io-cell-in io-time-picker" onClick={(e) => e.target.showPicker && e.target.showPicker()} /></td>
+                        <td className="td-io-cell"><textarea rows={1} value={row.stomachAmount} onChange={(e) => handleRowChange(row.id, 'stomachAmount', e.target.value)} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className="io-cell-in io-textarea" /></td>
 
-                    <td className="td-io-cell"><input type="time" value={row.urineTime} onChange={(e) => handleRowChange(row.id, 'urineTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
-                    <td className="td-io-cell"><input type="text" value={row.urineAmount} onChange={(e) => handleRowChange(row.id, 'urineAmount', e.target.value)} className="io-cell-in" /></td>
+                        <td className="td-io-cell"><input type="time" value={row.urineTime} onChange={(e) => handleRowChange(row.id, 'urineTime', e.target.value)} className="io-cell-in io-time-picker" onClick={(e) => e.target.showPicker && e.target.showPicker()} /></td>
+                        <td className="td-io-cell"><textarea rows={1} value={row.urineAmount} onChange={(e) => handleRowChange(row.id, 'urineAmount', e.target.value)} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className="io-cell-in io-textarea" /></td>
 
-                    <td className="td-io-cell"><input type="time" value={row.othersOutputTime} onChange={(e) => handleRowChange(row.id, 'othersOutputTime', e.target.value)} className="io-cell-in io-time-picker" /></td>
-                    <td className="td-io-cell"><input type="text" value={row.othersOutputAmount} onChange={(e) => handleRowChange(row.id, 'othersOutputAmount', e.target.value)} className="io-cell-in" /></td>
+                        <td className="td-io-cell"><input type="time" value={row.othersOutputTime} onChange={(e) => handleRowChange(row.id, 'othersOutputTime', e.target.value)} className="io-cell-in io-time-picker" onClick={(e) => e.target.showPicker && e.target.showPicker()} /></td>
+                        <td className="td-io-cell"><textarea rows={1} value={row.othersOutputAmount} onChange={(e) => handleRowChange(row.id, 'othersOutputAmount', e.target.value)} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className="io-cell-in io-textarea" /></td>
 
-                    <td className="td-io-cell"><input type="text" value={row.outputTotalInitials} onChange={(e) => handleRowChange(row.id, 'outputTotalInitials', e.target.value)} className="io-cell-in" /></td>
+                        <td className="td-io-cell"><textarea rows={1} value={row.outputTotalInitials} onChange={(e) => handleRowChange(row.id, 'outputTotalInitials', e.target.value)} onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className="io-cell-in io-textarea" /></td>
+                      </React.Fragment>
+                    )}
                   </tr>
                 ))}
               </tbody>

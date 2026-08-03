@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Save, 
-  Printer, 
+import {
+  Save,
+  Printer,
   CheckCircle2,
   FolderCheck,
   FileEdit
@@ -15,11 +15,11 @@ const PERSIST_KEY = 'nursing_initial_assessment';
 
 const getCurrentDate = () => {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 const getCurrentTime = () => {
   const now = new Date();
-  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 };
 
 export default function NursingInitialAssessmentPage({ onNavigate, editData, editRecordId }) {
@@ -86,6 +86,54 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
   });
 
   const [recordId, setRecordId] = useState(null);
+  const [systemUsers, setSystemUsers] = useState([]);
+  const [assessmentSuggestions, setAssessmentSuggestions] = useState([]);
+  
+  useEffect(() => {
+    const savedUsers = localStorage.getItem('masters_users');
+    if (savedUsers) {
+      setSystemUsers(JSON.parse(savedUsers));
+    }
+    const savedSuggestions = localStorage.getItem('masters_assessment_suggestions');
+    if (savedSuggestions) {
+      setAssessmentSuggestions(JSON.parse(savedSuggestions));
+    }
+  }, []);
+
+  const getSuggestions = (category) => {
+    return assessmentSuggestions
+      .filter(s => s.category === category && s.status === 'Active')
+      .map(s => s.value);
+  };
+
+  const getNurseOptions = () => {
+    return systemUsers
+      .filter(u => u.status === 'Active')
+      .map(u => u.userName);
+  };
+
+  const renderSignatureStamp = (nurseName) => {
+    const matchedUser = systemUsers.find(
+      u => u.userName.toLowerCase() === nurseName.toLowerCase()
+    );
+    if (matchedUser && matchedUser.signatureImage) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '36px', marginLeft: '10px' }}>
+          <img
+            src={matchedUser.signatureImage}
+            alt={`Signature of ${nurseName}`}
+            style={{ maxHeight: '36px', maxWidth: '100px', objectFit: 'contain' }}
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="signature-stamp-box" style={{ marginLeft: '10px' }}>
+        <span className="stamp-sig-text">{nurseName || 'Sign'}</span>
+      </div>
+    );
+  };
+
   const [toastMsg, setToastMsg] = useState('');
 
   // Restore persisted form or set edit data on mount
@@ -102,6 +150,7 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
+        if (saved.recordId) setRecordId(saved.recordId);
         if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
         if (saved.vitals) setVitals(v => ({ ...v, ...saved.vitals }));
         if (saved.exam) setExam(e => ({ ...e, ...saved.exam }));
@@ -116,7 +165,7 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
     const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2 });
+      persistForm(PERSIST_KEY, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2, recordId });
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || vitals.bp || vitals.pulse;
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Nursing Initial Assessment', patient, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2 }, setRecordId);
@@ -147,8 +196,6 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
           ward: found.ward || prev.ward,
           bedNo: found.bedNo || prev.bedNo
         }));
-        setToastMsg('Patient details auto-filled');
-        setTimeout(() => setToastMsg(''), 2000);
       }
     }
   };
@@ -184,11 +231,39 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
     const saved = upsertFormRecord(recordId, 'Nursing Initial Assessment', ip, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2 });
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
+
+    // Add new suggestions dynamically to Master
+    const savedSuggestions = JSON.parse(localStorage.getItem('masters_assessment_suggestions') || '[]');
+    let updatedSuggestions = [...savedSuggestions];
+    let suggestionsChanged = false;
+
+    const addSuggestion = (category, value) => {
+      if (!value.trim()) return;
+      const exists = updatedSuggestions.find(s => s.category === category && s.value.toLowerCase() === value.trim().toLowerCase());
+      if (!exists) {
+        updatedSuggestions.push({ 
+          id: Date.now().toString() + Math.random().toString(36).substring(7), 
+          category, 
+          value: value.trim(), 
+          status: 'Active' 
+        });
+        suggestionsChanged = true;
+      }
+    };
+
+    addSuggestion('Respiratory Status', exam.respiratoryStatus);
+    addSuggestion('Any Other Finding', exam.anyOtherFinding);
+    addSuggestion('Any Special Care Given', bottomPg1.specialCareGiven);
+
+    if (suggestionsChanged) {
+      localStorage.setItem('masters_assessment_suggestions', JSON.stringify(updatedSuggestions));
+      setAssessmentSuggestions(updatedSuggestions);
+    }
+
     setToastMsg(recordId ? 'Assessment updated successfully!' : 'Nursing Initial Assessment saved successfully!');
     setTimeout(() => {
       setToastMsg('');
-      if (onNavigate) onNavigate('view-records');
-    }, 800);
+    }, 2000);
   };
 
   const handleClearForm = () => {
@@ -239,19 +314,27 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
         </div>
       )}
 
+      {/* Datalists for Suggestions */}
+      <datalist id="respiratory-list">
+        {getSuggestions('Respiratory Status').map(s => <option key={s} value={s} />)}
+      </datalist>
+      <datalist id="findings-list">
+        {getSuggestions('Any Other Finding').map(s => <option key={s} value={s} />)}
+      </datalist>
+      <datalist id="care-list">
+        {getSuggestions('Any Special Care Given').map(s => <option key={s} value={s} />)}
+      </datalist>
+
       {/* Action Header Row */}
       <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">Nursing Initial Assessment</h2>
         <div className="action-btns-group">
-        
+
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
-            <FileEdit size={14} />
-            <span>View Drafts</span>
-          </button>
+
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
             <span>Print Form</span>
@@ -261,521 +344,528 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
 
       {/* PAGE 1 SHEET CONTAINER */}
       <div className="green-paper-container">
-          
-          {/* Hospital Header */}
-          <HospitalPaperHeader />
 
-          {/* Form Title Banner */}
-          <div className="care-plan-form-title daily-form-title">
-            Nursing Initial Assessment
-          </div>
+        {/* Hospital Header */}
+        <HospitalPaperHeader />
 
-          {/* Patient Details Table */}
-          <table className="mint-patient-info-table">
-            <tbody>
-              <tr>
-                <td colSpan={3} className="cell-patient-name">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Name of the Patient :</span>
-                    <input 
-                      type="text" 
-                      name="name" 
-                      value={patient.name} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td className="cell-age">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Age :</span>
-                    <input 
-                      type="text" 
-                      name="age" 
-                      value={patient.age} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td className="cell-sex">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Sex :</span>
-                    <select 
-                      name="sex" 
-                      value={patient.sex} 
-                      onChange={handlePatientChange} 
-                      className="info-select-plain"
-                    >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                </td>
-              </tr>
+        {/* Form Title Banner */}
+        <div className="care-plan-form-title daily-form-title">
+          Nursing Initial Assessment
+        </div>
 
-              <tr>
-                <td className="cell-uhid">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">UHID No. :</span>
-                    <input 
-                      type="text" 
-                      name="uhidNo" 
-                      value={patient.uhidNo} 
-                      onChange={handlePatientChange}
-                      onKeyDown={handleIpKeyDown}
-                      className="info-input-plain"
-                      placeholder="Press Enter to auto-fill"
-                    />
-                  </div>
-                </td>
-                <td className="cell-ipno">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">IP No.:</span>
-                    <input 
-                      type="text" 
-                      name="ipNo" 
-                      value={patient.ipNo} 
-                      onChange={handlePatientChange}
-                      onKeyDown={handleIpKeyDown}
-                      className="info-input-plain"
-                      placeholder="Press Enter to auto-fill"
-                    />
-                  </div>
-                </td>
-                <td className="cell-doa" colSpan={2}>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Ward :</span>
-                    <input 
-                      type="text" 
-                      name="ward" 
-                      value={patient.ward} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td className="cell-bed">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Bed No. :</span>
-                    <input 
-                      type="text" 
-                      name="bedNo" 
-                      value={patient.bedNo} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        {/* Patient Details Table */}
+        <table className="mint-patient-info-table">
+          <tbody>
+            <tr>
+              <td colSpan={3} className="cell-patient-name">
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Name of the Patient :</span>
+                  <input
+                    type="text"
+                    name="name"
+                    value={patient.name}
+                    onChange={handlePatientChange}
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td className="cell-age">
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Age :</span>
+                  <input
+                    type="text"
+                    name="age"
+                    value={patient.age}
+                    onChange={handlePatientChange}
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td className="cell-sex">
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Sex :</span>
+                  <select
+                    name="sex"
+                    value={patient.sex}
+                    onChange={handlePatientChange}
+                    className="info-select-plain"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </td>
+            </tr>
 
-          {/* VITALS SECTION TABLE */}
-          <div className="assessment-section-header">VITALS</div>
-          <table className="mint-patient-info-table">
-            <tbody>
-              <tr>
-                <td className="cell-w50">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">BP :</span>
-                    <input 
-                      type="text" 
-                      name="bp" 
-                      value={vitals.bp} 
-                      onChange={handleVitalsChange} 
-                      placeholder="e.g. 120/80 mmHg" 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td className="cell-w50">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Pulse :</span>
-                    <input 
-                      type="text" 
-                      name="pulse" 
-                      value={vitals.pulse} 
-                      onChange={handleVitalsChange} 
-                      placeholder="e.g. 72 bpm" 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Temperature :</span>
-                    <input 
-                      type="text" 
-                      name="temperature" 
-                      value={vitals.temperature} 
-                      onChange={handleVitalsChange} 
-                      placeholder="e.g. 98.6 °F" 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Respiratory Rate :</span>
-                    <input 
-                      type="text" 
-                      name="respiratoryRate" 
-                      value={vitals.respiratoryRate} 
-                      onChange={handleVitalsChange} 
-                      placeholder="e.g. 18 cpm" 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Weight :</span>
-                    <input 
-                      type="text" 
-                      name="weight" 
-                      value={vitals.weight} 
-                      onChange={handleVitalsChange} 
-                      placeholder="e.g. 65 kg" 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">GRBS (if done) :</span>
-                    <input 
-                      type="text" 
-                      name="grbs" 
-                      value={vitals.grbs} 
-                      onChange={handleVitalsChange} 
-                      placeholder="e.g. 120 mg/dL" 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={2}>
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Saturation :</span>
-                    <input 
-                      type="text" 
-                      name="saturation" 
-                      value={vitals.saturation} 
-                      onChange={handleVitalsChange} 
-                      placeholder="e.g. 98% SpO2" 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+            <tr>
+              <td className="cell-uhid">
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">UHID No. :</span>
+                  <input
+                    type="text"
+                    name="uhidNo"
+                    value={patient.uhidNo}
+                    onChange={handlePatientChange}
+                    onKeyDown={handleIpKeyDown}
+                    className="info-input-plain"
+                    placeholder="Enter UHID number"
+                  />
+                </div>
+              </td>
+              <td className="cell-ipno">
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">IP No.:</span>
+                  <input
+                    type="text"
+                    name="ipNo"
+                    value={patient.ipNo}
+                    onChange={handlePatientChange}
+                    onKeyDown={handleIpKeyDown}
+                    className="info-input-plain"
+                    placeholder="Enter IP number"
+                  />
+                </div>
+              </td>
+              <td className="cell-doa" colSpan={2}>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Ward :</span>
+                  <input
+                    type="text"
+                    name="ward"
+                    value={patient.ward}
+                    onChange={handlePatientChange}
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td className="cell-bed">
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Bed No. :</span>
+                  <input
+                    type="text"
+                    name="bedNo"
+                    value={patient.bedNo}
+                    onChange={handlePatientChange}
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-          {/* EXAMINATION SECTION */}
-          <div className="assessment-section-header">Examination :</div>
-          <div className="examination-block">
-            <div className="exam-row-gcs">
-              <div className="info-field-inline flex-grow-1" style={{ alignItems: 'flex-start' }}>
-                <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>1. Level of consciousness :</span>
-                <textarea 
-                  name="levelOfConsciousness" 
-                  value={exam.levelOfConsciousness} 
-                  onChange={handleExamChange} 
-                  onInput={(e) => {
-                    e.target.style.height = 'auto';
-                    e.target.style.height = `${e.target.scrollHeight}px`;
-                  }}
-                  rows={1}
-                  style={{ resize: 'none', overflow: 'hidden' }}
-                  className="info-input-plain"
-                />
-              </div>
-              <div className="gcs-group">
-                <span className="info-lbl-bold">GCS :</span>
-                <span className="gcs-sub-item">E <input type="text" name="gcsE" value={exam.gcsE} onChange={handleExamChange} className="gcs-in" /></span>
-                <span className="gcs-sub-item">V <input type="text" name="gcsV" value={exam.gcsV} onChange={handleExamChange} className="gcs-in" /></span>
-                <span className="gcs-sub-item">M <input type="text" name="gcsM" value={exam.gcsM} onChange={handleExamChange} className="gcs-in" /></span>
-              </div>
+        {/* VITALS SECTION TABLE */}
+        <div className="assessment-section-header">VITALS</div>
+        <table className="mint-patient-info-table">
+          <tbody>
+            <tr>
+              <td className="cell-w50">
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">BP :</span>
+                  <input
+                    type="text"
+                    name="bp"
+                    value={vitals.bp}
+                    onChange={handleVitalsChange}
+                    placeholder="e.g. 120/80 mmHg"
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td className="cell-w50">
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Pulse :</span>
+                  <input
+                    type="text"
+                    name="pulse"
+                    value={vitals.pulse}
+                    onChange={handleVitalsChange}
+                    placeholder="e.g. 72 bpm"
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Temperature :</span>
+                  <input
+                    type="text"
+                    name="temperature"
+                    value={vitals.temperature}
+                    onChange={handleVitalsChange}
+                    placeholder="e.g. 98.6 °F"
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Respiratory Rate :</span>
+                  <input
+                    type="text"
+                    name="respiratoryRate"
+                    value={vitals.respiratoryRate}
+                    onChange={handleVitalsChange}
+                    placeholder="e.g. 18 cpm"
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Weight :</span>
+                  <input
+                    type="text"
+                    name="weight"
+                    value={vitals.weight}
+                    onChange={handleVitalsChange}
+                    placeholder="e.g. 65 kg"
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">GRBS (if done) :</span>
+                  <input
+                    type="text"
+                    name="grbs"
+                    value={vitals.grbs}
+                    onChange={handleVitalsChange}
+                    placeholder="e.g. 120 mg/dL"
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td colSpan={2}>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Saturation :</span>
+                  <input
+                    type="text"
+                    name="saturation"
+                    value={vitals.saturation}
+                    onChange={handleVitalsChange}
+                    placeholder="e.g. 98% SpO2"
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* EXAMINATION SECTION */}
+        <div className="assessment-section-header">Examination :</div>
+        <div className="examination-block">
+          <div className="exam-row-gcs">
+            <div className="info-field-inline flex-grow-1">
+              <span className="info-lbl-bold">1. Level of consciousness :</span>
+              <select
+                name="levelOfConsciousness"
+                value={exam.levelOfConsciousness}
+                onChange={handleExamChange}
+                className="info-select-plain"
+              >
+                <option value="">Select Level</option>
+                <option value="Consiouse">Consiouse</option>
+                <option value="semi Consiouse">semi Consiouse</option>
+                <option value="unConsiouse">unConsiouse</option>
+              </select>
             </div>
-
-            <div className="info-field-inline exam-field-item" style={{ alignItems: 'flex-start' }}>
-              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>2. Respiratory Status :</span>
-              <textarea 
-                name="respiratoryStatus" 
-                value={exam.respiratoryStatus} 
-                onChange={handleExamChange} 
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                rows={1}
-                style={{ resize: 'none', overflow: 'hidden' }}
-                className="info-input-plain"
-              />
-            </div>
-
-            <div className="info-field-inline exam-field-item" style={{ alignItems: 'flex-start' }}>
-              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>3. Any Other Finding :</span>
-              <textarea 
-                name="anyOtherFinding" 
-                value={exam.anyOtherFinding} 
-                onChange={handleExamChange} 
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                rows={1}
-                style={{ resize: 'none', overflow: 'hidden' }}
-                className="info-input-plain"
-              />
-            </div>
-
-            <div className="info-field-inline exam-field-item" style={{ alignItems: 'flex-start' }}>
-              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>4. Skin integrity :</span>
-              <textarea 
-                name="skinIntegrity" 
-                value={exam.skinIntegrity} 
-                onChange={handleExamChange} 
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                rows={1}
-                style={{ resize: 'none', overflow: 'hidden' }}
-                className="info-input-plain"
-              />
+            <div className="gcs-group">
+              <span className="info-lbl-bold">GCS :</span>
+              <span className="gcs-sub-item">E <input type="text" name="gcsE" value={exam.gcsE} onChange={handleExamChange} className="gcs-in" /></span>
+              <span className="gcs-sub-item">V <input type="text" name="gcsV" value={exam.gcsV} onChange={handleExamChange} className="gcs-in" /></span>
+              <span className="gcs-sub-item">M <input type="text" name="gcsM" value={exam.gcsM} onChange={handleExamChange} className="gcs-in" /></span>
             </div>
           </div>
 
-          {/* MEDICATIONS GIVEN IN CASUALTY */}
-          <div className="assessment-bordered-box">
-            <span className="info-lbl-bold">Medications given in Casualty :</span>
-            <textarea 
-              name="medications" 
-              value={casualty.medications} 
-              onChange={handleCasualtyChange} 
+          <div className="info-field-inline exam-field-item">
+            <span className="info-lbl-bold">2. Respiratory Status :</span>
+            <input
+              type="text"
+              name="respiratoryStatus"
+              value={exam.respiratoryStatus}
+              onChange={handleExamChange}
+              className="info-input-plain flex-grow-1"
+              list="respiratory-list"
+              placeholder="Type or select..."
+            />
+          </div>
+
+          <div className="info-field-inline exam-field-item" style={{ alignItems: 'flex-start' }}>
+            <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>3. Any Other Finding :</span>
+            <input
+              type="text"
+              name="anyOtherFinding"
+              value={exam.anyOtherFinding}
+              onChange={handleExamChange}
+              list="findings-list"
+              placeholder="Type or select findings..."
+              className="info-input-plain flex-grow-1"
+            />
+          </div>
+
+          <div className="info-field-inline exam-field-item" style={{ alignItems: 'flex-start' }}>
+            <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>4. Skin integrity :</span>
+            <textarea
+              name="skinIntegrity"
+              value={exam.skinIntegrity}
+              onChange={handleExamChange}
               onInput={(e) => {
                 e.target.style.height = 'auto';
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
-              rows={2} 
-              placeholder="List medications administered in casualty..." 
-              className="assessment-textarea"
-            />
-            <div className="date-time-bottom-right">
-              <span className="info-lbl-bold">Date & Time :</span>
-              <input 
-                type="text" 
-                name="dateTime" 
-                value={casualty.dateTime} 
-                onChange={handleCasualtyChange} 
-                placeholder="dd/mm/yyyy hh:mm AM/PM" 
-                className="info-input-plain dt-in"
-              />
-            </div>
-          </div>
-
-          {/* INVESTIGATIONS ORDERED */}
-          <div className="assessment-bordered-box">
-            <span className="info-lbl-bold">Investigations Ordered :</span>
-            <textarea 
-              value={investigations} 
-              onChange={(e) => setInvestigations(e.target.value)} 
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              rows={2} 
-              placeholder="List lab tests & radiologic investigations ordered..." 
-              className="assessment-textarea"
+              rows={1}
+              style={{ resize: 'none', overflow: 'hidden' }}
+              className="info-input-plain"
             />
           </div>
+        </div>
 
-          {/* BOTTOM SECTION PAGE 1 (Matching Screenshot Format) */}
-          <div className="assessment-bottom-rows">
-            <div className="info-field-inline btm-item" style={{ alignItems: 'flex-start' }}>
-              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Diet :</span>
-              <textarea 
-                name="diet" 
-                value={bottomPg1.diet} 
-                onChange={handleBottomPg1Change} 
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                rows={1}
-                style={{ resize: 'none', overflow: 'hidden' }}
-                placeholder="e.g. Diabetic Diet / Soft Diet / NPO" 
-                className="info-input-plain dotted-line-input"
-              />
-            </div>
-
-            <div className="info-field-inline btm-item">
-              <span className="info-lbl-bold">Vulnerable :</span>
-              <label className="radio-lbl"><input type="radio" name="vulnerable" value="Yes" checked={bottomPg1.vulnerable === 'Yes'} onChange={handleBottomPg1Change} /> Yes</label>
-              <label className="radio-lbl"><input type="radio" name="vulnerable" value="No" checked={bottomPg1.vulnerable === 'No'} onChange={handleBottomPg1Change} /> No</label>
-            </div>
-
-            <div className="info-field-inline btm-item" style={{ alignItems: 'flex-start' }}>
-              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Any Special care given :</span>
-              <textarea 
-                name="specialCareGiven" 
-                value={bottomPg1.specialCareGiven} 
-                onChange={handleBottomPg1Change} 
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                rows={1}
-                style={{ resize: 'none', overflow: 'hidden' }}
-                className="info-input-plain dotted-line-input"
-              />
-            </div>
+        {/* MEDICATIONS GIVEN IN CASUALTY */}
+        <div className="assessment-bordered-box">
+          <span className="info-lbl-bold">Medications given in Casualty :</span>
+          <textarea
+            name="medications"
+            value={casualty.medications}
+            onChange={handleCasualtyChange}
+            onInput={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            rows={2}
+            placeholder="List medications administered in casualty..."
+            className="assessment-textarea"
+          />
+          <div className="date-time-bottom-right">
+            <span className="info-lbl-bold">Date & Time :</span>
+            <input
+              type="text"
+              name="dateTime"
+              value={casualty.dateTime}
+              onChange={handleCasualtyChange}
+              placeholder="dd/mm/yyyy hh:mm AM/PM"
+              className="info-input-plain dt-in"
+            />
           </div>
+        </div>
+
+        {/* INVESTIGATIONS ORDERED */}
+        <div className="assessment-bordered-box">
+          <span className="info-lbl-bold">Investigations Ordered :</span>
+          <textarea
+            value={investigations}
+            onChange={(e) => setInvestigations(e.target.value)}
+            onInput={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            rows={2}
+            placeholder="List lab tests & radiologic investigations ordered..."
+            className="assessment-textarea"
+          />
+        </div>
+
+        {/* BOTTOM SECTION PAGE 1 (Matching Screenshot Format) */}
+        <div className="assessment-bottom-rows">
+          <div className="info-field-inline btm-item">
+            <span className="info-lbl-bold">Diet :</span>
+            <select
+              name="diet"
+              value={bottomPg1.diet}
+              onChange={handleBottomPg1Change}
+              className="info-select-plain dotted-line-input"
+            >
+              <option value="">Select Diet</option>
+              <option value="NPO">NPO</option>
+              <option value="Soft Diet">Soft Diet</option>
+            </select>
+          </div>
+
+          <div className="info-field-inline btm-item">
+            <span className="info-lbl-bold">Vulnerable :</span>
+            <label className="radio-lbl"><input type="radio" name="vulnerable" value="Yes" checked={bottomPg1.vulnerable === 'Yes'} onChange={handleBottomPg1Change} /> Yes</label>
+            <label className="radio-lbl"><input type="radio" name="vulnerable" value="No" checked={bottomPg1.vulnerable === 'No'} onChange={handleBottomPg1Change} /> No</label>
+          </div>
+
+          <div className="info-field-inline btm-item" style={{ alignItems: 'flex-start' }}>
+            <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Any Special care given :</span>
+            <input
+              type="text"
+              name="specialCareGiven"
+              value={bottomPg1.specialCareGiven}
+              onChange={handleBottomPg1Change}
+              list="care-list"
+              placeholder="Type or select..."
+              className="info-input-plain dotted-line-input flex-grow-1"
+            />
+          </div>
+        </div>
 
       </div>
 
       {/* PAGE 2 SHEET CONTAINER (Matching User Screenshot Exactly) */}
       <div className="green-paper-container page-break-top">
 
-          {/* PAIN ASSESSMENT SCALE HEADER */}
-          <div className="pain-scale-title">PAIN ASSESSMENT SCALE</div>
-          <div className="pain-faces-grid-11">
-            {painScaleOptions.map((opt) => (
-              <div 
-                key={opt.score} 
-                className={`pain-face-card-sm pain-card-score-${opt.score} ${pg2.painScore === opt.score ? 'selected-pain-card' : ''}`}
-                onClick={() => setPg2((prev) => ({ ...prev, painScore: opt.score }))}
+        {/* PAIN ASSESSMENT SCALE HEADER */}
+        <div className="pain-scale-title">PAIN ASSESSMENT SCALE</div>
+        <div className="pain-faces-grid-11">
+          {painScaleOptions.map((opt) => (
+            <div
+              key={opt.score}
+              className={`pain-face-card-sm pain-card-score-${opt.score} ${pg2.painScore === opt.score ? 'selected-pain-card' : ''}`}
+              onClick={() => setPg2((prev) => ({ ...prev, painScore: opt.score }))}
+            >
+              <span className="pain-score-num-bold">{opt.score}</span>
+              <span className="pain-emoji-lg">{opt.emoji}</span>
+              <span className="pain-score-lbl-sm">{opt.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="pain-selected-status">
+          Selected Score: <strong>{selectedPainObj.score} - {selectedPainObj.label}</strong>
+        </div>
+
+        {/* PRESSURE SORE SECTION */}
+        <div className="assessment-section-box">
+          <div className="info-field-inline">
+            <span className="info-lbl-bold">Pressure sore :</span>
+            <label className="radio-lbl"><input type="radio" name="pressureSore" value="Yes" checked={pg2.pressureSore === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+            <label className="radio-lbl"><input type="radio" name="pressureSore" value="No" checked={pg2.pressureSore === 'No'} onChange={handlePg2Change} /> No</label>
+          </div>
+          <div className="info-field-inline indent-item-block" style={{ alignItems: 'flex-start' }}>
+            <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Any Special care given :</span>
+            <textarea
+              name="pressureSoreCare"
+              value={pg2.pressureSoreCare}
+              onChange={handlePg2Change}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              rows={1}
+              style={{ resize: 'none', overflow: 'hidden' }}
+              className="info-input-plain dotted-line-input"
+            />
+          </div>
+        </div>
+
+        {/* RESTRAINTS SECTION */}
+        <div className="assessment-section-box">
+          <div className="info-field-inline">
+            <span className="info-lbl-bold">Restraints :</span>
+            <label className="radio-lbl"><input type="radio" name="restraints" value="Yes" checked={pg2.restraints === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+            <label className="radio-lbl"><input type="radio" name="restraints" value="No" checked={pg2.restraints === 'No'} onChange={handlePg2Change} /> No</label>
+          </div>
+          <div className="info-field-inline indent-item-block" style={{ alignItems: 'flex-start' }}>
+            <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Restraint used :</span>
+            <textarea
+              name="restraintsUsed"
+              value={pg2.restraintsUsed}
+              onChange={handlePg2Change}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              rows={1}
+              style={{ resize: 'none', overflow: 'hidden' }}
+              placeholder="Specify restraints used..."
+              className="info-input-plain dotted-line-input"
+            />
+          </div>
+        </div>
+
+        {/* RISK FOR THE FOLLOWING SECTION */}
+        <div className="assessment-section-box">
+          <span className="info-lbl-bold section-title-bold">Risk for the following :</span>
+
+          <div className="risk-options-list">
+            <div className="info-field-inline risk-sub-item">
+              <span className="info-lbl-bold risk-name">Fall :</span>
+              <label className="radio-lbl"><input type="radio" name="fallRisk" value="Yes" checked={pg2.fallRisk === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+              <label className="radio-lbl"><input type="radio" name="fallRisk" value="No" checked={pg2.fallRisk === 'No'} onChange={handlePg2Change} /> No</label>
+            </div>
+
+            <div className="info-field-inline risk-sub-item">
+              <span className="info-lbl-bold risk-name">DVT :</span>
+              <label className="radio-lbl"><input type="radio" name="dvtRisk" value="Yes" checked={pg2.dvtRisk === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+              <label className="radio-lbl"><input type="radio" name="dvtRisk" value="No" checked={pg2.dvtRisk === 'No'} onChange={handlePg2Change} /> No</label>
+            </div>
+
+            <div className="info-field-inline risk-sub-item">
+              <span className="info-lbl-bold risk-name">Pressure sore :</span>
+              <label className="radio-lbl"><input type="radio" name="pressureSoreRisk" value="Yes" checked={pg2.pressureSoreRisk === 'Yes'} onChange={handlePg2Change} /> Yes</label>
+              <label className="radio-lbl"><input type="radio" name="pressureSoreRisk" value="No" checked={pg2.pressureSoreRisk === 'No'} onChange={handlePg2Change} /> No</label>
+            </div>
+          </div>
+        </div>
+
+        {/* NURSE SIGNATURE ROW (Matching Screenshot) */}
+        <div className="nurse-sig-footer-row">
+          <div className="sig-field-item flex-2">
+            <span className="info-lbl-bold" style={{ marginRight: '8px' }}>Signature of the Nurse :</span>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <select
+                name="nurseSignature"
+                value={pg2.nurseSignature}
+                onChange={handlePg2Change}
+                className="info-select-plain underline-input"
+                style={{ minWidth: '150px' }}
               >
-                <span className="pain-score-num-bold">{opt.score}</span>
-                <span className="pain-emoji-lg">{opt.emoji}</span>
-                <span className="pain-score-lbl-sm">{opt.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="pain-selected-status">
-            Selected Score: <strong>{selectedPainObj.score} - {selectedPainObj.label}</strong>
-          </div>
-
-          {/* PRESSURE SORE SECTION */}
-          <div className="assessment-section-box">
-            <div className="info-field-inline">
-              <span className="info-lbl-bold">Pressure sore :</span>
-              <label className="radio-lbl"><input type="radio" name="pressureSore" value="Yes" checked={pg2.pressureSore === 'Yes'} onChange={handlePg2Change} /> Yes</label>
-              <label className="radio-lbl"><input type="radio" name="pressureSore" value="No" checked={pg2.pressureSore === 'No'} onChange={handlePg2Change} /> No</label>
-            </div>
-            <div className="info-field-inline indent-item-block" style={{ alignItems: 'flex-start' }}>
-              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Any Special care given :</span>
-              <textarea 
-                name="pressureSoreCare" 
-                value={pg2.pressureSoreCare} 
-                onChange={handlePg2Change} 
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                rows={1}
-                style={{ resize: 'none', overflow: 'hidden' }}
-                className="info-input-plain dotted-line-input"
-              />
+                {getNurseOptions().map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+              {renderSignatureStamp(pg2.nurseSignature)}
             </div>
           </div>
-
-          {/* RESTRAINTS SECTION */}
-          <div className="assessment-section-box">
-            <div className="info-field-inline">
-              <span className="info-lbl-bold">Restraints :</span>
-              <label className="radio-lbl"><input type="radio" name="restraints" value="Yes" checked={pg2.restraints === 'Yes'} onChange={handlePg2Change} /> Yes</label>
-              <label className="radio-lbl"><input type="radio" name="restraints" value="No" checked={pg2.restraints === 'No'} onChange={handlePg2Change} /> No</label>
-            </div>
-            <div className="info-field-inline indent-item-block" style={{ alignItems: 'flex-start' }}>
-              <span className="info-lbl-bold" style={{ paddingTop: '2px' }}>Restraint used :</span>
-              <textarea 
-                name="restraintsUsed" 
-                value={pg2.restraintsUsed} 
-                onChange={handlePg2Change} 
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                rows={1}
-                style={{ resize: 'none', overflow: 'hidden' }}
-                placeholder="Specify restraints used..."
-                className="info-input-plain dotted-line-input"
-              />
-            </div>
+          <div className="sig-field-item">
+            <span className="info-lbl-bold">Date :</span>
+            <input
+              type="date" max={getCurrentDate()}
+              name="sigDate"
+              value={pg2.sigDate}
+              onChange={handlePg2Change}
+              className="info-input-plain"
+            />
           </div>
-
-          {/* RISK FOR THE FOLLOWING SECTION */}
-          <div className="assessment-section-box">
-            <span className="info-lbl-bold section-title-bold">Risk for the following :</span>
-            
-            <div className="risk-options-list">
-              <div className="info-field-inline risk-sub-item">
-                <span className="info-lbl-bold risk-name">Fall :</span>
-                <label className="radio-lbl"><input type="radio" name="fallRisk" value="Yes" checked={pg2.fallRisk === 'Yes'} onChange={handlePg2Change} /> Yes</label>
-                <label className="radio-lbl"><input type="radio" name="fallRisk" value="No" checked={pg2.fallRisk === 'No'} onChange={handlePg2Change} /> No</label>
-              </div>
-
-              <div className="info-field-inline risk-sub-item">
-                <span className="info-lbl-bold risk-name">DVT :</span>
-                <label className="radio-lbl"><input type="radio" name="dvtRisk" value="Yes" checked={pg2.dvtRisk === 'Yes'} onChange={handlePg2Change} /> Yes</label>
-                <label className="radio-lbl"><input type="radio" name="dvtRisk" value="No" checked={pg2.dvtRisk === 'No'} onChange={handlePg2Change} /> No</label>
-              </div>
-
-              <div className="info-field-inline risk-sub-item">
-                <span className="info-lbl-bold risk-name">Pressure sore :</span>
-                <label className="radio-lbl"><input type="radio" name="pressureSoreRisk" value="Yes" checked={pg2.pressureSoreRisk === 'Yes'} onChange={handlePg2Change} /> Yes</label>
-                <label className="radio-lbl"><input type="radio" name="pressureSoreRisk" value="No" checked={pg2.pressureSoreRisk === 'No'} onChange={handlePg2Change} /> No</label>
-              </div>
-            </div>
+          <div className="sig-field-item">
+            <span className="info-lbl-bold">Time :</span>
+            <input
+              type="time"
+              name="sigTime"
+              value={pg2.sigTime}
+              onChange={handlePg2Change}
+              className="info-input-plain"
+            />
           </div>
+        </div>
 
-          {/* NURSE SIGNATURE ROW (Matching Screenshot) */}
-          <div className="nurse-sig-footer-row">
-            <div className="sig-field-item flex-2">
-              <span className="info-lbl-bold">Signature of the Nurse :</span>
-              <input 
-                type="text" 
-                name="nurseSignature" 
-                value={pg2.nurseSignature} 
-                onChange={handlePg2Change} 
-                placeholder="Type nurse signature / name"
-                className="info-input-plain sig-input-stamp underline-input"
-              />
-            </div>
-            <div className="sig-field-item">
-              <span className="info-lbl-bold">Date :</span>
-              <input 
-                type="date" 
-                name="sigDate" 
-                value={pg2.sigDate} 
-                onChange={handlePg2Change} 
-                className="info-input-plain"
-              />
-            </div>
-            <div className="sig-field-item">
-              <span className="info-lbl-bold">Time :</span>
-              <input 
-                type="time" 
-                name="sigTime" 
-                value={pg2.sigTime} 
-                onChange={handlePg2Change} 
-                className="info-input-plain"
-              />
-            </div>
+        {/* Action Row */}
+        <div className="mint-action-controls no-print" style={{ marginTop: '20px' }}>
+          <div className="bottom-btn-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+              <span>Clear Form</span>
+            </button>
+            <button type="button" className="btn-mint-clear" onClick={handleSave}>
+              <Save size={14} />
+              <span>Save Record</span>
+            </button>
           </div>
+        </div>
 
       </div>
 
     </div>
   );
 }
+

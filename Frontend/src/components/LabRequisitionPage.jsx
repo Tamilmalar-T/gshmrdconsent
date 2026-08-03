@@ -68,6 +68,7 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
+        if (saved.recordId) setRecordId(saved.recordId);
         if (saved.meta) setMeta(m => ({ ...m, ...saved.meta }));
         if (saved.selectedTests) setSelectedTests(saved.selectedTests);
       }
@@ -77,7 +78,7 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
     const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { meta, selectedTests });
+      persistForm(PERSIST_KEY, { meta, selectedTests , recordId});
       const hasContent = meta.name || meta.ipNo || meta.uhidNo || Object.values(selectedTests).some(val => val === true || val?.length > 0);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Laboratory Requisition', meta, { meta, selectedTests }, setRecordId);
@@ -107,8 +108,6 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
         referringDoctor: found.consultantName || prev.referringDoctor,
         date: found.doa || prev.date
       }));
-      setToastMsg('Patient details auto-filled');
-      setTimeout(() => setToastMsg(''), 2000);
     }
   };
 
@@ -166,8 +165,7 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
     setToastMsg(recordId ? 'Laboratory Requisition updated successfully!' : 'Laboratory Requisition saved successfully!');
     setTimeout(() => {
       setToastMsg('');
-      if (onNavigate) onNavigate('view-records');
-    }, 800);
+    }, 2000);
   };
 
 
@@ -256,21 +254,12 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
       <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">Laboratory Requisition</h2>
         <div className="action-btns-group">
-          <button type="button" className="btn-mint-clear" onClick={handleSave}>
-            <Save size={14} />
-            <span>Save Requisition</span>
-          </button>
-          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
-            <span>Clear Form</span>
-          </button>
+       
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
-            <FileEdit size={14} />
-            <span>View Drafts</span>
-          </button>
+         
           <button type="button" className="btn-mint-save" onClick={() => window.print()}>
             <Printer size={14} />
             <span>Print Form</span>

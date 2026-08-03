@@ -56,8 +56,9 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
+        if (saved.recordId) setRecordId(saved.recordId);
         if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-        if (saved.rows) setRows(saved.rows);
+        if (saved.rows) setRows(saved.rows.map(r => ({ ...r, date: getCurrentDate(), time: getCurrentTime() })));
       }
     }
   }, [editData, editRecordId]);
@@ -72,17 +73,9 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
   }, []);
 
   const getNurseOptions = () => {
-    const activeNurses = systemUsers
-      .filter(u => u.status === 'Active' && u.userType === 'Nurse')
+    return systemUsers
+      .filter(u => u.status === 'Active')
       .map(u => u.userName);
-    
-    if (activeNurses.length === 0) {
-      return ['Sadhana', 'Priya', 'Anitha'];
-    }
-    if (!activeNurses.includes('Sadhana')) {
-      activeNurses.unshift('Sadhana');
-    }
-    return activeNurses;
   };
 
   const renderSignatureStamp = (nurseName) => {
@@ -111,7 +104,7 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
     const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, rows });
+      persistForm(PERSIST_KEY, { patient, rows , recordId});
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.grbs || r.reading || r.medication);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Diabetic Chart', patient, { patient, rows }, setRecordId);
@@ -143,8 +136,6 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
           bed: found.bedNo || prev.bed,
           doa: found.doa || prev.doa
         }));
-        setToastMsg('Patient details auto-filled');
-        setTimeout(() => setToastMsg(''), 2000);
       }
     }
   };
@@ -201,8 +192,7 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
     setToastMsg(recordId ? 'Diabetic Chart updated successfully!' : 'Diabetic Chart saved successfully!');
     setTimeout(() => {
       setToastMsg('');
-      if (onNavigate) onNavigate('view-records');
-    }, 800);
+    }, 2000);
   };
 
   const handlePrint = () => {
@@ -222,21 +212,12 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
       <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">Diabetic Chart</h2>
         <div className="action-btns-group">
-          <button type="button" className="btn-mint-clear" onClick={handleSave}>
-            <Save size={14} />
-            <span>Save Chart</span>
-          </button>
-          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
-            <span>Clear Form</span>
-          </button>
+         
           <button type="button" className="btn-nav-records" onClick={() => onNavigate && onNavigate('view-records')}>
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-nav-drafts" onClick={() => onNavigate && onNavigate('view-drafts')}>
-            <FileEdit size={14} />
-            <span>View Drafts</span>
-          </button>
+        
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
             <span>Print Chart</span>
@@ -312,7 +293,7 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
                       onChange={handlePatientChange}
                       onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
-                      placeholder="Press Enter to auto-fill"
+                      placeholder="Enter UHID number"
                     />
                   </div>
                 </td>
@@ -326,7 +307,7 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
                       onChange={handlePatientChange}
                       onKeyDown={handleIpKeyDown}
                       className="info-input-plain"
-                      placeholder="Press Enter to auto-fill"
+                      placeholder="Enter IP number"
                     />
                   </div>
                 </td>
@@ -391,7 +372,7 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
                   {/* Date Cell */}
                   <td className="td-mint-date">
                     <input 
-                      type="date" 
+                      type="date" max={getCurrentDate()} 
                       value={row.date} 
                       onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                       className="mint-date-picker"
@@ -416,17 +397,31 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
                     />
                   </td>
 
-                  {/* GRBS Cell with Type Dropdown */}
+                  {/* GRBS Cell with Radio Options */}
                   <td>
-                    <div className="grbs-field-flex">
-                      <select 
-                        value={row.grbsType || 'FBS'} 
-                        onChange={(e) => handleRowChange(row.id, 'grbsType', e.target.value)} 
-                        className="grbs-select-dropdown"
-                      >
-                        <option value="FBS">FBS</option>
-                        <option value="PPBS">PPBS</option>
-                      </select>
+                    <div className="grbs-field-flex" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div className="grbs-radio-group" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>
+                          <input 
+                            type="radio" 
+                            name={`grbsType-${row.id}`}
+                            value="FBS" 
+                            checked={row.grbsType === 'FBS'}
+                            onChange={(e) => handleRowChange(row.id, 'grbsType', e.target.value)} 
+                          />
+                          FBS
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>
+                          <input 
+                            type="radio" 
+                            name={`grbsType-${row.id}`}
+                            value="PPBS" 
+                            checked={row.grbsType === 'PPBS'}
+                            onChange={(e) => handleRowChange(row.id, 'grbsType', e.target.value)} 
+                          />
+                          PPBS
+                        </label>
+                      </div>
                       <input 
                         type="text" 
                         value={row.grbs} 
@@ -517,3 +512,4 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
     </div>
   );
 }
+
