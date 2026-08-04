@@ -78,8 +78,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
     timeSlot: '6_AM',
     pulse: '',
     temp: '',
-    resp: '',
-    bp: ''
+    resp: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -295,13 +294,12 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
 
     let errorMsg = '';
     if (value.trim() !== '') {
-      if (['pulse', 'temp', 'resp', 'bp'].includes(name)) {
+      if (['pulse', 'temp', 'resp'].includes(name)) {
         const num = parseFloat(value);
         if (!isNaN(num)) {
           if (name === 'pulse' && (num < 40 || num > 210)) errorMsg = 'Pulse must be 40–210';
           if (name === 'temp' && (num < 95 || num > 106)) errorMsg = 'Temp must be 95–106';
           if (name === 'resp' && (num < 10 || num > 60)) errorMsg = 'Resp must be 10–60';
-          if (name === 'bp' && (num < 40 || num > 210)) errorMsg = 'BP must be 40–210';
         } else {
           errorMsg = 'Must be a number';
         }
@@ -335,14 +333,6 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
     if (isNaN(r)) return -1;
     const rIdx = Math.round((180 - r) / 2);
     return (rIdx >= 60 && rIdx <= 85) ? rIdx : -1;
-  };
-
-  // Map BP (systolic, 40–210) same scale as Pulse
-  const getBpRowIndex = (val) => {
-    const v = parseFloat(val);
-    if (isNaN(v)) return -1;
-    const rIdx = Math.round((210 - v) / 2);
-    return (rIdx >= 0 && rIdx <= 85) ? rIdx : -1;
   };
 
   // Convert Form Date 'YYYY-MM-DD' -> 'DD/MM/YY'
@@ -434,10 +424,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
       const rIdx = getRespRowIndex(entry.resp);
       if (rIdx !== -1) newEntries.push({ id: Date.now() + 3, date: formattedDate, dIdx: targetDIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'resp', val: parseFloat(entry.resp), rawVal: entry.resp, rIdx });
     }
-    if (entry.bp) {
-      const rIdx = getBpRowIndex(entry.bp);
-      if (rIdx !== -1) newEntries.push({ id: Date.now() + 4, date: formattedDate, dIdx: targetDIdx, sIdx: placeholderSIdx, timeKey: slotObj.key, timeLabel: slotObj.hour, timeRank: slotObj.timeRank, type: 'bp', val: parseFloat(entry.bp), rawVal: entry.bp, rIdx });
-    }
+
 
     if (newEntries.length > 0) {
       const newTypes = newEntries.map(e => e.type);
@@ -451,12 +438,12 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
       setDates(sortedDates);
       setReadings(sortedReadings);
       setSlotHours(newSlotHours);
-      setEntry(prev => ({ ...prev, pulse: '', temp: '', resp: '', bp: '' }));
+      setEntry(prev => ({ ...prev, pulse: '', temp: '', resp: '' }));
       setErrors({});
       setToastMsg(`✔ Vitals plotted for ${formattedDate} (${slotObj.period} ${slotObj.hour})`);
       setTimeout(() => setToastMsg(''), 3000);
     } else {
-      setToastMsg('⚠ Enter at least one valid value (Pulse 40–210, Temp 95–106, Resp 10–60, BP 40–210).');
+      setToastMsg('⚠ Enter at least one valid value (Pulse 40–210, Temp 95–106, Resp 10–60).');
       setTimeout(() => setToastMsg(''), 4000);
     }
   };
@@ -478,7 +465,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
 
   const handleClearForm = () => {
     setPatient({ name: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', doa: '', ward: '', bedNo: '' });
-    setEntry({ date: getCurrentDate(), timeSlot: '6_AM', pulse: '', temp: '', resp: '', bp: '' });
+    setEntry({ date: getCurrentDate(), timeSlot: '6_AM', pulse: '', temp: '', resp: '' });
     setDates(['', '', '']);
     setReadings([]);
     setSlotHours({});
@@ -541,7 +528,6 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
         case 'pulse': { const r = (210 - v) / 2; return (r >= 0 && r <= 85) ? r : null; }
         case 'temp': { const r = (106 - v) * 5; return (r >= 0 && r <= 55) ? r : null; }
         case 'resp': { const r = (180 - v) / 2; return (r >= 60 && r <= 85) ? r : null; }
-        case 'bp': { const r = (210 - v) / 2; return (r >= 0 && r <= 85) ? r : null; }
         default: return null;
       }
     };
@@ -549,12 +535,11 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
     const typeColors = {
       pulse: '#ec4899',
       temp: '#f59e0b',
-      resp: '#3b82f6',
-      bp: '#22c55e',
+      resp: '#3b82f6'
     };
 
     const dots = [];
-    const byType = { temp: [], pulse: [], resp: [], bp: [] };
+    const byType = { temp: [], pulse: [], resp: [] };
 
     readings.forEach((r) => {
       const cx = getX(r.dIdx, r.sIdx);
@@ -636,8 +621,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
           timeRank: r.timeRank,
           pulse: '',
           temp: '',
-          resp: '',
-          bp: ''
+          resp: ''
         };
       }
       groups[key][r.type] = r.rawVal !== undefined ? r.rawVal : r.val;
@@ -935,11 +919,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                   <input type="text" name="resp" value={entry.resp} onChange={handleEntryChange} placeholder="10–60" className="entry-input" />
                   {errors.resp && <span style={{ color: '#ef4444', fontSize: '10.5px', marginTop: '2px', fontWeight: 600 }}>{errors.resp}</span>}
                 </div>
-                <div className="entry-field-group">
-                  <label className="entry-label" style={{ color: '#22c55e', fontWeight: 700 }}>BP (mmHg sys)</label>
-                  <input type="text" name="bp" value={entry.bp} onChange={handleEntryChange} placeholder="40–210" className="entry-input" />
-                  {errors.bp && <span style={{ color: '#ef4444', fontSize: '10.5px', marginTop: '2px', fontWeight: 600 }}>{errors.bp}</span>}
-                </div>
+
               </div>
 
               <div className="entry-btn-row">
@@ -972,8 +952,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                     fill={
                       dot.type === 'pulse' ? '#ec4899' :
                         dot.type === 'temp' ? '#f59e0b' :
-                          dot.type === 'resp' ? '#3b82f6' :
-                            dot.type === 'bp' ? '#22c55e' : '#94a3b8'
+                          dot.type === 'resp' ? '#3b82f6' : '#94a3b8'
                     }
                     stroke="#fff" strokeWidth={1.5}
                   />
@@ -985,8 +964,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                     fill={
                       dot.type === 'pulse' ? '#dc2626' :
                         dot.type === 'temp' ? '#0369a1' :
-                          dot.type === 'resp' ? '#2563eb' :
-                            dot.type === 'bp' ? '#16a34a' : '#334155'
+                          dot.type === 'resp' ? '#2563eb' : '#334155'
                     }
                     textAnchor="middle"
                     style={{
@@ -1210,7 +1188,6 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                     <th style={{ padding: '8px', fontWeight: 800, color: '#dc2626' }}>Pulse (bpm)</th>
                     <th style={{ padding: '8px', fontWeight: 800, color: '#0369a1' }}>Temp (°F)</th>
                     <th style={{ padding: '8px', fontWeight: 800, color: '#2563eb' }}>Resp. Rate (cpm)</th>
-                    <th style={{ padding: '8px', fontWeight: 800, color: '#16a34a' }}>BP (mmHg)</th>
                     <th style={{ padding: '8px', fontWeight: 800 }} className="no-print">Action</th>
                   </tr>
                 </thead>
@@ -1222,7 +1199,6 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                       <td style={{ padding: '8px', fontWeight: 700 }}>{group.pulse || '—'}</td>
                       <td style={{ padding: '8px', fontWeight: 700 }}>{group.temp || '—'}</td>
                       <td style={{ padding: '8px', fontWeight: 700 }}>{group.resp || '—'}</td>
-                      <td style={{ padding: '8px', fontWeight: 700 }}>{group.bp || '—'}</td>
                       <td style={{ padding: '8px' }} className="no-print">
                         <button
                           type="button"

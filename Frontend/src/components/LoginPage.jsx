@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Lock, User, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Lock, User, AlertCircle, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage({ onLoginSuccess }) {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -33,21 +34,21 @@ export default function LoginPage({ onLoginSuccess }) {
     }
 
     const matchedUser = usersList.find(
-      (u) => u.userId.toLowerCase() === userId.trim().toLowerCase()
+      (u) => (u.userId || '').trim().toLowerCase() === userId.trim().toLowerCase()
     );
 
     if (!matchedUser) {
-      setErrorMsg('Invalid User ID or Password.');
+      setErrorMsg('Invalid User ID or Password. (User ID not found)');
       return;
     }
 
-    if (matchedUser.status !== 'Active') {
+    if ((matchedUser.status || '').toLowerCase() !== 'active') {
       setErrorMsg('This user account is inactive. Please contact the administrator.');
       return;
     }
 
     if (matchedUser.password !== password) {
-      setErrorMsg('Invalid User ID or Password.');
+      setErrorMsg('Invalid User ID or Password. (Password mismatch)');
       return;
     }
 
@@ -101,8 +102,8 @@ export default function LoginPage({ onLoginSuccess }) {
             <div className="login-input-wrapper">
               <Lock className="login-input-icon" size={16} />
               <input
-                type="password"
-                placeholder="Enter password (e.g. password)"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -111,6 +112,14 @@ export default function LoginPage({ onLoginSuccess }) {
                 className="login-input-field"
                 required
               />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', color: '#64748b' }}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 

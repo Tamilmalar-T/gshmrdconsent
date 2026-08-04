@@ -4,6 +4,7 @@ const PatientModel = require('../models/patientModel');
 // @route   POST /api/patients
 exports.createPatient = async (req, res) => {
   try {
+    console.log('Received createPatient payload:', req.body);
     const newPatient = await PatientModel.createPatient(req.body);
     res.status(201).json({ success: true, data: newPatient });
   } catch (error) {

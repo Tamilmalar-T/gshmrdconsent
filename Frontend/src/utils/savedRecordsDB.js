@@ -5,25 +5,35 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 const mapFormTypeToEndpoint = (formType) => {
   if (!formType) return null;
-  // Convert camelCase or snake_case to kebab-case
-  return formType.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase().replace(/_/g, '-');
+  // Convert camelCase, snake_case, or space-separated to kebab-case
+  return formType
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/[\s_]+/g, '-')
+    .toLowerCase();
 };
 
 const syncToPostgres = async (record) => {
   try {
     const endpoint = mapFormTypeToEndpoint(record.formType);
-    if (!endpoint || record.isDraft) return; // Optional: Avoid syncing pure drafts if you want
+    if (!endpoint) return; // Allow syncing drafts to postgres too
 
-    // 1. Ensure Patient Exists in PG
+    // Helper to format dates to YYYY-MM-DD
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      const parts = dateStr.split('/');
+      if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      return dateStr;
+    };
+
     const patientPayload = {
       name: record.patientName || 'Unknown Patient',
-      uhid_no: record.data?.patient?.uhidNo || `UHID-${Date.now()}`,
-      ip_no: record.data?.patient?.ipNo || record.patientIpNo || `IP-${Date.now()}`,
-      age: record.data?.patient?.age || '',
-      sex: record.data?.patient?.sex || 'Male',
-      doa: record.data?.patient?.doa || '',
-      ward: record.data?.patient?.ward || '',
-      bed_no: record.data?.patient?.bedNo || ''
+      uhid_no: record.data?.patient?.uhidNo || record.data?.uhidNo || `UHID-${Date.now()}`,
+      ip_no: record.data?.patient?.ipNo || record.data?.ipNo || record.data?.ipOpNo || record.patientIpNo || `IP-${Date.now()}`,
+      age: record.data?.patient?.age || record.data?.age || '',
+      sex: record.data?.patient?.sex || record.data?.sex || 'Male',
+      doa: formatDate(record.data?.patient?.doa || record.data?.doa) || '',
+      ward: record.data?.patient?.ward || record.data?.ward || '',
+      bed_no: record.data?.patient?.bedNo || record.data?.bedNo || ''
     };
 
     let patientId = null;

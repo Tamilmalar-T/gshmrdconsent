@@ -36,17 +36,19 @@ const regularDrugPrescriptionRoutes = require('./routes/regularDrugPrescriptionR
 // Mount Routes
 app.use('/api/patients', patientRoutes);
 app.use('/api/vitals-chart', vitalsChartRoutes);
-app.use('/api/nurses-daily-assessment', nursesDailyAssessmentRoutes);
+app.use('/api/nurses-daily-assessment-care-plan', nursesDailyAssessmentRoutes);
 app.use('/api/nursing-initial-assessment', nursingInitialAssessmentRoutes);
 app.use('/api/activity-record-billing', activityRecordBillingRoutes);
 app.use('/api/intake-output-record', intakeOutputRecordRoutes);
 app.use('/api/diabetic-chart', diabeticChartRoutes);
 app.use('/api/progress-sheet', progressSheetRoutes);
-app.use('/api/consent-general-admission', consentGeneralAdmissionRoutes);
+app.use('/api/consent-for-general-admission', consentGeneralAdmissionRoutes);
 app.use('/api/nurses-care-plan', nursesCarePlanRoutes);
 app.use('/api/lab-requisition', labRequisitionRoutes);
+app.use('/api/laboratory-requisition', labRequisitionRoutes);
 app.use('/api/bp-chart', bpChartRoutes);
-app.use('/api/progress-reassessment-record', progressReassessmentRecordRoutes);
+app.use('/api/progress-and-reassessment-record', progressReassessmentRecordRoutes);
+app.use('/api/progress-&-reassessment-record---resident-doctor', progressReassessmentRecordRoutes);
 app.use('/api/investigation-chart', investigationChartRoutes);
 app.use('/api/internal-transfer-form', internalTransferFormRoutes);
 app.use('/api/regular-drug-prescription', regularDrugPrescriptionRoutes);

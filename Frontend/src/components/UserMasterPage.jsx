@@ -7,7 +7,9 @@ import {
   Trash2, 
   Pencil,
   RotateCcw,
-  Users
+  Users,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const STORAGE_KEY = 'masters_users';
@@ -36,6 +38,7 @@ export default function UserMasterPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Load user types from Type Master
   useEffect(() => {
@@ -208,7 +211,35 @@ export default function UserMasterPage() {
           </div>
           <div className="pr-field">
             <label className="pr-label">PASSWORD <span className="req-star">*</span></label>
-            <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="Login password" className="pr-input" />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input 
+                type={showPassword ? "text" : "password"} 
+                name="password" 
+                value={form.password} 
+                onChange={handleChange} 
+                placeholder="Login password" 
+                className="pr-input" 
+                style={{ paddingRight: '36px' }}
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ 
+                  position: 'absolute', 
+                  right: '8px', 
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer', 
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 0
+                }}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
           <div className="pr-field">
             <label className="pr-label">STATUS</label>

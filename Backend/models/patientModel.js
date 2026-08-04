@@ -13,12 +13,13 @@ class PatientModel {
       }
     }
 
+    const validDoa = doa && doa.trim() !== '' ? doa : null;
     const query = `
       INSERT INTO patients (name, uhid_no, ip_no, age, sex, doa, ward, bed_no)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *;
     `;
-    const values = [name, uhid_no, ip_no, age, sex, doa, ward, bed_no];
+    const values = [name, uhid_no, ip_no, age, sex, validDoa, ward, bed_no];
     const { rows } = await pool.query(query, values);
     return rows[0];
   }

@@ -6,9 +6,15 @@ import {
   CheckCircle2, 
   Upload,
   Stethoscope,
-  FileText
+  FileText,
+  FolderCheck
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
+import { findPatientByIpNo } from '../utils/patientRegistry';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+
+const PERSIST_KEY = 'progress_reassessment_record';
 
 const getCurrentDate = () => {
   const now = new Date();
@@ -72,6 +78,31 @@ export default function ProgressReassessmentRecordPage() {
   const activeDocs = systemUsers
     .filter(u => u.status === 'Active')
     .map(u => u.userName);
+
+  const [recordId, setRecordId] = useState(null);
+
+  // Restore persisted form or set edit data on mount
+  useEffect(() => {
+    // We would normally handle editData here if passed as props, but keeping it simple for now
+    const saved = restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (saved.recordId) setRecordId(saved.recordId);
+      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+      if (saved.soap) setSoap(s => ({ ...s, ...saved.soap }));
+    }
+  }, []);
+
+  // Auto-save to localStorage and database draft on every change
+  useEffect(() => {
+    const t = setTimeout(() => {
+      persistForm(PERSIST_KEY, { patient, soap, recordId });
+      const hasContent = patient.name || patient.ipNo || patient.uhidNo || soap.subjective || soap.assessment;
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Progress and Reassessment Record', patient, { patient, soap }, setRecordId);
+      }
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [patient, soap, recordId]);
 
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
@@ -185,7 +216,11 @@ export default function ProgressReassessmentRecordPage() {
   };
 
   const handleSave = () => {
-    setToastMsg('Progress and Reassessment Record saved successfully!');
+    const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
+    const saved = upsertFormRecord(recordId, 'Progress and Reassessment Record', ip, { patient, soap });
+    setRecordId(saved.id);
+    clearPersistedForm(PERSIST_KEY);
+    setToastMsg(recordId ? 'Record updated successfully!' : 'Record saved successfully!');
     setTimeout(() => setToastMsg(''), 3000);
   };
 
@@ -206,6 +241,7 @@ export default function ProgressReassessmentRecordPage() {
       <div className="no-print page-action-bar">
         <h2 className="vitals-page-heading">Progress and Reassessment Record - Resident Doctor</h2>
         <div className="action-btns-group">
+          {/* We assume onNavigate could be passed here if needed */}
           <button type="button" className="btn-mint-clear" onClick={handleSave}>
             <Save size={14} />
             <span>Save Record</span>

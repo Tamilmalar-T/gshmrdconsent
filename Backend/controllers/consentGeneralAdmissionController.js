@@ -3,6 +3,7 @@ const ConsentGeneralAdmissionModel = require('../models/consentGeneralAdmissionM
 exports.createRecord = async (req, res) => {
   try {
     const { patientId, formData } = req.body;
+    console.log('Received createRecord payload for Consent:', req.body);
     if (!patientId || !formData) {
       return res.status(400).json({ success: false, message: 'patientId and formData are required' });
     }

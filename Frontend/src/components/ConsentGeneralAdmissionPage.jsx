@@ -309,10 +309,17 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
       return;
     }
     const ip = form.ipOpNo || form.ipNo || form.uhidNo || 'UNASSIGNED';
+    const hasValidIp = form.ipOpNo || form.ipNo || form.uhidNo;
     const saved = upsertFormRecord(recordId, 'Consent for General Admission', ip, form);
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg(recordId ? 'Record updated successfully!' : 'Consent form saved successfully!');
+    
+    if (!hasValidIp) {
+      setToastMsg(recordId ? '⚠️ Draft updated (No IP No.)' : '⚠️ Saved as Draft (No IP No.)');
+    } else {
+      setToastMsg(recordId ? 'Record updated successfully!' : 'Consent form saved successfully!');
+    }
+    
     setTimeout(() => {
       setToastMsg('');
     }, 2000);

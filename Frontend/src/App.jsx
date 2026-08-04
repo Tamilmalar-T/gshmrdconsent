@@ -32,8 +32,20 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('patient-registration');
-  const [lastFormTab, setLastFormTab] = useState('general-admission-consent');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('active_tab') || 'patient-registration';
+  });
+  const [lastFormTab, setLastFormTab] = useState(() => {
+    return localStorage.getItem('last_form_tab') || 'general-admission-consent';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('last_form_tab', lastFormTab);
+  }, [lastFormTab]);
   const [selectedIpNoForView, setSelectedIpNoForView] = useState('');
   const [editRecord, setEditRecord] = useState(null);
 
@@ -45,6 +57,8 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('logged_in_user');
+    localStorage.removeItem('active_tab');
+    localStorage.removeItem('last_form_tab');
     setLoggedInUser(null);
     setActiveTab('patient-registration');
     setEditRecord(null);
