@@ -213,6 +213,11 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
   }, [patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight, recordId]);
 
 
+  const handleAutoResize = (e) => {
+    e.target.style.height = 'auto';
+    e.target.style.height = (e.target.scrollHeight) + 'px';
+  };
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
@@ -1098,15 +1103,15 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
             <table className="mint-notes-table">
               <thead>
                 <tr>
-                  <th style={{ width: '13%' }}>Date & Time</th>
-                  <th style={{ width: '12%' }}>Location</th>
-                  <th style={{ width: '15%' }}>Type - Mild Moderate Severe</th>
-                  <th style={{ width: '8%' }}>Score</th>
-                  <th style={{ width: '8%' }}>Time</th>
-                  <th style={{ width: '16%' }}>Intervention</th>
-                  <th style={{ width: '10%' }}>Score Post Intervention</th>
-                  <th style={{ width: '8%' }}>Time</th>
-                  <th style={{ width: '10%' }}>Staff Name</th>
+                  <th style={{ width: '12%' }}>Date & Time</th>
+                  <th style={{ width: '10%' }}>Location</th>
+                  <th style={{ width: '9%' }}>Type - Mild Moderate Severe</th>
+                  <th style={{ width: '16%' }}>Score</th>
+                  <th style={{ width: '7%' }}>Time</th>
+                  <th style={{ width: '12%' }}>Intervention</th>
+                  <th style={{ width: '16%' }}>Score Post Intervention</th>
+                  <th style={{ width: '7%' }}>Time</th>
+                  <th style={{ width: '11%' }}>Staff Name</th>
                 </tr>
               </thead>
               <tbody>
@@ -1130,7 +1135,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                           type="button"
                           className="btn-pill-delete no-print"
                           onClick={() => handleDeletePainRow(row.id)}
-                          style={{ alignSelf: 'center', marginTop: '2px' }}
+                          style={{ alignSelf: 'center', marginTop: '2px', marginBottom: '4px' }}
                         >
                           <Trash2 size={10} />
                           <span>Delete</span>
@@ -1138,11 +1143,13 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                       </div>
                     </td>
                     <td>
-                      <input
-                        type="text"
+                      <textarea
                         value={row.location || ''}
+                        onInput={handleAutoResize}
                         onChange={(e) => handlePainRowChange(row.id, 'location', e.target.value)}
                         className="mint-time-picker"
+                        style={{ resize: 'none', overflow: 'hidden' }}
+                        rows={1}
                       />
                     </td>
                     <td>
@@ -1170,18 +1177,20 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                     </td>
                     <td>
                       <input
-                        type="text"
-                        value={row.action || ''}
-                        onChange={(e) => handlePainRowChange(row.id, 'action', e.target.value)}
-                        className="mint-time-picker"
-                      />
-                    </td>
-                    <td>
-                      <input
                         type="time"
                         value={row.actionTime || ''}
                         onChange={(e) => handlePainRowChange(row.id, 'actionTime', e.target.value)}
                         className="mint-time-picker"
+                      />
+                    </td>
+                    <td>
+                      <textarea
+                        value={row.action || ''}
+                        onInput={handleAutoResize}
+                        onChange={(e) => handlePainRowChange(row.id, 'action', e.target.value)}
+                        className="mint-time-picker"
+                        style={{ resize: 'none', overflow: 'hidden' }}
+                        rows={1}
                       />
                     </td>
                     <td>
@@ -1204,11 +1213,13 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                       />
                     </td>
                     <td>
-                      <input
-                        type="text"
+                      <textarea
                         value={row.staffSign || ''}
+                        onInput={handleAutoResize}
                         onChange={(e) => handlePainRowChange(row.id, 'staffSign', e.target.value)}
                         className="mint-time-picker"
+                        style={{ resize: 'none', overflow: 'hidden' }}
+                        rows={1}
                       />
                     </td>
                   </tr>
@@ -1218,37 +1229,38 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
           </div>
 
           {/* Pain Table Add Button & Form Actions */}
-          <div className="mint-action-controls" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div className="mint-action-controls" style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', marginTop: '16px' }}>
             <button
               type="button"
               className="btn-mint-add"
               onClick={handleAddPainRow}
+              style={{ background: 'transparent', border: 'none', color: '#0f172a', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px' }}
             >
               <Plus size={14} />
               <span>Add Pain Entry</span>
             </button>
 
-            <div style={{ flex: 1 }}></div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                className="btn-form-clear-action no-print"
+                onClick={handleClearForm}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}
+              >
+                <Trash2 size={14} />
+                <span>Clear Form</span>
+              </button>
 
-            <button
-              type="button"
-              className="btn-form-clear-action no-print"
-              onClick={handleClearForm}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}
-            >
-              <Trash2 size={14} />
-              <span>Clear Form</span>
-            </button>
-
-            <button
-              type="button"
-              className="btn-mint-clear no-print"
-              onClick={handleSave}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600' }}
-            >
-              <Save size={14} />
-              <span>Save Record</span>
-            </button>
+              <button
+                type="button"
+                className="btn-mint-clear no-print"
+                onClick={handleSave}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600' }}
+              >
+                <Save size={14} />
+                <span>Save Record</span>
+              </button>
+            </div>
           </div>
         </div>
 

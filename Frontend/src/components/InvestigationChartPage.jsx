@@ -118,6 +118,14 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
     setDates(prev => [...prev, '']);
   };
 
+  const handleClearForm = () => {
+    setPatient({ name: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', ward: '', bedNo: '' });
+    setDates(Array(NUM_COLS).fill(''));
+    setData({});
+    setRecordId(null);
+    clearPersistedForm(PERSIST_KEY);
+  };
+
   const handlePrint = () => window.print();
 
   const handleSave = () => {
@@ -291,11 +299,16 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
                     <td className="investigation-param-cell">{param}</td>
                     {dates.map((_, colIndex) => (
                       <td key={colIndex} className="investigation-value-cell">
-                        <input
-                          type="text"
+                        <textarea
                           className="investigation-value-input"
                           value={data[`${paramIndex}_${colIndex}`] || ''}
                           onChange={(e) => handleDataChange(paramIndex, colIndex, e.target.value)}
+                          onInput={(e) => {
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight}px`;
+                          }}
+                          style={{ resize: 'none', overflow: 'hidden' }}
+                          rows={1}
                         />
                       </td>
                     ))}
@@ -303,6 +316,27 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Bottom Action Controls */}
+          <div className="mint-action-controls no-print" style={{ marginTop: '25px', marginBottom: '25px', display: 'flex', justifyContent: 'flex-end', paddingBottom: '20px' }}>
+            <div className="bottom-btn-row" style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                type="button" 
+                className="btn-mint-clear"
+                onClick={handleClearForm}
+              >
+                Clear Form
+              </button>
+              <button 
+                type="button" 
+                className="btn-mint-save"
+                onClick={handleSave}
+              >
+                <Save size={14} />
+                <span>{recordId ? 'Update Chart' : 'Save Chart'}</span>
+              </button>
+            </div>
           </div>
 
         </div>

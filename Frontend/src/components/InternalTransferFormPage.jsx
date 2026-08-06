@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, Save, CheckCircle2, FolderCheck } from 'lucide-react';
+import { Printer, Save, CheckCircle2, FolderCheck, Plus, Trash2 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
@@ -106,6 +106,20 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
     setHandingOver(newRows);
   };
 
+  const handleAddHandingOverRow = () => {
+    setHandingOver(prev => [...prev, {
+      labReport: '',
+      imagingPlate: '',
+      medicines: '',
+      blood: '',
+      others: ''
+    }]);
+  };
+
+  const handleRemoveHandingOverRow = (index) => {
+    setHandingOver(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handlePrint = () => window.print();
 
   const handleSave = () => {
@@ -113,8 +127,28 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
     const saved = upsertFormRecord(recordId, 'Internal Transfer Form', ip, { patient, formDetails, handingOver });
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg(recordId ? 'Form updated successfully!' : 'Form saved successfully!');
+    setToastMsg(recordId ? 'Form updated successfully in DB!' : 'Form saved successfully in DB!');
     setTimeout(() => setToastMsg(''), 2000);
+  };
+
+  const handleClear = () => {
+    if (!window.confirm("Are you sure you want to clear the entire form?")) return;
+    setPatient({ name: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', ward: '', bedNo: '' });
+    setFormDetails({
+      consultant: '',
+      admissionDateTime: '',
+      transferDateTime: '',
+      fromWard: '',
+      toWard: '',
+      nurseAccompanied: '',
+      reasonForTransfer: '',
+      conditionDiagnosis: '',
+      operationPerformed: '',
+      bloodTransfused: ''
+    });
+    setHandingOver(initialHandingOverRows);
+    setRecordId(null);
+    clearPersistedForm(PERSIST_KEY);
   };
 
   return (
@@ -224,12 +258,12 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
 
             <div className="form-row-flex">
               <div className="field-group" style={{ flex: '1' }}>
-                <label>Date & Time of Admission</label>
-                <input type="text" name="admissionDateTime" value={formDetails.admissionDateTime} onChange={handleFormChange} className="dotted-input" />
+                <label>DOA</label>
+                <input type="datetime-local" name="admissionDateTime" value={formDetails.admissionDateTime} onChange={handleFormChange} className="dotted-input" />
               </div>
               <div className="field-group" style={{ flex: '1' }}>
                 <label>Date & Time of Transfer</label>
-                <input type="text" name="transferDateTime" value={formDetails.transferDateTime} onChange={handleFormChange} className="dotted-input" />
+                <input type="datetime-local" name="transferDateTime" value={formDetails.transferDateTime} onChange={handleFormChange} className="dotted-input" />
               </div>
             </div>
 
@@ -312,13 +346,22 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
                     <td>
                       <input type="text" value={row.blood} onChange={(e) => handleHandingOverChange(idx, 'blood', e.target.value)} className="table-input" />
                     </td>
-                    <td>
-                      <input type="text" value={row.others} onChange={(e) => handleHandingOverChange(idx, 'others', e.target.value)} className="table-input" />
+                    <td style={{ position: 'relative' }}>
+                      <input type="text" value={row.others} onChange={(e) => handleHandingOverChange(idx, 'others', e.target.value)} className="table-input" style={{ paddingRight: '26px' }} />
+                      <button className="no-print row-del-btn" type="button" onClick={() => handleRemoveHandingOverRow(idx)} title="Remove row">
+                        <Trash2 size={14} />
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            
+            <div className="no-print" style={{ marginTop: '10px', textAlign: 'right' }}>
+              <button type="button" onClick={handleAddHandingOverRow} style={{ padding: '6px 12px', backgroundColor: '#e0f2fe', color: '#0369a1', border: '1px solid #7dd3fc', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Plus size={14} /> Add Row
+              </button>
+            </div>
           </div>
 
           {/* Signatures Section */}
@@ -331,6 +374,17 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
               <div className="sig-line" style={{ width: '250px' }}></div>
               <span>Receiving Sister's Signature with Date & Time</span>
             </div>
+          </div>
+
+          {/* Bottom Action Bar */}
+          <div className="no-print" style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '40px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+            <button type="button" onClick={handleClear} style={{ padding: '8px 24px', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s' }}>
+              Clear Form
+            </button>
+            <button type="button" onClick={handleSave} style={{ padding: '8px 24px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)', transition: 'all 0.2s' }}>
+              <Save size={16} />
+              {recordId ? 'Update Record' : 'Save to DB'}
+            </button>
           </div>
 
         </div>
@@ -435,6 +489,25 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
         }
         .table-input:focus {
           background-color: #f0f8ff;
+        }
+
+        .row-del-btn {
+          position: absolute;
+          right: 2px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: transparent;
+          border: none;
+          color: #ef4444;
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+        }
+        .row-del-btn:hover {
+          background-color: #fee2e2;
         }
 
         .sig-line {

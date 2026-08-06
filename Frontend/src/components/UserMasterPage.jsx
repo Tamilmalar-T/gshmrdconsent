@@ -157,6 +157,11 @@ export default function UserMasterPage() {
   };
 
   const handleDelete = (userId) => {
+    if (userId.toLowerCase() === 'mrd') {
+      setErrorMsg('The default system admin account cannot be deleted.');
+      setTimeout(() => setErrorMsg(''), 4000);
+      return;
+    }
     if (confirm('Are you sure you want to delete this user?')) {
       const updated = users.filter((u) => u.userId !== userId);
       saveToStorage(updated);

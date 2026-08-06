@@ -362,7 +362,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
                   <td className="td-mint-date">
                     <input 
                       type="date" max={getCurrentDate()} 
-                      value={row.date} 
+                      value={row.date || ''} 
                       onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                       className="mint-date-picker"
                     />
@@ -380,7 +380,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
                   <td className="td-mint-time">
                     <input 
                       type="time" 
-                      value={row.time} 
+                      value={row.time || ''} 
                       onChange={(e) => handleRowChange(row.id, 'time', e.target.value)} 
                       className="mint-time-picker"
                     />
@@ -389,7 +389,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
                   {/* NOTES Cell */}
                   <td className="td-mint-notes">
                     <textarea 
-                      value={row.notes} 
+                      value={row.notes || ''} 
                       onChange={(e) => handleRowChange(row.id, 'notes', e.target.value)} 
                       onInput={(e) => {
                         e.target.style.height = 'auto';

@@ -14,7 +14,9 @@ const DEFAULT_PATIENTS = [
     bedNo: 'Bed 104',
     medicalInsurance: 'Yes',
     doa: '2026-07-20',
+    doaTime: '',
     dod: '',
+    dodTime: '',
     consultantName: 'Dr. Sadhana'
   },
   {
@@ -27,7 +29,9 @@ const DEFAULT_PATIENTS = [
     bedNo: 'Bed 302',
     medicalInsurance: 'No',
     doa: '2026-07-22',
+    doaTime: '',
     dod: '',
+    dodTime: '',
     consultantName: 'Dr. Sadhana'
   }
 ];

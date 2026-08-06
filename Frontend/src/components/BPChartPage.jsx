@@ -955,13 +955,12 @@ export default function BPChartPage({ onNavigate, editData, editRecordId }) {
                   <label className="entry-label">Drain</label>
                   <input type="text" name="drain" value={entry.drain || ''} onChange={handleEntryChange} className="entry-input" />
                 </div>
-              
-              </div>
 
-              <div className="entry-btn-row">
-                <button type="submit" className="btn-plot-reading">
-                  Plot / Add Reading
-                </button>
+                <div className="entry-field-group" style={{ display: 'flex', alignItems: 'flex-end', gridColumn: 'span 2' }}>
+                  <button type="submit" className="btn-plot-reading" style={{ width: '100%', height: '34px', margin: 0, marginTop: '22px' }}>
+                     Add Reading
+                  </button>
+                </div>
               </div>
             </form>
           </div>

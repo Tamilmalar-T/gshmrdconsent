@@ -4,24 +4,29 @@
  * and page refresh. Uses a unique key per form to avoid collisions.
  */
 
-/**
- * Save form state to localStorage.
- * @param {string} key  - Unique key identifying the form (e.g. 'consent_general_admission')
- * @param {*}      data - Any JSON-serialisable value (object, array, etc.)
- */
 export const persistForm = (key, data) => {
   try {
-    localStorage.setItem(`form_persist_${key}`, JSON.stringify(data));
+    const rawNew = JSON.stringify(data);
+    const rawPrev = localStorage.getItem(`form_persist_${key}`);
+
+    if (rawPrev && rawPrev !== rawNew) {
+      let history = [];
+      try {
+        history = JSON.parse(localStorage.getItem('global_form_history') || '[]');
+      } catch (e) {}
+      history.push({ key, state: rawPrev });
+      if (history.length > 50) history.shift();
+      localStorage.setItem('global_form_history', JSON.stringify(history));
+    }
+
+    localStorage.setItem(`form_persist_${key}`, rawNew);
   } catch (e) {
-    // Storage full or unavailable — fail silently
+    // Storage full or unavailable
   }
 };
 
 /**
  * Restore previously persisted form state from localStorage.
- * Returns null if nothing was saved.
- * @param {string} key
- * @returns {*|null}
  */
 export const restoreForm = (key) => {
   try {
@@ -34,10 +39,47 @@ export const restoreForm = (key) => {
 
 /**
  * Clear persisted form state (call after a successful save or clear-form).
- * @param {string} key
  */
 export const clearPersistedForm = (key) => {
   try {
+    const rawPrev = localStorage.getItem(`form_persist_${key}`);
+    if (rawPrev) {
+      let history = [];
+      try {
+        history = JSON.parse(localStorage.getItem('global_form_history') || '[]');
+      } catch (e) {}
+      history.push({ key, state: rawPrev });
+      if (history.length > 50) history.shift();
+      localStorage.setItem('global_form_history', JSON.stringify(history));
+    }
     localStorage.removeItem(`form_persist_${key}`);
+  } catch (e) {}
+};
+
+/**
+ * Check if there is any global undo history available.
+ */
+export const hasUndoHistory = () => {
+  try {
+    const history = JSON.parse(localStorage.getItem('global_form_history') || '[]');
+    return history.length > 0;
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
+ * Perform a global undo by popping the last saved form state and reloading the page.
+ */
+export const performGlobalUndo = () => {
+  try {
+    let history = JSON.parse(localStorage.getItem('global_form_history') || '[]');
+    if (history.length > 0) {
+      const lastAction = history.pop();
+      localStorage.setItem(`form_persist_${lastAction.key}`, lastAction.state);
+      localStorage.setItem('global_form_history', JSON.stringify(history));
+      // Dispatch event instead of reloading
+      window.dispatchEvent(new Event('form_restored_event'));
+    }
   } catch (e) {}
 };

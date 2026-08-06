@@ -372,11 +372,10 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
           <table className="mint-notes-table">
             <thead>
               <tr>
-                <th style={{ width: '15%' }}>DATE</th>
-                <th style={{ width: '12%' }}>TIME</th>
-                <th style={{ width: '47%' }}>NOTES</th>
-                <th style={{ width: '13%' }}>NAME</th>
-                <th style={{ width: '13%' }}>SIGNATURE</th>
+                <th style={{ width: '12%' }}>DATE</th>
+                <th style={{ width: '10%' }}>TIME</th>
+                <th style={{ width: '64%' }}>NOTES</th>
+                <th style={{ width: '14%' }}>SIGNATURE</th>
               </tr>
             </thead>
             <tbody>
@@ -386,7 +385,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
                   <td className="td-progress-date" style={{ verticalAlign: 'top' }}>
                     <input 
                       type="date" max={getCurrentDate()} 
-                      value={row.date} 
+                      value={row.date || ''} 
                       onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                       className="mint-date-picker"
                     />
@@ -413,7 +412,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
                   {/* Notes Cell */}
                   <td className="td-progress-notes" style={{ verticalAlign: 'top' }}>
                     <textarea 
-                      value={row.notes} 
+                      value={row.notes || ''} 
                       onChange={(e) => handleRowChange(row.id, 'notes', e.target.value)} 
                       onInput={(e) => {
                         e.target.style.height = 'auto';
@@ -425,9 +424,9 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
                     />
                   </td>
 
-                  {/* Name Cell */}
-                  <td className="td-progress-name" style={{ verticalAlign: 'top' }}>
-                    <div className="name-select-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                  {/* Signature Cell */}
+                  <td className="td-progress-sign" style={{ verticalAlign: 'top', textAlign: 'center' }}>
+                    <div className="sign-select-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
                       <select 
                         value={row.signature || 'Sadhana'} 
                         onChange={(e) => handleRowChange(row.id, 'signature', e.target.value)} 
@@ -438,13 +437,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
                           <option key={name} value={name}>{name}</option>
                         ))}
                       </select>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginTop: '4px' }}>{row.signature || 'Sadhana'}</span>
-                    </div>
-                  </td>
-
-                  {/* Signature Cell */}
-                  <td className="td-progress-sign" style={{ verticalAlign: 'top', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      
                       {renderSignatureStamp(row.signature || 'Sadhana')}
                     </div>
                   </td>

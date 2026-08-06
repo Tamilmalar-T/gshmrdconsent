@@ -27,7 +27,9 @@ export default function PatientRegistrationPage({ onViewDetails }) {
     ward: '',
     bedNo: '',
     doa: '',
+    doaTime: '',
     dod: '',
+    dodTime: '',
     createdBy: 'Admin'
   });
 
@@ -35,7 +37,9 @@ export default function PatientRegistrationPage({ onViewDetails }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingIpNo, setEditingIpNo] = useState(null);
+  const [selectedPatientForView, setSelectedPatientForView] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editErrorMsg, setEditErrorMsg] = useState('');
 
   useEffect(() => {
     setPatients(getRegisteredPatients());
@@ -58,11 +62,52 @@ export default function PatientRegistrationPage({ onViewDetails }) {
       ward: '',
       bedNo: '',
       doa: '',
+      doaTime: '',
       dod: '',
+      dodTime: '',
       createdBy: 'Admin'
     });
-    setEditingIpNo(null);
     setErrorMsg('');
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+    setEditErrorMsg('');
+  };
+
+  const handleUpdate = (e) => {
+    e.preventDefault();
+    setEditErrorMsg('');
+    setSuccessMsg('');
+
+    const requiredFields = [
+      { key: 'ipNo', label: 'IP NO.' },
+      { key: 'uhidNo', label: 'UHID NO.' },
+      { key: 'patientName', label: 'PATIENT NAME' },
+      { key: 'age', label: 'AGE' },
+      { key: 'sex', label: 'SEX' },
+      { key: 'ward', label: 'WARD' },
+      { key: 'bedNo', label: 'BED NO.' },
+      { key: 'doa', label: 'ADMISSION DATE' }
+    ];
+
+    for (let f of requiredFields) {
+      if (!editForm[f.key] || !String(editForm[f.key]).trim()) {
+        setEditErrorMsg(`"${f.label}" is required.`);
+        return;
+      }
+    }
+
+    try {
+      const updatedList = updatePatient(editForm.ipNo, editForm);
+      setPatients(updatedList);
+      setSuccessMsg(`Patient "${editForm.patientName}" updated successfully!`);
+      setEditForm(null);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      setEditErrorMsg(err.message || 'Update failed.');
+    }
   };
 
   const handleRegister = (e) => {
@@ -90,15 +135,9 @@ export default function PatientRegistrationPage({ onViewDetails }) {
     }
 
     try {
-      if (editingIpNo) {
-        const updatedList = updatePatient(editingIpNo, form);
-        setPatients(updatedList);
-        setSuccessMsg(`Patient "${form.patientName}" updated successfully!`);
-      } else {
-        const updatedList = registerPatient(form);
-        setPatients(updatedList);
-        setSuccessMsg(`Patient "${form.patientName}" registered successfully!`);
-      }
+      const updatedList = registerPatient(form);
+      setPatients(updatedList);
+      setSuccessMsg(`Patient "${form.patientName}" registered successfully!`);
       handleClear();
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
@@ -308,6 +347,18 @@ export default function PatientRegistrationPage({ onViewDetails }) {
                 />
               </div>
 
+              {/* ADMISSION TIME */}
+              <div className="pr-field">
+                <label className="pr-label">ADMISSION TIME</label>
+                <input 
+                  type="time" 
+                  name="doaTime" 
+                  value={form.doaTime} 
+                  onChange={handleChange} 
+                  className="pr-input"
+                />
+              </div>
+
               {/* DISCHARGE DATE */}
               <div className="pr-field">
                 <label className="pr-label">DISCHARGE DATE</label>
@@ -315,6 +366,18 @@ export default function PatientRegistrationPage({ onViewDetails }) {
                   type="date" 
                   name="dod" 
                   value={form.dod} 
+                  onChange={handleChange} 
+                  className="pr-input"
+                />
+              </div>
+
+              {/* DISCHARGE TIME */}
+              <div className="pr-field">
+                <label className="pr-label">DISCHARGE TIME</label>
+                <input 
+                  type="time" 
+                  name="dodTime" 
+                  value={form.dodTime} 
                   onChange={handleChange} 
                   className="pr-input"
                 />
@@ -334,9 +397,9 @@ export default function PatientRegistrationPage({ onViewDetails }) {
               <button 
                 type="submit" 
                 className="btn-pr-register"
-                style={{ backgroundColor: editingIpNo ? '#eab308' : '#0070bb' }}
+                style={{ backgroundColor: '#0070bb' }}
               >
-                {editingIpNo ? <><Edit2 size={14} style={{ marginRight: '6px' }} /> Update Patient</> : '+ Register Patient'}
+                + Register Patient
               </button>
             </div>
           </form>
@@ -364,7 +427,9 @@ export default function PatientRegistrationPage({ onViewDetails }) {
                 <th>WARD</th>
                 <th>BED NO.</th>
                 <th>ADMISSION DATE</th>
+                <th>ADMISSION TIME</th>
                 <th>DISCHARGE DATE</th>
+                <th>DISCHARGE TIME</th>
                 <th>CREATED BY</th>
                 <th className="text-center no-print">ACTIONS</th>
               </tr>
@@ -392,15 +457,17 @@ export default function PatientRegistrationPage({ onViewDetails }) {
                     <td>{pt.ward}</td>
                     <td>{pt.bedNo}</td>
                     <td>{pt.doa}</td>
+                    <td>{pt.doaTime || '-'}</td>
                     <td>{pt.dod || '-'}</td>
+                    <td>{pt.dodTime || '-'}</td>
                     <td>{pt.createdBy || 'Admin'}</td>
                     <td className="text-center no-print">
                       <div className="tbl-action-btns">
                         <button 
                           type="button" 
                           className="btn-tbl-action-view"
-                          onClick={() => onViewDetails && onViewDetails(pt.ipNo)}
-                          title="View Records"
+                          onClick={() => setSelectedPatientForView(pt)}
+                          title="View Details"
                         >
                           <Eye size={13} />
                         </button>
@@ -409,9 +476,21 @@ export default function PatientRegistrationPage({ onViewDetails }) {
                           className="btn-tbl-action-edit"
                           style={{ background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', marginLeft: '6px' }}
                           onClick={() => {
-                            setForm({ ...pt });
-                            setEditingIpNo(pt.ipNo);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                            setEditForm({
+                              ipNo: pt.ipNo || '',
+                              uhidNo: pt.uhidNo || '',
+                              patientName: pt.patientName || '',
+                              age: pt.age || '',
+                              sex: pt.sex || 'Male',
+                              medicalInsurance: pt.medicalInsurance || 'No',
+                              ward: pt.ward || '',
+                              bedNo: pt.bedNo || '',
+                              doa: pt.doa || '',
+                              doaTime: pt.doaTime || '',
+                              dod: pt.dod || '',
+                              dodTime: pt.dodTime || '',
+                              createdBy: pt.createdBy || 'Admin'
+                            });
                           }}
                           title="Edit Patient"
                         >
@@ -435,6 +514,180 @@ export default function PatientRegistrationPage({ onViewDetails }) {
           </table>
         </div>
       </div>
+
+      {/* Edit Patient Modal Popup */}
+      {editForm && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(3px)' }}>
+          <div className="modal-content" style={{ background: '#ffffff', borderRadius: '12px', width: '800px', maxWidth: '95%', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
+                <Edit2 size={20} color="#eab308" />
+                Edit Patient Details
+              </h3>
+              <button 
+                onClick={() => setEditForm(null)} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', color: '#64748b', lineHeight: 1 }}
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="modal-body" style={{ padding: '24px', overflowY: 'auto' }}>
+              {editErrorMsg && (
+                <div className="alert-error-banner" style={{ marginBottom: '16px' }}>
+                  <AlertCircle size={18} />
+                  <span>{editErrorMsg}</span>
+                </div>
+              )}
+              <form id="edit-patient-form" onSubmit={handleUpdate}>
+                <div className="pr-form-4col-grid">
+                  <div className="pr-field">
+                    <label className="pr-label">IP NO. (Read Only)</label>
+                    <input type="text" value={editForm.ipNo} disabled className="pr-input" style={{ backgroundColor: '#f1f5f9' }} />
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">UHID NO. <span className="req-star">*</span></label>
+                    <input type="text" name="uhidNo" value={editForm.uhidNo} onChange={handleEditChange} className="pr-input" />
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">PATIENT NAME <span className="req-star">*</span></label>
+                    <input type="text" name="patientName" value={editForm.patientName} onChange={handleEditChange} className="pr-input" />
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">AGE <span className="req-star">*</span></label>
+                    <input type="text" name="age" value={editForm.age} onChange={handleEditChange} className="pr-input" />
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">SEX <span className="req-star">*</span></label>
+                    <select name="sex" value={editForm.sex} onChange={handleEditChange} className="pr-select">
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">MEDICAL INSURANCE</label>
+                    <select name="medicalInsurance" value={editForm.medicalInsurance} onChange={handleEditChange} className="pr-select">
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">WARD <span className="req-star">*</span></label>
+                    <input type="text" name="ward" value={editForm.ward} onChange={handleEditChange} className="pr-input" />
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">BED NO. <span className="req-star">*</span></label>
+                    <input type="text" name="bedNo" value={editForm.bedNo} onChange={handleEditChange} className="pr-input" />
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">ADMISSION DATE <span className="req-star">*</span></label>
+                    <input type="date" name="doa" value={editForm.doa} onChange={handleEditChange} className="pr-input" />
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">ADMISSION TIME</label>
+                    <input type="time" name="doaTime" value={editForm.doaTime} onChange={handleEditChange} className="pr-input" />
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">DISCHARGE DATE</label>
+                    <input type="date" name="dod" value={editForm.dod} onChange={handleEditChange} className="pr-input" />
+                  </div>
+                  <div className="pr-field">
+                    <label className="pr-label">DISCHARGE TIME</label>
+                    <input type="time" name="dodTime" value={editForm.dodTime} onChange={handleEditChange} className="pr-input" />
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '12px', backgroundColor: '#f8fafc', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
+               <button 
+                type="button"
+                onClick={() => setEditForm(null)} 
+                style={{ padding: '9px 18px', background: '#ffffff', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
+               >
+                 Cancel
+               </button>
+               <button 
+                type="submit"
+                form="edit-patient-form"
+                style={{ padding: '9px 18px', background: '#eab308', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+               >
+                 <Edit2 size={14} /> Update Patient
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Patient Details Modal Popup */}
+      {selectedPatientForView && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(3px)' }}>
+          <div className="modal-content" style={{ background: '#ffffff', borderRadius: '12px', width: '550px', maxWidth: '95%', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <div className="modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
+                <UserCheck size={22} color="#0070bb" />
+                Patient Information
+              </h3>
+              <button 
+                onClick={() => setSelectedPatientForView(null)} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', color: '#64748b', lineHeight: 1 }}
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="modal-body" style={{ padding: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'y: 16px, x: 24px', rowGap: '16px', columnGap: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>PATIENT NAME</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '700' }}>{selectedPatientForView.patientName}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>IP NO. / UHID NO.</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '600' }}>{selectedPatientForView.ipNo} / {selectedPatientForView.uhidNo}</span>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>AGE / SEX</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{selectedPatientForView.age} yrs / {selectedPatientForView.sex}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>WARD & BED</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{selectedPatientForView.ward} (Bed: {selectedPatientForView.bedNo})</span>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>ADMISSION</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{selectedPatientForView.doa} {selectedPatientForView.doaTime ? `at ${selectedPatientForView.doaTime}` : ''}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>DISCHARGE</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{selectedPatientForView.dod || '-'} {selectedPatientForView.dodTime ? `at ${selectedPatientForView.dodTime}` : ''}</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>MEDICAL INSURANCE</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>
+                    <span className={`badge-ins-sm ${selectedPatientForView.medicalInsurance === 'Yes' ? 'ins-yes' : 'ins-no'}`} style={{ display: 'inline-block', marginTop: '4px' }}>
+                      {selectedPatientForView.medicalInsurance}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '12px', backgroundColor: '#f8fafc', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
+               <button 
+                onClick={() => setSelectedPatientForView(null)} 
+                style={{ padding: '9px 18px', background: '#ffffff', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
+               >
+                 Close
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

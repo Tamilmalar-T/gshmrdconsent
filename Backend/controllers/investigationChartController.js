@@ -1,6 +1,7 @@
 const InvestigationChartModel = require('../models/investigationChartModel');
 
 exports.createRecord = async (req, res) => {
+  console.log('Received request to create investigation chart. body:', JSON.stringify(req.body).substring(0, 100));
   try {
     const { patientId, formData } = req.body;
     if (!patientId || !formData) {

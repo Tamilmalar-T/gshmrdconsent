@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Menu, ChevronDown, LogOut, Settings, KeyRound, UserCircle2 } from 'lucide-react';
 
-export default function Header({ sidebarOpen, setSidebarOpen, loggedInUser, onLogout }) {
+export default function Header({ sidebarOpen, setSidebarOpen, loggedInUser, onLogout, onNavigate }) {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -112,14 +112,15 @@ export default function Header({ sidebarOpen, setSidebarOpen, loggedInUser, onLo
 
               <div className="dropdown-divider" />
 
-              <button className="dropdown-item" onClick={() => setProfileDropdownOpen(false)}>
+              <button 
+                className="dropdown-item" 
+                onClick={() => {
+                  setProfileDropdownOpen(false);
+                  if (onNavigate) onNavigate('login-details');
+                }}
+              >
                 <Settings size={14} />
-                <span>Account Settings</span>
-              </button>
-
-              <button className="dropdown-item" onClick={() => setProfileDropdownOpen(false)}>
-                <KeyRound size={14} />
-                <span>Change Password</span>
+                <span>Login Details</span>
               </button>
 
               <div className="dropdown-divider" />

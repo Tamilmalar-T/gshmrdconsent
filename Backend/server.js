@@ -65,6 +65,15 @@ app.get('/api/db-test', async (req, res) => {
 });
 
 // Start Server
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server is listening on port ${port}`);
+});
+
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Error: Port ${port} is already in use. Please kill the process using this port or change the PORT in .env`);
+  } else {
+    console.error('Server error:', error);
+  }
+  process.exit(1);
 });

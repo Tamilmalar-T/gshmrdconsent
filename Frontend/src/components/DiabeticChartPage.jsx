@@ -422,10 +422,15 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
                           PPBS
                         </label>
                       </div>
-                      <input 
-                        type="text" 
+                      <textarea 
                         value={row.grbs} 
                         onChange={(e) => handleRowChange(row.id, 'grbs', e.target.value)} 
+                        onInput={(e) => {
+                          e.target.style.height = 'auto';
+                          e.target.style.height = `${e.target.scrollHeight}px`;
+                        }}
+                        style={{ resize: 'none', overflow: 'hidden' }}
+                        rows={1}
                         placeholder="mg/dL" 
                         className="info-input-plain grbs-input-val"
                       />
@@ -434,10 +439,15 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
 
                   {/* READING Cell */}
                   <td>
-                    <input 
-                      type="text" 
+                    <textarea 
                       value={row.reading} 
                       onChange={(e) => handleRowChange(row.id, 'reading', e.target.value)} 
+                      onInput={(e) => {
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${e.target.scrollHeight}px`;
+                      }}
+                      style={{ resize: 'none', overflow: 'hidden' }}
+                      rows={1}
                       placeholder="Reading..."
                       className="info-input-plain"
                     />
@@ -445,10 +455,15 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
 
                   {/* MEDICATION Cell */}
                   <td>
-                    <input 
-                      type="text" 
+                    <textarea 
                       value={row.medication} 
                       onChange={(e) => handleRowChange(row.id, 'medication', e.target.value)} 
+                      onInput={(e) => {
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${e.target.scrollHeight}px`;
+                      }}
+                      style={{ resize: 'none', overflow: 'hidden' }}
+                      rows={1}
                       placeholder="Medication / Insulin..."
                       className="info-input-plain"
                     />

@@ -22,6 +22,12 @@ export default function LoginPage({ onLoginSuccess }) {
 
     if (storedUsers) {
       usersList = JSON.parse(storedUsers);
+      
+      // Ensure the default admin 'mrd' always exists in the system so users don't get locked out.
+      if (!usersList.some(u => (u.userId || '').toLowerCase() === 'mrd')) {
+        usersList.push({ userId: 'mrd', userName: 'MRD Admin', userType: 'Admin', password: '123', status: 'Active', signatureImage: '' });
+        localStorage.setItem('masters_users', JSON.stringify(usersList));
+      }
     } else {
       // Fallback seeds
       usersList = [

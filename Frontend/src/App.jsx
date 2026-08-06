@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import LoginPage from './components/LoginPage';
@@ -24,6 +24,9 @@ import InvestigationChartPage from './components/InvestigationChartPage';
 import InternalTransferFormPage from './components/InternalTransferFormPage';
 import RegularDrugPrescriptionPage from './components/RegularDrugPrescriptionPage';
 import ActivityRecordBilling from './components/ActivityRecordBilling';
+import LoginDetailsPage from './components/LoginDetailsPage';
+import { Undo2 } from 'lucide-react';
+import { hasUndoHistory, performGlobalUndo } from './utils/formPersist';
 import './App.css';
 
 function App() {
@@ -38,10 +41,54 @@ function App() {
   const [lastFormTab, setLastFormTab] = useState(() => {
     return localStorage.getItem('last_form_tab') || 'general-admission-consent';
   });
+  const [canUndo, setCanUndo] = useState(false);
+  const [formKeyCounter, setFormKeyCounter] = useState(0);
+  const scrollPosRef = useRef(0);
 
   useEffect(() => {
     localStorage.setItem('active_tab', activeTab);
   }, [activeTab]);
+
+  // Global Undo checker
+  useEffect(() => {
+    setCanUndo(hasUndoHistory());
+    const interval = setInterval(() => {
+      setCanUndo(hasUndoHistory());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Keyboard shortcut and Event Listener for Undo
+  useEffect(() => {
+    const handleUndoEvent = () => {
+      const mainContent = document.querySelector('.app-main-content');
+      if (mainContent) scrollPosRef.current = mainContent.scrollTop;
+      setFormKeyCounter(prev => prev + 1);
+    };
+    
+    const handleKeyDown = (e) => {
+      // Ctrl+Z or Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        // If user is focused on an input or textarea, let the native browser text undo handle it
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        if (activeTag === 'input' || activeTag === 'textarea') {
+          return; // Allow native text undo
+        }
+
+        if (hasUndoHistory()) {
+          e.preventDefault();
+          performGlobalUndo();
+        }
+      }
+    };
+
+    window.addEventListener('form_restored_event', handleUndoEvent);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('form_restored_event', handleUndoEvent);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('last_form_tab', lastFormTab);
@@ -51,11 +98,46 @@ function App() {
 
   // --- Auth Handlers ---
   const handleLoginSuccess = (user) => {
+    const loginTimestamp = Date.now();
+    const newSession = {
+      id: loginTimestamp,
+      userId: user.userId,
+      userName: user.userName,
+      loginDate: new Date(loginTimestamp).toLocaleDateString(),
+      loginTime: new Date(loginTimestamp).toLocaleTimeString(),
+      logoutTime: null,
+      totalWorkingTime: null
+    };
+
+    const history = JSON.parse(localStorage.getItem('login_history') || '[]');
+    history.push(newSession);
+    localStorage.setItem('login_history', JSON.stringify(history));
+    localStorage.setItem('current_session_id', loginTimestamp);
+
     localStorage.setItem('logged_in_user', JSON.stringify(user));
     setLoggedInUser(user);
   };
 
   const handleLogout = () => {
+    const currentSessionId = localStorage.getItem('current_session_id');
+    if (currentSessionId) {
+      const history = JSON.parse(localStorage.getItem('login_history') || '[]');
+      const sessionIndex = history.findIndex(s => s.id == currentSessionId);
+      if (sessionIndex !== -1) {
+        const logoutTimestamp = Date.now();
+        history[sessionIndex].logoutTime = new Date(logoutTimestamp).toLocaleTimeString();
+        
+        const diffMs = logoutTimestamp - history[sessionIndex].id;
+        const diffHrs = Math.floor(diffMs / 3600000);
+        const diffMins = Math.floor((diffMs % 3600000) / 60000);
+        const diffSecs = Math.floor((diffMs % 60000) / 1000);
+        history[sessionIndex].totalWorkingTime = `${diffHrs}h ${diffMins}m ${diffSecs}s`;
+        
+        localStorage.setItem('login_history', JSON.stringify(history));
+      }
+      localStorage.removeItem('current_session_id');
+    }
+
     localStorage.removeItem('logged_in_user');
     localStorage.removeItem('active_tab');
     localStorage.removeItem('last_form_tab');
@@ -126,6 +208,22 @@ function App() {
     };
   }, [activeTab, editRecord, selectedIpNoForView]);
 
+  // --- Restore Scroll Position After Undo ---
+  useEffect(() => {
+    if (formKeyCounter > 0) {
+      const restoreScroll = () => {
+        const mainContent = document.querySelector('.app-main-content');
+        if (mainContent) {
+          mainContent.scrollTop = scrollPosRef.current;
+        }
+      };
+      // Wait for DOM and Textareas to resize
+      setTimeout(restoreScroll, 15);
+      setTimeout(restoreScroll, 110);
+      setTimeout(restoreScroll, 350);
+    }
+  }, [formKeyCounter]);
+
   // --- Render Content ---
   const renderContent = () => {
     const editData = editRecord && editRecord.tabId === activeTab ? editRecord.data : null;
@@ -184,6 +282,8 @@ function App() {
         return <RegularDrugPrescriptionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'activity-record-billing':
         return <ActivityRecordBilling onNavigate={handleNavigate} />;
+      case 'login-details':
+        return <LoginDetailsPage />;
       default:
         return <NursesCarePlanPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
     }
@@ -201,6 +301,7 @@ function App() {
         setSidebarOpen={setSidebarOpen}
         loggedInUser={loggedInUser}
         onLogout={handleLogout}
+        onNavigate={handleNavigate}
       />
       <div className="app-body">
         <Sidebar
@@ -208,10 +309,40 @@ function App() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
         />
-        <main className={`app-main-content ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
+        <main key={formKeyCounter} className={`app-main-content ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
           {renderContent()}
         </main>
       </div>
+
+      {canUndo && (
+        <button
+          className="no-print"
+          onClick={performGlobalUndo}
+          title="Undo Last Action"
+          style={{
+            position: 'fixed',
+            bottom: '30px',
+            right: '30px',
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: '50px',
+            height: '50px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            cursor: 'pointer',
+            zIndex: 9999,
+            transition: 'transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <Undo2 size={24} />
+        </button>
+      )}
     </div>
   );
 }

@@ -185,7 +185,7 @@ export const autoSaveFormDraft = (recordId, formType, patient, formData, setReco
   const records = getSavedRecords();
   const existing = recordId ? records.find(r => r.id === recordId) : null;
   const forceDraft = existing ? existing.isDraft : true;
-  const saved = upsertFormRecord(recordId, formType, ip, formData, null, forceDraft);
+  const saved = upsertFormRecord(recordId, formType, ip, formData, forceDraft);
   if (saved && saved.id !== recordId) {
     setRecordId(saved.id);
   }
