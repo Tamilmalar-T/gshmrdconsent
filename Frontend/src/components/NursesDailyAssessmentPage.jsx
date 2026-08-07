@@ -174,12 +174,21 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
   const [toastMsg, setToastMsg] = useState('');
   const [activePainScore, setActivePainScore] = useState(3);
 
+  const sanitizeFormData = (data) => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+    const sanitized = {};
+    for (const key in data) {
+      sanitized[key] = data[key] ?? '';
+    }
+    return sanitized;
+  };
+
   // Restore persisted form or set edit data on mount
   useEffect(() => {
     if (editData) {
-      if (editData.patient) setPatient(p => ({ ...p, ...editData.patient }));
-      if (editData.leftParams) setLeftParams(prev => ({ ...prev, ...editData.leftParams }));
-      if (editData.rightParams) setRightParams(prev => ({ ...prev, ...editData.rightParams }));
+      if (editData.patient) setPatient(p => ({ ...p, ...sanitizeFormData(editData.patient) }));
+      if (editData.leftParams) setLeftParams(prev => ({ ...prev, ...sanitizeFormData(editData.leftParams) }));
+      if (editData.rightParams) setRightParams(prev => ({ ...prev, ...sanitizeFormData(editData.rightParams) }));
       if (editData.painRows) setPainRows(editData.painRows);
       if (editData.activePainScore !== undefined) setActivePainScore(editData.activePainScore);
       if (editData.dateLeft) setDateLeft(editData.dateLeft);
@@ -189,9 +198,9 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
         if (saved.recordId) setRecordId(saved.recordId);
-        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-        if (saved.leftParams) setLeftParams(prev => ({ ...prev, ...saved.leftParams }));
-        if (saved.rightParams) setRightParams(prev => ({ ...prev, ...saved.rightParams }));
+        if (saved.patient) setPatient(p => ({ ...p, ...sanitizeFormData(saved.patient) }));
+        if (saved.leftParams) setLeftParams(prev => ({ ...prev, ...sanitizeFormData(saved.leftParams) }));
+        if (saved.rightParams) setRightParams(prev => ({ ...prev, ...sanitizeFormData(saved.rightParams) }));
         if (saved.painRows) setPainRows(saved.painRows);
         if (saved.activePainScore !== undefined) setActivePainScore(saved.activePainScore);
         if (saved.dateLeft) setDateLeft(getCurrentDate());

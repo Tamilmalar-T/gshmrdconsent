@@ -53,17 +53,26 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
   const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
+  const sanitizeFormData = (data) => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+    const sanitized = {};
+    for (const key in data) {
+      sanitized[key] = data[key] ?? '';
+    }
+    return sanitized;
+  };
+
   // Restore persisted form or set edit data on mount
   useEffect(() => {
     if (editData) {
-      if (editData.patient) setPatient(editData.patient);
+      if (editData.patient) setPatient(sanitizeFormData(editData.patient));
       if (editData.rows) setRows(editData.rows);
       if (editRecordId) setRecordId(editRecordId);
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
         if (saved.recordId) setRecordId(saved.recordId);
-        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+        if (saved.patient) setPatient(p => ({ ...p, ...sanitizeFormData(saved.patient) }));
         if (saved.rows) setRows(saved.rows.map(r => ({ ...r, date: getCurrentDate(), time: getCurrentTime() })));
       }
     }

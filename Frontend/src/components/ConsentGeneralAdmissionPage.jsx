@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
-import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
+import { upsertFormRecord, autoSaveFormDraft, getSavedRecords } from '../utils/savedRecordsDB';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 
 const PERSIST_KEY = 'consent_general_admission';
@@ -84,16 +84,25 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
   const [toastMsg, setToastMsg] = useState('');
   const [recordId, setRecordId] = useState(null); // tracks the current saved record id
 
+  // Helper to prevent undefined/null values causing uncontrolled input warnings
+  const sanitizeFormData = (data) => {
+    const sanitized = {};
+    for (const key in data) {
+      sanitized[key] = data[key] ?? '';
+    }
+    return sanitized;
+  };
+
   // Pre-fill form when editing a saved record
   useEffect(() => {
     if (editData) {
-      setForm(prev => ({ ...prev, ...editData }));
+      setForm(prev => ({ ...prev, ...sanitizeFormData(editData) }));
       if (editRecordId) setRecordId(editRecordId);
     } else {
       // Restore persisted form data on mount (navigation / refresh)
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
-        setForm(prev => ({ ...prev, ...saved }));
+        setForm(prev => ({ ...prev, ...sanitizeFormData(saved) }));
         if (saved.recordId) setRecordId(saved.recordId);
       }
     }
@@ -105,6 +114,16 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
       persistForm(PERSIST_KEY, { ...form, recordId });
       const hasContent = form.patientName || form.ipNo || form.uhidNo;
       if (hasContent) {
+        const ip = form.ipOpNo || form.ipNo || form.uhidNo;
+        if (ip) {
+          const records = getSavedRecords();
+          const existing = records.find(r => 
+            r.formType === 'Consent for General Admission' && 
+            r.rawIpNo === ip && 
+            r.id !== recordId
+          );
+          if (existing) return; // Prevent autosaving draft if IP already exists elsewhere
+        }
         autoSaveFormDraft(recordId, 'Consent for General Admission', { ipNo: form.ipNo, uhidNo: form.uhidNo, name: form.patientName }, form, setRecordId);
       }
     }, 1000);
@@ -310,6 +329,21 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     }
     const ip = form.ipOpNo || form.ipNo || form.uhidNo || 'UNASSIGNED';
     const hasValidIp = form.ipOpNo || form.ipNo || form.uhidNo;
+
+    if (hasValidIp) {
+      const records = getSavedRecords();
+      const existing = records.find(r => 
+        r.formType === 'Consent for General Admission' && 
+        r.rawIpNo === ip && 
+        r.id !== recordId
+      );
+      if (existing) {
+        setToastMsg('⚠️ IP Number already exists');
+        setTimeout(() => setToastMsg(''), 3000);
+        return;
+      }
+    }
+
     const saved = upsertFormRecord(recordId, 'Consent for General Admission', ip, form);
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
@@ -328,9 +362,9 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
 
   const handleClear = () => {
     setForm({
-      patientName: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', bedNo: '',
+      patientName: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', ipOpNo: '', bedNo: '',
       medicalInsurance: 'Yes', doa: '', occupation: '', fatherName: '',
-      husbandName: '', address: '', phoneNo: '', informantName: '',
+      husbandName: '', address: '', phoneNo: '', mobileNo: '', informantName: '',
       relationship: '', informantAddress: '', consentAccepted: false,
       patientSignDate: getCurrentDate(), witnessSignDate: getCurrentDate(), patientSignTime: getCurrentTime(),
       witnessSignTime: getCurrentTime(), ward: '', insuranceDetails: '',

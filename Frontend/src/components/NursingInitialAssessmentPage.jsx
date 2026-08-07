@@ -136,28 +136,37 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
 
   const [toastMsg, setToastMsg] = useState('');
 
+  const sanitizeFormData = (data) => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+    const sanitized = {};
+    for (const key in data) {
+      sanitized[key] = data[key] ?? '';
+    }
+    return sanitized;
+  };
+
   // Restore persisted form or set edit data on mount
   useEffect(() => {
     if (editData) {
-      if (editData.patient) setPatient(editData.patient);
-      if (editData.vitals) setVitals(editData.vitals);
-      if (editData.exam) setExam(editData.exam);
-      if (editData.casualty) setCasualty(editData.casualty);
+      if (editData.patient) setPatient(sanitizeFormData(editData.patient));
+      if (editData.vitals) setVitals(sanitizeFormData(editData.vitals));
+      if (editData.exam) setExam(sanitizeFormData(editData.exam));
+      if (editData.casualty) setCasualty(sanitizeFormData(editData.casualty));
       if (editData.investigations !== undefined) setInvestigations(editData.investigations);
-      if (editData.bottomPg1) setBottomPg1(editData.bottomPg1);
-      if (editData.pg2) setPg2(editData.pg2);
+      if (editData.bottomPg1) setBottomPg1(sanitizeFormData(editData.bottomPg1));
+      if (editData.pg2) setPg2(sanitizeFormData(editData.pg2));
       if (editRecordId) setRecordId(editRecordId);
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
         if (saved.recordId) setRecordId(saved.recordId);
-        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-        if (saved.vitals) setVitals(v => ({ ...v, ...saved.vitals }));
-        if (saved.exam) setExam(e => ({ ...e, ...saved.exam }));
-        if (saved.casualty) setCasualty(c => ({ ...c, ...saved.casualty }));
+        if (saved.patient) setPatient(p => ({ ...p, ...sanitizeFormData(saved.patient) }));
+        if (saved.vitals) setVitals(v => ({ ...v, ...sanitizeFormData(saved.vitals) }));
+        if (saved.exam) setExam(e => ({ ...e, ...sanitizeFormData(saved.exam) }));
+        if (saved.casualty) setCasualty(c => ({ ...c, ...sanitizeFormData(saved.casualty) }));
         if (saved.investigations !== undefined) setInvestigations(saved.investigations);
-        if (saved.bottomPg1) setBottomPg1(b => ({ ...b, ...saved.bottomPg1 }));
-        if (saved.pg2) setPg2(p => ({ ...p, ...saved.pg2, sigDate: getCurrentDate(), sigTime: getCurrentTime() }));
+        if (saved.bottomPg1) setBottomPg1(b => ({ ...b, ...sanitizeFormData(saved.bottomPg1) }));
+        if (saved.pg2) setPg2(p => ({ ...p, ...sanitizeFormData(saved.pg2), sigDate: getCurrentDate(), sigTime: getCurrentTime() }));
       }
     }
   }, [editData, editRecordId]);

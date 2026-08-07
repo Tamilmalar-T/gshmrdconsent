@@ -13,9 +13,12 @@ const mapFormTypeToEndpoint = (formType) => {
 };
 
 const syncToPostgres = async (record) => {
+  // Do not sync drafts to PostgreSQL database, keep them in local storage only
+  if (record.isDraft) return;
+
   try {
     const endpoint = mapFormTypeToEndpoint(record.formType);
-    if (!endpoint) return; // Allow syncing drafts to postgres too
+    if (!endpoint) return; 
 
     // Helper to format dates to YYYY-MM-DD
     const formatDate = (dateStr) => {
@@ -102,7 +105,7 @@ export const upsertFormRecord = (existingId, formType, rawIpNo, formData, create
     '';
 
   if (existingId) {
-    // Update existing record in-place
+    // Update existing record
     const idx = records.findIndex(r => r.id === existingId);
     if (idx !== -1) {
       const updated = {
@@ -114,9 +117,17 @@ export const upsertFormRecord = (existingId, formType, rawIpNo, formData, create
         savedAt: new Date().toLocaleString(),
         data: formData
       };
-      records[idx] = updated;
-      localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
-      syncToPostgres(updated); // Sync to DB
+      
+      if (!isDraft) {
+        // If it's no longer a draft (has an IP), delete it from Local Storage
+        records.splice(idx, 1);
+        localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+        syncToPostgres(updated); // Save to Postgres
+      } else {
+        // Still a draft, keep it in Local Storage
+        records[idx] = updated;
+        localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+      }
       return updated;
     }
   }
@@ -134,10 +145,14 @@ export const upsertFormRecord = (existingId, formType, rawIpNo, formData, create
     data: formData
   };
 
-  // Prepend new record (most recent first)
-  records.unshift(newRecord);
-  localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
-  syncToPostgres(newRecord); // Sync to DB
+  if (!isDraft) {
+    // If it's created with an IP immediately, don't store in Local Storage
+    syncToPostgres(newRecord); // Save to Postgres
+  } else {
+    // Prepend new draft to Local Storage
+    records.unshift(newRecord);
+    localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+  }
   return newRecord;
 };
 
@@ -182,10 +197,20 @@ export const deleteAllDrafts = () => {
 export const autoSaveFormDraft = (recordId, formType, patient, formData, setRecordId) => {
   if (window.isPrintViewMode) return null;
   const ip = patient?.ipNo || patient?.uhidNo || 'UNASSIGNED';
+  
   const records = getSavedRecords();
   const existing = recordId ? records.find(r => r.id === recordId) : null;
+  
+  // CRITICAL FIX: If we have a recordId but the record is no longer in local storage,
+  // it means it was successfully formalized and sent to PostgreSQL.
+  // We MUST STOP auto-saving it as a draft, otherwise it creates duplicates!
+  if (recordId && !existing) {
+    return null; 
+  }
+
   const forceDraft = existing ? existing.isDraft : true;
-  const saved = upsertFormRecord(recordId, formType, ip, formData, forceDraft);
+  const saved = upsertFormRecord(recordId, formType, ip, formData, 'Sadhana Admin', forceDraft);
+  
   if (saved && saved.id !== recordId) {
     setRecordId(saved.id);
   }

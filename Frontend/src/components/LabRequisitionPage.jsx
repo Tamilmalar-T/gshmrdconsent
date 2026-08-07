@@ -59,17 +59,26 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
   const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
+  // Helper to prevent undefined/null values causing uncontrolled input warnings
+  const sanitizeFormData = (data) => {
+    const sanitized = {};
+    for (const key in data) {
+      sanitized[key] = data[key] ?? '';
+    }
+    return sanitized;
+  };
+
   // Restore persisted form or set edit data on mount
   useEffect(() => {
     if (editData) {
-      if (editData.meta) setMeta(editData.meta);
+      if (editData.meta) setMeta(sanitizeFormData(editData.meta));
       if (editData.selectedTests) setSelectedTests(editData.selectedTests);
       if (editRecordId) setRecordId(editRecordId);
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
         if (saved.recordId) setRecordId(saved.recordId);
-        if (saved.meta) setMeta(m => ({ ...m, ...saved.meta }));
+        if (saved.meta) setMeta(m => ({ ...m, ...sanitizeFormData(saved.meta) }));
         if (saved.selectedTests) setSelectedTests(saved.selectedTests);
       }
     }

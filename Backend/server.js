@@ -33,7 +33,10 @@ const investigationChartRoutes = require('./routes/investigationChartRoutes');
 const internalTransferFormRoutes = require('./routes/internalTransferFormRoutes');
 const regularDrugPrescriptionRoutes = require('./routes/regularDrugPrescriptionRoutes');
 
+const recordsRoutes = require('./routes/recordsRoutes');
+
 // Mount Routes
+app.use('/api/records', recordsRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/vitals-chart', vitalsChartRoutes);
 app.use('/api/nurses-daily-assessment-care-plan', nursesDailyAssessmentRoutes);

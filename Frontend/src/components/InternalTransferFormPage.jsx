@@ -36,18 +36,27 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
   const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
+  const sanitizeFormData = (data) => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+    const sanitized = {};
+    for (const key in data) {
+      sanitized[key] = data[key] ?? '';
+    }
+    return sanitized;
+  };
+
   useEffect(() => {
     if (editData) {
-      if (editData.patient) setPatient(editData.patient);
-      if (editData.formDetails) setFormDetails(editData.formDetails);
+      if (editData.patient) setPatient(sanitizeFormData(editData.patient));
+      if (editData.formDetails) setFormDetails(sanitizeFormData(editData.formDetails));
       if (editData.handingOver) setHandingOver(editData.handingOver);
       if (editRecordId) setRecordId(editRecordId);
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
         if (saved.recordId) setRecordId(saved.recordId);
-        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-        if (saved.formDetails) setFormDetails(saved.formDetails);
+        if (saved.patient) setPatient(p => ({ ...p, ...sanitizeFormData(saved.patient) }));
+        if (saved.formDetails) setFormDetails(sanitizeFormData(saved.formDetails));
         if (saved.handingOver) setHandingOver(saved.handingOver);
       }
     }

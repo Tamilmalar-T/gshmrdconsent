@@ -81,14 +81,23 @@ export default function ProgressReassessmentRecordPage() {
 
   const [recordId, setRecordId] = useState(null);
 
+  const sanitizeFormData = (data) => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+    const sanitized = {};
+    for (const key in data) {
+      sanitized[key] = data[key] ?? '';
+    }
+    return sanitized;
+  };
+
   // Restore persisted form or set edit data on mount
   useEffect(() => {
     // We would normally handle editData here if passed as props, but keeping it simple for now
     const saved = restoreForm(PERSIST_KEY);
     if (saved) {
       if (saved.recordId) setRecordId(saved.recordId);
-      if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
-      if (saved.soap) setSoap(s => ({ ...s, ...saved.soap }));
+      if (saved.patient) setPatient(p => ({ ...p, ...sanitizeFormData(saved.patient) }));
+      if (saved.soap) setSoap(s => ({ ...s, ...sanitizeFormData(saved.soap) }));
     }
   }, []);
 

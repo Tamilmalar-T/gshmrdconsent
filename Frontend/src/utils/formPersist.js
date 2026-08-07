@@ -1,36 +1,36 @@
 /**
  * formPersist.js
- * Utility to persist form state in localStorage so data survives navigation
+ * Utility to persist form state in sessionStorage so data survives navigation
  * and page refresh. Uses a unique key per form to avoid collisions.
  */
 
 export const persistForm = (key, data) => {
   try {
     const rawNew = JSON.stringify(data);
-    const rawPrev = localStorage.getItem(`form_persist_${key}`);
+    const rawPrev = sessionStorage.getItem(`form_persist_${key}`);
 
     if (rawPrev && rawPrev !== rawNew) {
       let history = [];
       try {
-        history = JSON.parse(localStorage.getItem('global_form_history') || '[]');
+        history = JSON.parse(sessionStorage.getItem('global_form_history') || '[]');
       } catch (e) {}
       history.push({ key, state: rawPrev });
       if (history.length > 50) history.shift();
-      localStorage.setItem('global_form_history', JSON.stringify(history));
+      sessionStorage.setItem('global_form_history', JSON.stringify(history));
     }
 
-    localStorage.setItem(`form_persist_${key}`, rawNew);
+    sessionStorage.setItem(`form_persist_${key}`, rawNew);
   } catch (e) {
     // Storage full or unavailable
   }
 };
 
 /**
- * Restore previously persisted form state from localStorage.
+ * Restore previously persisted form state from sessionStorage.
  */
 export const restoreForm = (key) => {
   try {
-    const raw = localStorage.getItem(`form_persist_${key}`);
+    const raw = sessionStorage.getItem(`form_persist_${key}`);
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
     return null;
@@ -42,17 +42,17 @@ export const restoreForm = (key) => {
  */
 export const clearPersistedForm = (key) => {
   try {
-    const rawPrev = localStorage.getItem(`form_persist_${key}`);
+    const rawPrev = sessionStorage.getItem(`form_persist_${key}`);
     if (rawPrev) {
       let history = [];
       try {
-        history = JSON.parse(localStorage.getItem('global_form_history') || '[]');
+        history = JSON.parse(sessionStorage.getItem('global_form_history') || '[]');
       } catch (e) {}
       history.push({ key, state: rawPrev });
       if (history.length > 50) history.shift();
-      localStorage.setItem('global_form_history', JSON.stringify(history));
+      sessionStorage.setItem('global_form_history', JSON.stringify(history));
     }
-    localStorage.removeItem(`form_persist_${key}`);
+    sessionStorage.removeItem(`form_persist_${key}`);
   } catch (e) {}
 };
 
@@ -61,7 +61,7 @@ export const clearPersistedForm = (key) => {
  */
 export const hasUndoHistory = () => {
   try {
-    const history = JSON.parse(localStorage.getItem('global_form_history') || '[]');
+    const history = JSON.parse(sessionStorage.getItem('global_form_history') || '[]');
     return history.length > 0;
   } catch (e) {
     return false;
@@ -73,11 +73,11 @@ export const hasUndoHistory = () => {
  */
 export const performGlobalUndo = () => {
   try {
-    let history = JSON.parse(localStorage.getItem('global_form_history') || '[]');
+    let history = JSON.parse(sessionStorage.getItem('global_form_history') || '[]');
     if (history.length > 0) {
       const lastAction = history.pop();
-      localStorage.setItem(`form_persist_${lastAction.key}`, lastAction.state);
-      localStorage.setItem('global_form_history', JSON.stringify(history));
+      sessionStorage.setItem(`form_persist_${lastAction.key}`, lastAction.state);
+      sessionStorage.setItem('global_form_history', JSON.stringify(history));
       // Dispatch event instead of reloading
       window.dispatchEvent(new Event('form_restored_event'));
     }

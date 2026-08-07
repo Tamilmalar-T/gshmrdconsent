@@ -203,6 +203,7 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
   const [activeRecordModal, setActiveRecordModal] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFormTab, setSelectedFormTab] = useState(filterTabId || 'general-admission-consent');
+  const [allCompletedRecords, setAllCompletedRecords] = useState([]);
 
   useEffect(() => { setViewMode(initialMode === 'all' ? 'records' : initialMode); }, [initialMode]);
 
@@ -225,6 +226,23 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
   }, [filterTabId]);
 
   useEffect(() => {
+    // Fetch all completed records globally when the page opens or refreshes
+    const fetchAllPostgresRecords = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/records/all');
+        const json = await res.json();
+        if (json.success) {
+          setAllCompletedRecords(json.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch all records", err);
+      }
+    };
+    fetchAllPostgresRecords();
+  }, [viewMode]); // Trigger fetch when viewMode changes to get fresh data
+
+
+  useEffect(() => {
     const list = getRegisteredPatients();
     setPatients(list);
     if (selectedIpNo) {
@@ -242,12 +260,15 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
     }
   }, [selectedPatientIp]);
 
-  useEffect(() => { refreshRecords(); }, [viewMode, selectedPatientIp, searchQuery, selectedFormTab]);
+  useEffect(() => { refreshRecords(); }, [viewMode, selectedPatientIp, searchQuery, selectedFormTab, allCompletedRecords]);
 
-  const refreshRecords = () => {
+  const refreshRecords = async () => {
     let list = [];
-    if (viewMode === 'records') list = getCompletedRecords();
-    else if (viewMode === 'drafts') list = getDraftRecords();
+    if (viewMode === 'records') {
+      list = allCompletedRecords;
+    } else if (viewMode === 'drafts') {
+      list = getDraftRecords();
+    }
 
     if (viewMode === 'records' || viewMode === 'drafts') {
       list = list.filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab);
@@ -288,7 +309,7 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
     if (onEdit) onEdit(tabId, rec.data, rec.id);
   };
 
-  const completedCount = getCompletedRecords().filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab).length;
+  const completedCount = allCompletedRecords.filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab).length;
 
   const draftCount = getDraftRecords().filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab).length;
 

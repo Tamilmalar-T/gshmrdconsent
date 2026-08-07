@@ -32,16 +32,25 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
   const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
+  const sanitizeFormData = (data) => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+    const sanitized = {};
+    for (const key in data) {
+      sanitized[key] = data[key] ?? '';
+    }
+    return sanitized;
+  };
+
   useEffect(() => {
     if (editData) {
-      if (editData.patient) setPatient(editData.patient);
+      if (editData.patient) setPatient(sanitizeFormData(editData.patient));
       if (editData.drugBlocks) setDrugBlocks(editData.drugBlocks);
       if (editRecordId) setRecordId(editRecordId);
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
         if (saved.recordId) setRecordId(saved.recordId);
-        if (saved.patient) setPatient(p => ({ ...p, ...saved.patient }));
+        if (saved.patient) setPatient(p => ({ ...p, ...sanitizeFormData(saved.patient) }));
         if (saved.drugBlocks) setDrugBlocks(saved.drugBlocks);
       }
     }
