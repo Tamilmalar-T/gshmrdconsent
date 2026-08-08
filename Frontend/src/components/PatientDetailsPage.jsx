@@ -35,6 +35,11 @@ import DiabeticChartPage from './DiabeticChartPage';
 import VitalsChartPage from './VitalsChartPage';
 import BPChartPage from './BPChartPage';
 import IntakeOutputRecordPage from './IntakeOutputRecordPage';
+import InternalTransferFormPage from './InternalTransferFormPage';
+import InvestigationChartPage from './InvestigationChartPage';
+import RegularDrugPrescriptionPage from './RegularDrugPrescriptionPage';
+import ProgressReassessmentRecordPage from './ProgressReassessmentRecordPage';
+import ActivityRecordBilling from './ActivityRecordBilling';
 
 const COMPONENT_MAP = {
   'Consent for General Admission': ConsentGeneralAdmissionPage,
@@ -48,6 +53,11 @@ const COMPONENT_MAP = {
   'Vitals Chart': VitalsChartPage,
   'BP Chart': BPChartPage,
   'Intake Output Record': IntakeOutputRecordPage,
+  'Internal Transfer Form': InternalTransferFormPage,
+  'Investigation Chart': InvestigationChartPage,
+  'Regular Drug Prescription': RegularDrugPrescriptionPage,
+  'Progress and Reassessment Record': ProgressReassessmentRecordPage,
+  'Activity Record Billing': ActivityRecordBilling,
 };
 
 // Maps formType string → route tab id
@@ -63,6 +73,11 @@ const FORM_TYPE_TO_TAB = {
   'Vitals Chart': 'vitals-chart',
   'BP Chart': 'bp-chart',
   'Intake Output Record': 'intake-output',
+  'Internal Transfer Form': 'internal-transfer-form',
+  'Investigation Chart': 'investigation-chart',
+  'Regular Drug Prescription': 'regular-drug-prescription',
+  'Progress and Reassessment Record': 'progress-reassessment',
+  'Activity Record Billing': 'activity-record-billing',
 };
 
 // Formats key names (e.g. CamelCase/snake_case to Title Case)

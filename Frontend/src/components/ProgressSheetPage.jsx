@@ -117,8 +117,9 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, rows , recordId});
+    persistForm(PERSIST_KEY, { patient, rows , recordId});
+      const t = setTimeout(() => {
+      
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.notes);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Progress Sheet', patient, { patient, rows }, setRecordId);

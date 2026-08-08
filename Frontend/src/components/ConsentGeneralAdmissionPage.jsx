@@ -110,9 +110,12 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
 
   // Auto-save form to localStorage and database draft whenever it changes
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { ...form, recordId });
-      const hasContent = form.patientName || form.ipNo || form.uhidNo;
+    persistForm(PERSIST_KEY, { ...form, recordId });
+      const t = setTimeout(() => {
+      
+      const hasContent = Object.values(form).some(
+        val => typeof val === 'string' && val.trim() !== '' && val !== 'Male' && val !== 'Female' && val !== 'Other' && val !== 'Yes' && val !== 'No' && val !== getCurrentDate() && val !== getCurrentTime()
+      );
       if (hasContent) {
         const ip = form.ipOpNo || form.ipNo || form.uhidNo;
         if (ip) {

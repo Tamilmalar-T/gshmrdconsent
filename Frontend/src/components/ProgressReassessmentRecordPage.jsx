@@ -103,8 +103,9 @@ export default function ProgressReassessmentRecordPage() {
 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, soap, recordId });
+    persistForm(PERSIST_KEY, { patient, soap, recordId });
+      const t = setTimeout(() => {
+      
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || soap.subjective || soap.assessment;
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Progress and Reassessment Record', patient, { patient, soap }, setRecordId);

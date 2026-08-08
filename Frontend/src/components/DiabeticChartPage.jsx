@@ -112,9 +112,12 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
   // Auto-save to localStorage on every change
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, rows , recordId});
-      const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.grbs || r.reading || r.medication);
+    persistForm(PERSIST_KEY, { patient, rows , recordId});
+      const t = setTimeout(() => {
+      
+      const hasContent = Object.values(patient).some(
+        val => typeof val === 'string' && val.trim() !== '' && val !== 'Male' && val !== 'Female' && val !== 'Other'
+      ) || rows.some(r => r.grbs || r.reading || r.medication);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Diabetic Chart', patient, { patient, rows }, setRecordId);
       }

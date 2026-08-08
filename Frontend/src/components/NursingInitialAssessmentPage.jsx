@@ -173,8 +173,9 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2, recordId });
+    persistForm(PERSIST_KEY, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2, recordId });
+      const t = setTimeout(() => {
+      
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || vitals.bp || vitals.pulse;
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Nursing Initial Assessment', patient, { patient, vitals, exam, casualty, investigations, bottomPg1, pg2 }, setRecordId);

@@ -169,9 +169,12 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, entry, dates, readings, slotHours , recordId});
-      const hasContent = patient.name || patient.ipNo || patient.uhidNo || readings.length > 2;
+    persistForm(PERSIST_KEY, { patient, entry, dates, readings, slotHours , recordId});
+      const t = setTimeout(() => {
+      
+      const hasContent = Object.values(patient).some(
+        val => typeof val === 'string' && val.trim() !== '' && val !== 'Male' && val !== 'Female' && val !== 'Other'
+      ) || readings.length > 0 || !!entry.pulse || !!entry.temp || !!entry.resp;
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Vitals Chart', patient, { patient, entry, dates, readings, slotHours }, setRecordId);
       }
@@ -230,10 +233,44 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
     }
   };
 
-  const handleIpKeyDown = (e) => {
+    const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      triggerAutofill(e.target.value);
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      
+      let newPatient = { ...patient };
+      if (found) {
+        newPatient = {
+          ...patient,
+          name: found.patientName || patient.name,
+          age: found.age || patient.age,
+          sex: found.sex || patient.sex,
+          uhidNo: found.uhidNo || patient.uhidNo,
+          ipNo: found.ipNo || patient.ipNo,
+          ward: found.ward || patient.ward,
+          bed: found.bedNo || patient.bedNo || patient.bed || '',
+          doa: found.doa || patient.doa
+        };
+        setPatient(newPatient);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Patient details auto-filled');
+          setTimeout(() => setToastMsg(''), 2000);
+        }
+      }
+
+      if ((e.target.name === 'ipNo' || e.target.name === 'uhidNo') && value.trim() !== '') {
+        const saved = upsertFormRecord(recordId, 'Vitals Chart', value, { patient: newPatient, entry, dates, readings, slotHours }, null, false);
+        setRecordId(saved.id);
+        clearPersistedForm(PERSIST_KEY);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Record saved successfully!');
+          setTimeout(() => {
+            setToastMsg('');
+            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
+          }, 2000);
+        }
+      }
     }
   };
 
@@ -461,14 +498,24 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
     window.print();
   };
 
-  const handleSave = () => {
+    const handleSave = () => {
+    const hasValidIp = patient.ipNo && patient.ipNo.trim() !== '';
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    const saved = upsertFormRecord(recordId, 'Vitals Chart', ip, { patient, entry, dates, readings });
+    const forceDraft = !hasValidIp;
+    
+    const saved = upsertFormRecord(recordId, 'Vitals Chart', ip, { patient, entry, dates, readings, slotHours }, null, forceDraft);
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg(recordId ? 'Vitals Chart updated successfully!' : 'Vitals Chart saved successfully!');
+    
+    if (forceDraft) {
+      setToastMsg(recordId ? 'Vitals Chart draft updated successfully!' : 'Vitals Chart saved as draft successfully!');
+    } else {
+      setToastMsg(recordId ? 'Vitals Chart updated successfully!' : 'Vitals Chart saved successfully!');
+    }
+    
     setTimeout(() => {
       setToastMsg('');
+      if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
     }, 2000);
   };
 

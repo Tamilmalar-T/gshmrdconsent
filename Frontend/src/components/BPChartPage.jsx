@@ -174,9 +174,13 @@ export default function BPChartPage({ onNavigate, editData, editRecordId }) {
 
   // Auto-save to localStorage on every change (draft recovery)
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, entry, dates, readings, slotHours });
-      const hasContent = patient.name || patient.ipNo || patient.uhidNo || readings.length > 2;
+    persistForm(PERSIST_KEY, { patient, entry, dates, readings, slotHours });
+      const t = setTimeout(() => {
+      
+      const hasContent = 
+        patient.name || patient.ipNo || patient.uhidNo || patient.age || patient.doa || patient.ward || patient.bedNo || 
+        readings.length > 0 || 
+        entry.bp || entry.ivf || entry.ngOral || entry.totalIntake || entry.urine || entry.bowel || entry.drain || entry.totalOuttake;
       if (hasContent) {
         autoSaveFormDraft(recordId, 'BP Chart', patient, { patient, entry, dates, readings, slotHours }, setRecordId);
       }

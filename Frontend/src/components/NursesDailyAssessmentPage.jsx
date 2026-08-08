@@ -211,9 +211,18 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight, recordId });
-      const hasContent = patient.name || patient.ipNo || patient.uhidNo || painRows.some(r => r.location || r.action);
+    persistForm(PERSIST_KEY, { patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight, recordId });
+      const t = setTimeout(() => {
+      
+      
+      const hasLeftParam = Object.values(leftParams).some(param => param.s1 || param.s2 || param.s3);
+      const hasRightParam = Object.values(rightParams).some(param => param.s1 || param.s2 || param.s3);
+      
+      const hasContent = 
+        patient.name || patient.ipNo || patient.uhidNo || patient.age || patient.doa || patient.ward || patient.bedNo ||
+        hasLeftParam || hasRightParam ||
+        painRows.some(r => r.location || r.action || (r.scale && r.scale !== '0'));
+
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Nurses Daily Assessment Care Plan', patient, { patient, leftParams, rightParams, painRows, activePainScore, dateLeft, dateRight }, setRecordId);
       }

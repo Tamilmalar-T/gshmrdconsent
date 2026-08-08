@@ -1,6 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Printer, FolderCheck, Trash2, Save, CheckCircle2 } from 'lucide-react';
 import { findPatientByIpNo } from '../utils/patientRegistry';
+import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
+import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+
+const PERSIST_KEY = 'activity_record_billing';
 
 const AutoExpandingTextarea = (props) => {
   const textareaRef = useRef(null);
@@ -38,6 +42,15 @@ const AutoExpandingTextarea = (props) => {
 
 const TickBox = ({ className }) => {
   const [tick, setTick] = useState('');
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleSet = (e) => setTick(e.detail);
+    const el = ref.current;
+    if (el) el.addEventListener('set-tick', handleSet);
+    return () => { if (el) el.removeEventListener('set-tick', handleSet); };
+  }, []);
+
   const handleTick = () => {
     if (tick === '') setTick('✓');
     else if (tick === '✓') setTick('✗');
@@ -45,7 +58,8 @@ const TickBox = ({ className }) => {
   };
   return (
     <div
-      className={className}
+      ref={ref}
+      className={`arb-tick-box ${className || ''}`}
       onClick={handleTick}
       style={{
         display: 'flex',
@@ -119,7 +133,7 @@ const AddRowBtn = ({ onClick }) => (
   </div>
 );
 
-export default function ActivityRecordBilling({ onNavigate }) {
+export default function ActivityRecordBilling({ onNavigate, editData, editRecordId }) {
   const handlePrint = () => window.print();
 
   const generateIds = (count) => Array.from({ length: count }, () => Math.random().toString(36).substr(2, 9));
@@ -150,6 +164,132 @@ export default function ActivityRecordBilling({ onNavigate }) {
   const [visitTableKeys, setVisitTableKeys] = useState(['visits1_1']);
   const [rowIds, setRowIds] = useState(initialRowIds);
   const [toastMsg, setToastMsg] = useState('');
+  const [recordId, setRecordId] = useState(null);
+  const [restoredData, setRestoredData] = useState(null);
+
+  useEffect(() => {
+    let saved = editData || restoreForm(PERSIST_KEY);
+    if (saved) {
+      if (editRecordId) setRecordId(editRecordId);
+      else if (saved.recordId) setRecordId(saved.recordId);
+      
+      if (saved.data) {
+        if (saved.data.rowIds) setRowIds(saved.data.rowIds);
+        if (saved.data.visitTableKeys) setVisitTableKeys(saved.data.visitTableKeys);
+        setRestoredData(saved.data);
+      }
+      
+      if (saved.patient) {
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el && val) {
+            el.value = val;
+            el.classList.add('has-value');
+          }
+        };
+        setTimeout(() => {
+          setVal('arb-name', saved.patient.patientName);
+          setVal('arb-hospital-no', saved.patient.uhidNo);
+          setVal('arb-ip-no', saved.patient.ipNo);
+          setVal('arb-dept', saved.patient.consultant);
+          setVal('arb-ward', saved.patient.ward);
+          setVal('arb-room-bed', saved.patient.bedNo);
+          setVal('arb-doa', saved.patient.doa);
+          setVal('arb-dod', saved.patient.dod);
+          setVal('arb-doa-time', saved.patient.doaTime);
+          setVal('arb-dod-time', saved.patient.dodTime);
+        }, 100);
+      }
+    }
+  }, [editData, editRecordId]);
+
+  useEffect(() => {
+    if (!restoredData) return;
+    
+    const tryRestore = () => {
+      const root = document.querySelector('.arb-page-wrapper');
+      if (!root) return false;
+      const inputs = root.querySelectorAll('input, textarea');
+      const ticks = root.querySelectorAll('.arb-tick-box');
+      
+      if (restoredData.inputValues) {
+        restoredData.inputValues.forEach((val, i) => {
+          if (inputs[i] && val !== undefined) {
+            inputs[i].value = val;
+            if (val) inputs[i].classList.add('has-value');
+            if (inputs[i].tagName === 'TEXTAREA') {
+              inputs[i].style.height = 'auto';
+              inputs[i].style.height = `${inputs[i].scrollHeight}px`;
+            }
+          }
+        });
+      }
+      if (restoredData.tickValues) {
+        restoredData.tickValues.forEach((val, i) => {
+          if (ticks[i] && val !== undefined) {
+            ticks[i].dispatchEvent(new CustomEvent('set-tick', { detail: val }));
+          }
+        });
+      }
+      return true;
+    };
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+       if (tryRestore() || ++attempts > 10) {
+          clearInterval(interval);
+          setRestoredData(null);
+       }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [restoredData, rowIds, visitTableKeys]);
+
+  useEffect(() => {
+    const handleInput = () => {
+      const root = document.querySelector('.arb-page-wrapper');
+      if (!root) return;
+      const inputs = root.querySelectorAll('input, textarea');
+      const ticks = root.querySelectorAll('.arb-tick-box');
+      
+      const inputValues = Array.from(inputs).map(el => el.value);
+      const tickValues = Array.from(ticks).map(el => el.textContent);
+      
+      const ip = document.getElementById('arb-ip-no')?.value;
+      const uhid = document.getElementById('arb-hospital-no')?.value;
+      
+      const currentPatient = {
+        patientName: document.getElementById('arb-name')?.value,
+        uhidNo: uhid,
+        ipNo: ip,
+        consultant: document.getElementById('arb-dept')?.value,
+        ward: document.getElementById('arb-ward')?.value,
+        bedNo: document.getElementById('arb-room-bed')?.value,
+        doa: document.getElementById('arb-doa')?.value,
+        dod: document.getElementById('arb-dod')?.value,
+        doaTime: document.getElementById('arb-doa-time')?.value,
+        dodTime: document.getElementById('arb-dod-time')?.value
+      };
+      
+      const dataToSave = { rowIds, visitTableKeys, inputValues, tickValues, patient: currentPatient };
+      persistForm(PERSIST_KEY, { patient: currentPatient, data: dataToSave, recordId });
+      
+      const hasContent = inputValues.some(v => v.trim() !== '') || tickValues.some(v => v !== '');
+      if (hasContent) {
+        autoSaveFormDraft(recordId, 'Activity Record Billing', currentPatient, dataToSave, setRecordId);
+      }
+    };
+    
+    const root = document.querySelector('.arb-page-wrapper');
+    if (root) {
+      root.addEventListener('input', handleInput);
+      root.addEventListener('click', handleInput);
+      return () => {
+        root.removeEventListener('input', handleInput);
+        root.removeEventListener('click', handleInput);
+      };
+    }
+  }, [rowIds, visitTableKeys, recordId]);
 
   const handleClearForm = () => {
     if (window.confirm("Are you sure you want to clear this entire form? All typed data will be lost.")) {
@@ -168,8 +308,40 @@ export default function ActivityRecordBilling({ onNavigate }) {
   };
 
   const handleSave = () => {
-    setToastMsg('Activity Record Billing saved as Draft!');
-    setTimeout(() => setToastMsg(''), 2000);
+    const ip = document.getElementById('arb-ip-no')?.value || document.getElementById('arb-hospital-no')?.value || 'UNASSIGNED';
+    const forceDraft = ip === 'UNASSIGNED';
+    
+    const root = document.querySelector('.arb-page-wrapper');
+    const inputs = root.querySelectorAll('input, textarea');
+    const ticks = root.querySelectorAll('.arb-tick-box');
+    
+    const inputValues = Array.from(inputs).map(el => el.value);
+    const tickValues = Array.from(ticks).map(el => el.textContent);
+    
+    const currentPatient = {
+      patientName: document.getElementById('arb-name')?.value,
+      uhidNo: document.getElementById('arb-hospital-no')?.value,
+      ipNo: document.getElementById('arb-ip-no')?.value,
+      consultant: document.getElementById('arb-dept')?.value,
+      ward: document.getElementById('arb-ward')?.value,
+      bedNo: document.getElementById('arb-room-bed')?.value,
+      doa: document.getElementById('arb-doa')?.value,
+      dod: document.getElementById('arb-dod')?.value,
+      doaTime: document.getElementById('arb-doa-time')?.value,
+      dodTime: document.getElementById('arb-dod-time')?.value
+    };
+    
+    const dataToSave = { rowIds, visitTableKeys, inputValues, tickValues, patient: currentPatient };
+    
+    const saved = upsertFormRecord(recordId, 'Activity Record Billing', ip, dataToSave, null, forceDraft);
+    setRecordId(saved.id);
+    clearPersistedForm(PERSIST_KEY);
+    
+    setToastMsg(forceDraft ? 'Activity Record Billing saved as Draft!' : 'Activity Record Billing saved successfully!');
+    setTimeout(() => {
+      setToastMsg('');
+      if (!forceDraft && onNavigate) onNavigate('view-records');
+    }, 2000);
   };
 
   const triggerAutofill = (ipValue) => {
@@ -213,10 +385,51 @@ export default function ActivityRecordBilling({ onNavigate }) {
     }
   };
 
-  const handleIpKeyDown = (e) => {
+    const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      triggerAutofill(e.target.value);
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      
+      let newPatient = { ...patient };
+      if (found) {
+        newPatient = {
+          ...patient,
+          name: found.patientName || patient.name,
+          age: found.age || patient.age,
+          sex: found.sex || patient.sex,
+          uhidNo: found.uhidNo || patient.uhidNo,
+          ipNo: found.ipNo || patient.ipNo,
+          ward: found.ward || patient.ward,
+          bed: found.bedNo || patient.bedNo || patient.bed || '',
+          doa: found.doa || patient.doa
+        };
+        setPatient(newPatient);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Patient details auto-filled');
+          setTimeout(() => setToastMsg(''), 2000);
+        }
+      }
+
+      if (e.target.name === 'ipNo' && value.trim() !== '') {
+        const root = document.querySelector('.arb-page-wrapper');
+          const inputs = root.querySelectorAll('input, textarea');
+          const ticks = root.querySelectorAll('.arb-tick-box');
+          const inputValues = Array.from(inputs).map(el => el.value);
+          const tickValues = Array.from(ticks).map(el => el.textContent);
+          const dataToSave = { rowIds, visitTableKeys, inputValues, tickValues, patient: currentPatient };
+          
+          const saved = upsertFormRecord(recordId, 'Activity Record Billing', value, dataToSave, null, false);
+        setRecordId(saved.id);
+        clearPersistedForm(PERSIST_KEY);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Record saved successfully!');
+          setTimeout(() => {
+            setToastMsg('');
+            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
+          }, 2000);
+        }
+      }
     }
   };
 

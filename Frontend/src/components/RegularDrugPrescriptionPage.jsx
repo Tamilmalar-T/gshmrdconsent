@@ -57,8 +57,9 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
   }, [editData, editRecordId]);
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, drugBlocks, recordId });
+    persistForm(PERSIST_KEY, { patient, drugBlocks, recordId });
+      const t = setTimeout(() => {
+      
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || drugBlocks.some(b => b.drugName);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Regular Drug Prescription', patient, { patient, drugBlocks }, setRecordId);
@@ -90,10 +91,44 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
     }
   };
 
-  const handleIpKeyDown = (e) => {
+    const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      triggerAutofill(e.target.value);
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      
+      let newPatient = { ...patient };
+      if (found) {
+        newPatient = {
+          ...patient,
+          name: found.patientName || patient.name,
+          age: found.age || patient.age,
+          sex: found.sex || patient.sex,
+          uhidNo: found.uhidNo || patient.uhidNo,
+          ipNo: found.ipNo || patient.ipNo,
+          ward: found.ward || patient.ward,
+          bed: found.bedNo || patient.bedNo || patient.bed || '',
+          doa: found.doa || patient.doa
+        };
+        setPatient(newPatient);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Patient details auto-filled');
+          setTimeout(() => setToastMsg(''), 2000);
+        }
+      }
+
+      if (e.target.name === 'ipNo' && value.trim() !== '') {
+        const saved = upsertFormRecord(recordId, 'Regular Drug Prescription', value, { patient: newPatient, drugBlocks }, null, false);
+        setRecordId(saved.id);
+        clearPersistedForm(PERSIST_KEY);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Record saved successfully!');
+          setTimeout(() => {
+            setToastMsg('');
+            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
+          }, 2000);
+        }
+      }
     }
   };
 
@@ -176,13 +211,25 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
 
   const handlePrint = () => window.print();
 
-  const handleSave = () => {
+    const handleSave = () => {
+    const hasValidIp = patient.ipNo && patient.ipNo.trim() !== '';
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    const saved = upsertFormRecord(recordId, 'Regular Drug Prescription', ip, { patient, drugBlocks });
+    const forceDraft = !hasValidIp;
+    
+    const saved = upsertFormRecord(recordId, 'Regular Drug Prescription', ip, { patient, drugBlocks }, null, forceDraft);
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg(recordId ? 'Prescription updated successfully!' : 'Prescription saved successfully!');
-    setTimeout(() => setToastMsg(''), 2000);
+    
+    if (forceDraft) {
+      setToastMsg(recordId ? 'Regular Drug Prescription draft updated successfully!' : 'Regular Drug Prescription saved as draft successfully!');
+    } else {
+      setToastMsg(recordId ? 'Regular Drug Prescription updated successfully!' : 'Regular Drug Prescription saved successfully!');
+    }
+    
+    setTimeout(() => {
+      setToastMsg('');
+      if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
+    }, 2000);
   };
 
   return (
@@ -202,10 +249,7 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-mint-save" onClick={handleSave}>
-            <Save size={14} />
-            <span>{recordId ? 'Update' : 'Save'}</span>
-          </button>
+         
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
             <span>Print Sheet</span>
@@ -235,7 +279,7 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
               </div>
             </div>
 
-            <div className="header-vitals-title" style={{ width: '320px', fontSize: '15px' }}>
+            <div className="header-vitals-title" style={{ width:'320px', fontSize: '15px' }}>
               REGULAR DRUG PRESCRIPTIONS
             </div>
           </div>

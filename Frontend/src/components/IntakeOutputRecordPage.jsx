@@ -102,9 +102,10 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, rows , recordId});
-      const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.oralType || r.oralAmount || r.urine || r.rtAspirate);
+    persistForm(PERSIST_KEY, { patient, rows , recordId});
+      const t = setTimeout(() => {
+      
+      const hasContent = patient.name || patient.ipNo || patient.uhidNo || patient.age || patient.ward || patient.bedNo || patient.doa || patient.consultantName || rows.some(r => r.ivAmount || r.oralAmount || r.othersIntakeAmount || r.intakeTotalInitials || r.stomachAmount || r.urineAmount || r.othersOutputAmount || r.outputTotalInitials);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Intake Output Record', patient, { patient, rows }, setRecordId);
       }
@@ -135,10 +136,44 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
     }
   };
 
-  const handleIpKeyDown = (e) => {
+    const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      triggerAutofill(e.target.value);
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      
+      let newPatient = { ...patient };
+      if (found) {
+        newPatient = {
+          ...patient,
+          name: found.patientName || patient.name,
+          age: found.age || patient.age,
+          sex: found.sex || patient.sex,
+          uhidNo: found.uhidNo || patient.uhidNo,
+          ipNo: found.ipNo || patient.ipNo,
+          ward: found.ward || patient.ward,
+          bed: found.bedNo || patient.bedNo || patient.bed || '',
+          doa: found.doa || patient.doa
+        };
+        setPatient(newPatient);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Patient details auto-filled');
+          setTimeout(() => setToastMsg(''), 2000);
+        }
+      }
+
+      if (e.target.name === 'ipNo' && value.trim() !== '') {
+        const saved = upsertFormRecord(recordId, 'Intake Output Record', value, { patient: newPatient, rows }, null, false);
+        setRecordId(saved.id);
+        clearPersistedForm(PERSIST_KEY);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Record saved successfully!');
+          setTimeout(() => {
+            setToastMsg('');
+            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
+          }, 2000);
+        }
+      }
     }
   };
 
@@ -245,14 +280,24 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
     clearPersistedForm(PERSIST_KEY);
   };
 
-  const handleSave = () => {
+    const handleSave = () => {
+    const hasValidIp = patient.ipNo && patient.ipNo.trim() !== '';
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    const saved = upsertFormRecord(recordId, 'Intake Output Record', ip, { patient, rows });
+    const forceDraft = !hasValidIp;
+    
+    const saved = upsertFormRecord(recordId, 'Intake Output Record', ip, { patient, rows }, null, forceDraft);
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg(recordId ? 'Intake & Output Record updated successfully!' : 'Intake & Output Record saved successfully!');
+    
+    if (forceDraft) {
+      setToastMsg(recordId ? 'Intake Output Record draft updated successfully!' : 'Intake Output Record saved as draft successfully!');
+    } else {
+      setToastMsg(recordId ? 'Intake Output Record updated successfully!' : 'Intake Output Record saved successfully!');
+    }
+    
     setTimeout(() => {
       setToastMsg('');
+      if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
     }, 2000);
   };
 
@@ -624,3 +669,4 @@ export default function IntakeOutputRecordPage({ onNavigate, editData, editRecor
     </div>
   );
 }
+

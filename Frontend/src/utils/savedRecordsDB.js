@@ -104,14 +104,16 @@ export const upsertFormRecord = (existingId, formType, rawIpNo, formData, create
     formData?.patient?.patientName ||
     '';
 
+  const displayIp = (!cleanIp || cleanIp === 'UNASSIGNED' || cleanIp === 'DRAFT' || cleanIp === 'NO IP') ? 'Draft (No IP)' : cleanIp;
+
   if (existingId) {
     // Update existing record
     const idx = records.findIndex(r => r.id === existingId);
     if (idx !== -1) {
       const updated = {
         ...records[idx],
-        patientIpNo: isDraft ? 'Draft (No IP)' : cleanIp,
-        rawIpNo: isDraft ? '' : cleanIp,
+        patientIpNo: displayIp,
+        rawIpNo: displayIp === 'Draft (No IP)' ? '' : cleanIp,
         patientName,
         isDraft,
         savedAt: new Date().toLocaleString(),
@@ -136,8 +138,8 @@ export const upsertFormRecord = (existingId, formType, rawIpNo, formData, create
   const newRecord = {
     id: Date.now(),
     formType,
-    patientIpNo: isDraft ? 'Draft (No IP)' : cleanIp,
-    rawIpNo: isDraft ? '' : cleanIp,
+    patientIpNo: displayIp,
+    rawIpNo: displayIp === 'Draft (No IP)' ? '' : cleanIp,
     patientName,
     createdBy: createdBy || 'Sadhana Admin',
     isDraft,

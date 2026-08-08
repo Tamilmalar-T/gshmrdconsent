@@ -112,9 +112,12 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, rows, recordId });
-      const hasContent = patient.name || patient.ipNo || patient.uhidNo || rows.some(r => r.notes);
+    persistForm(PERSIST_KEY, { patient, rows, recordId });
+      const t = setTimeout(() => {
+      
+      const hasContent = 
+        patient.name || patient.ipNo || patient.uhidNo || patient.age || patient.doa || patient.ward || patient.bed || 
+        rows.some(r => r.notes || (r.sign && r.sign !== 'Sadhana'));
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Nurses Care Plan', patient, { patient, rows }, setRecordId);
       }

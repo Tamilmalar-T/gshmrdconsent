@@ -86,8 +86,9 @@ export default function LabRequisitionPage({ onNavigate, editData, editRecordId 
 
   // Auto-save to localStorage and database draft on every change
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { meta, selectedTests , recordId});
+    persistForm(PERSIST_KEY, { meta, selectedTests , recordId});
+      const t = setTimeout(() => {
+      
       const hasContent = meta.name || meta.ipNo || meta.uhidNo || Object.values(selectedTests).some(val => val === true || val?.length > 0);
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Laboratory Requisition', meta, { meta, selectedTests }, setRecordId);

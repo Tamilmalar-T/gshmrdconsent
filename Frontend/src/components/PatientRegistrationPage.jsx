@@ -16,6 +16,16 @@ import {
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { getRegisteredPatients, registerPatient, updatePatient, deleteRegisteredPatient } from '../utils/patientRegistry';
 
+const formatTime12h = (time24) => {
+  if (!time24) return '';
+  const [hours, minutes] = time24.split(':');
+  if (!hours || !minutes) return time24;
+  const h = parseInt(hours, 10);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+};
+
 export default function PatientRegistrationPage({ onViewDetails }) {
   const [form, setForm] = useState({
     ipNo: '',
@@ -100,7 +110,7 @@ export default function PatientRegistrationPage({ onViewDetails }) {
     }
 
     try {
-      const updatedList = updatePatient(editForm.ipNo, editForm);
+      const updatedList = updatePatient(editForm.originalIpNo || editForm.ipNo, editForm);
       setPatients(updatedList);
       setSuccessMsg(`Patient "${editForm.patientName}" updated successfully!`);
       setEditForm(null);
@@ -457,9 +467,9 @@ export default function PatientRegistrationPage({ onViewDetails }) {
                     <td>{pt.ward}</td>
                     <td>{pt.bedNo}</td>
                     <td>{pt.doa}</td>
-                    <td>{pt.doaTime || '-'}</td>
+                    <td>{pt.doaTime ? formatTime12h(pt.doaTime) : '-'}</td>
                     <td>{pt.dod || '-'}</td>
-                    <td>{pt.dodTime || '-'}</td>
+                    <td>{pt.dodTime ? formatTime12h(pt.dodTime) : '-'}</td>
                     <td>{pt.createdBy || 'Admin'}</td>
                     <td className="text-center no-print">
                       <div className="tbl-action-btns">
@@ -477,6 +487,7 @@ export default function PatientRegistrationPage({ onViewDetails }) {
                           style={{ background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', marginLeft: '6px' }}
                           onClick={() => {
                             setEditForm({
+                              originalIpNo: pt.ipNo,
                               ipNo: pt.ipNo || '',
                               uhidNo: pt.uhidNo || '',
                               patientName: pt.patientName || '',
@@ -542,8 +553,8 @@ export default function PatientRegistrationPage({ onViewDetails }) {
               <form id="edit-patient-form" onSubmit={handleUpdate}>
                 <div className="pr-form-4col-grid">
                   <div className="pr-field">
-                    <label className="pr-label">IP NO. (Read Only)</label>
-                    <input type="text" value={editForm.ipNo} disabled className="pr-input" style={{ backgroundColor: '#f1f5f9' }} />
+                    <label className="pr-label">IP NO. <span className="req-star">*</span></label>
+                    <input type="text" name="ipNo" value={editForm.ipNo} onChange={handleEditChange} className="pr-input" />
                   </div>
                   <div className="pr-field">
                     <label className="pr-label">UHID NO. <span className="req-star">*</span></label>
@@ -659,11 +670,11 @@ export default function PatientRegistrationPage({ onViewDetails }) {
                 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>ADMISSION</span>
-                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{selectedPatientForView.doa} {selectedPatientForView.doaTime ? `at ${selectedPatientForView.doaTime}` : ''}</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{selectedPatientForView.doa} {selectedPatientForView.doaTime ? `at ${formatTime12h(selectedPatientForView.doaTime)}` : ''}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>DISCHARGE</span>
-                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{selectedPatientForView.dod || '-'} {selectedPatientForView.dodTime ? `at ${selectedPatientForView.dodTime}` : ''}</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{selectedPatientForView.dod || '-'} {selectedPatientForView.dodTime ? `at ${formatTime12h(selectedPatientForView.dodTime)}` : ''}</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>

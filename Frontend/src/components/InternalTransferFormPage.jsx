@@ -63,9 +63,15 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
   }, [editData, editRecordId]);
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, formDetails, handingOver, recordId });
-      const hasContent = patient.name || patient.ipNo || patient.uhidNo || formDetails.consultant;
+    persistForm(PERSIST_KEY, { patient, formDetails, handingOver, recordId });
+      const t = setTimeout(() => {
+      
+      
+      const hasContent = 
+        patient.name || patient.ipNo || patient.uhidNo || patient.age || patient.ward || patient.bedNo || patient.doa ||
+        Object.values(formDetails).some(val => typeof val === 'string' && val.trim() !== '') ||
+        handingOver.some(r => r.labReport || r.imagingPlate || r.medicines || r.blood || r.others);
+
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Internal Transfer Form', patient, { patient, formDetails, handingOver }, setRecordId);
       }
@@ -95,10 +101,44 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
     }
   };
 
-  const handleIpKeyDown = (e) => {
+    const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      triggerAutofill(e.target.value);
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      
+      let newPatient = { ...patient };
+      if (found) {
+        newPatient = {
+          ...patient,
+          name: found.patientName || patient.name,
+          age: found.age || patient.age,
+          sex: found.sex || patient.sex,
+          uhidNo: found.uhidNo || patient.uhidNo,
+          ipNo: found.ipNo || patient.ipNo,
+          ward: found.ward || patient.ward,
+          bed: found.bedNo || patient.bedNo || patient.bed || '',
+          doa: found.doa || patient.doa
+        };
+        setPatient(newPatient);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Patient details auto-filled');
+          setTimeout(() => setToastMsg(''), 2000);
+        }
+      }
+
+      if (e.target.name === 'ipNo' && value.trim() !== '') {
+        const saved = upsertFormRecord(recordId, 'Internal Transfer Form', value, { patient: newPatient, formDetails, handingOver }, null, false);
+        setRecordId(saved.id);
+        clearPersistedForm(PERSIST_KEY);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Record saved successfully!');
+          setTimeout(() => {
+            setToastMsg('');
+            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
+          }, 2000);
+        }
+      }
     }
   };
 
@@ -131,13 +171,25 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
 
   const handlePrint = () => window.print();
 
-  const handleSave = () => {
+    const handleSave = () => {
+    const hasValidIp = patient.ipNo && patient.ipNo.trim() !== '';
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    const saved = upsertFormRecord(recordId, 'Internal Transfer Form', ip, { patient, formDetails, handingOver });
+    const forceDraft = !hasValidIp;
+    
+    const saved = upsertFormRecord(recordId, 'Internal Transfer Form', ip, { patient, formDetails, handingOver }, null, forceDraft);
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg(recordId ? 'Form updated successfully in DB!' : 'Form saved successfully in DB!');
-    setTimeout(() => setToastMsg(''), 2000);
+    
+    if (forceDraft) {
+      setToastMsg(recordId ? 'Internal Transfer Form draft updated successfully!' : 'Internal Transfer Form saved as draft successfully!');
+    } else {
+      setToastMsg(recordId ? 'Internal Transfer Form updated successfully!' : 'Internal Transfer Form saved successfully!');
+    }
+    
+    setTimeout(() => {
+      setToastMsg('');
+      if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
+    }, 2000);
   };
 
   const handleClear = () => {
@@ -177,10 +229,7 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-mint-save" onClick={handleSave}>
-            <Save size={14} />
-            <span>{recordId ? 'Update Form' : 'Save Form'}</span>
-          </button>
+       
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
             <span>Print Form</span>

@@ -146,12 +146,19 @@ function App() {
     setEditRecord(null);
   };
 
-  // --- Navigation Handlers ---
   const handleNavigate = (targetTab) => {
+    window.isPrintViewMode = false;
     if (activeTab !== 'view-records' && activeTab !== 'view-drafts') {
       setLastFormTab(activeTab);
     }
     setActiveTab(targetTab);
+  };
+
+  const handleSidebarNavigate = (targetTab) => {
+    window.isPrintViewMode = false;
+    setEditRecord(null); // Clear any edit state so draft restores correctly
+    setFormKeyCounter(prev => prev + 1); // Force unmount/remount
+    handleNavigate(targetTab);
   };
 
   const handleBackToForm = () => {
@@ -281,7 +288,7 @@ function App() {
       case 'regular-drug-prescription':
         return <RegularDrugPrescriptionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'activity-record-billing':
-        return <ActivityRecordBilling onNavigate={handleNavigate} />;
+        return <ActivityRecordBilling onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'login-details':
         return <LoginDetailsPage />;
       default:

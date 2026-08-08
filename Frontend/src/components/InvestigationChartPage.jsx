@@ -67,8 +67,9 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
   }, [editData, editRecordId]);
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      persistForm(PERSIST_KEY, { patient, dates, data, recordId });
+    persistForm(PERSIST_KEY, { patient, dates, data, recordId });
+      const t = setTimeout(() => {
+      
       const hasContent = patient.name || patient.ipNo || patient.uhidNo || Object.keys(data).length > 0;
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Investigation Chart', patient, { patient, dates, data }, setRecordId);
@@ -99,10 +100,44 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
     }
   };
 
-  const handleIpKeyDown = (e) => {
+    const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      triggerAutofill(e.target.value);
+      const value = e.target.value;
+      const found = findPatientByIpNo(value);
+      
+      let newPatient = { ...patient };
+      if (found) {
+        newPatient = {
+          ...patient,
+          name: found.patientName || patient.name,
+          age: found.age || patient.age,
+          sex: found.sex || patient.sex,
+          uhidNo: found.uhidNo || patient.uhidNo,
+          ipNo: found.ipNo || patient.ipNo,
+          ward: found.ward || patient.ward,
+          bed: found.bedNo || patient.bedNo || patient.bed || '',
+          doa: found.doa || patient.doa
+        };
+        setPatient(newPatient);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Patient details auto-filled');
+          setTimeout(() => setToastMsg(''), 2000);
+        }
+      }
+
+      if (e.target.name === 'ipNo' && value.trim() !== '') {
+        const saved = upsertFormRecord(recordId, 'Investigation Chart', value, { patient: newPatient, dates, data }, null, false);
+        setRecordId(saved.id);
+        clearPersistedForm(PERSIST_KEY);
+        if (typeof setToastMsg !== 'undefined') {
+          setToastMsg('Record saved successfully!');
+          setTimeout(() => {
+            setToastMsg('');
+            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
+          }, 2000);
+        }
+      }
     }
   };
 
@@ -137,13 +172,25 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
 
   const handlePrint = () => window.print();
 
-  const handleSave = () => {
+    const handleSave = () => {
+    const hasValidIp = patient.ipNo && patient.ipNo.trim() !== '';
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
-    const saved = upsertFormRecord(recordId, 'Investigation Chart', ip, { patient, dates, data });
+    const forceDraft = !hasValidIp;
+    
+    const saved = upsertFormRecord(recordId, 'Investigation Chart', ip, { patient, dates, data }, null, forceDraft);
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    setToastMsg(recordId ? 'Chart updated successfully!' : 'Chart saved successfully!');
-    setTimeout(() => setToastMsg(''), 2000);
+    
+    if (forceDraft) {
+      setToastMsg(recordId ? 'Investigation Chart draft updated successfully!' : 'Investigation Chart saved as draft successfully!');
+    } else {
+      setToastMsg(recordId ? 'Investigation Chart updated successfully!' : 'Investigation Chart saved successfully!');
+    }
+    
+    setTimeout(() => {
+      setToastMsg('');
+      if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
+    }, 2000);
   };
 
   return (
@@ -163,10 +210,7 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-          <button type="button" className="btn-mint-save" onClick={handleSave}>
-            <Save size={14} />
-            <span>{recordId ? 'Update Chart' : 'Save Chart'}</span>
-          </button>
+        
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
             <span>Print Sheet</span>
