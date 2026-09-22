@@ -335,7 +335,7 @@ export default function BPChartPage({ onNavigate, editData, editRecordId }) {
   };
 
   // Convert Form Date 'YYYY-MM-DD' -> 'DD/MM/YY'
-  const formatDateString = (rawDate) => {
+  function formatDateString(rawDate) {
     if (!rawDate) return '';
     const parts = rawDate.split('-');
     if (parts.length === 3) {

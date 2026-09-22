@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, 
   Trash2, 
   Save, 
   CheckCircle2,
   FolderCheck,
-  FileEdit,
   Printer
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';

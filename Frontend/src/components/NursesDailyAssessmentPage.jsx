@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Printer,
   Save,
   CheckCircle2,
   Plus,
   Trash2,
-  Activity,
-  Smile,
-  Meh,
-  Frown,
-  AlertCircle,
   FolderCheck,
-  FileEdit
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -173,6 +169,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
   const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
   const [activePainScore, setActivePainScore] = useState(3);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const sanitizeFormData = (data) => {
     if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
@@ -436,8 +433,10 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
 
       {/* Main Green Paper Form Container */}
       <div className="green-paper-container">
-
-        {/* Hospital Header */}
+        
+        {/* PAGE 1 WRAPPER */}
+        <div className={`page-1-content ${currentPage !== 1 ? 'hide-on-screen' : ''}`}>
+          {/* Hospital Header */}
         <HospitalPaperHeader />
 
         {/* Form Title Banner */}
@@ -1075,15 +1074,15 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
           </div>
 
         </div>
+        </div> {/* END PAGE 1 WRAPPER */}
 
-        {/* PAGE BREAK / SECTION DIVIDER FOR PAIN ASSESSMENT PROFORMA */}
-        <div className="section-divider-bar"></div>
-
-        {/* PAIN ASSESSMENT PROFORMA SECTION (Matching Image 2) */}
-        <div className="pain-proforma-container">
-          <div className="care-plan-form-title pain-form-title">
-            PAIN ASSESSMENT PROFORMA
-          </div>
+        {/* PAGE 2 WRAPPER */}
+        <div className={`page-2-content ${currentPage !== 2 ? 'hide-on-screen' : ''}`}>
+          {/* PAIN ASSESSMENT PROFORMA SECTION (Matching Image 2) */}
+          <div className="pain-proforma-container">
+            <div className="care-plan-form-title pain-form-title">
+              PAIN ASSESSMENT PROFORMA
+            </div>
 
           {/* Wong-Baker FACES Pain Scale Visual Cards */}
           <div className="faces-scale-row">
@@ -1281,8 +1280,56 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
             </div>
           </div>
         </div>
+        </div> {/* END PAGE 2 WRAPPER */}
+
+        {/* Pagination Controls */}
+        <div className="no-print pagination-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', marginBottom: '20px', padding: '0 10px' }}>
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={() => setCurrentPage(1)} 
+            disabled={currentPage === 1}
+            style={{ minWidth: '100px', display: 'flex', justifyContent: 'center', padding: '8px 16px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', cursor: 'pointer' }}
+          >
+            <ChevronLeft size={16} style={{ marginRight: '4px' }} /> Previous
+          </button>
+          <span style={{ fontWeight: 'bold' }}>Page {currentPage} of 2</span>
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={() => setCurrentPage(2)} 
+            disabled={currentPage === 2}
+            style={{ minWidth: '100px', display: 'flex', justifyContent: 'center', padding: '8px 16px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', cursor: 'pointer' }}
+          >
+            Next <ChevronRight size={16} style={{ marginLeft: '4px' }} />
+          </button>
+        </div>
 
       </div>
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          .page-1-content, .page-2-content {
+            display: block !important;
+            width: 100%;
+          }
+          .page-2-content {
+            break-before: page;
+            page-break-before: always;
+          }
+          .pagination-controls {
+            display: none !important;
+          }
+        }
+        @media screen {
+          .hide-on-screen {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

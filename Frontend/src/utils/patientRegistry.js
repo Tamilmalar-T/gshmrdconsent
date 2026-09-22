@@ -1,3 +1,5 @@
+import { updatePatientInRecords } from './savedRecordsDB';
+
 // Patient Registry Service for global auto-filling across form modules
 
 const STORAGE_KEY = 'registered_patients_db';
@@ -49,6 +51,34 @@ export const getRegisteredPatients = () => {
   }
 };
 
+const updateBedStatus = (wardId, roomId, bedNo, status) => {
+  if (!bedNo) return;
+  try {
+    const bedsStr = localStorage.getItem('masters_beds');
+    if (!bedsStr) return;
+    const beds = JSON.parse(bedsStr);
+    let updated = false;
+    const newBeds = beds.map(b => {
+      // Robust matching: trim strings and just check bedNo and roomId
+      const bBed = String(b.bedNo || '').trim();
+      const pBed = String(bedNo || '').trim();
+      const bRoom = String(b.roomId || '').trim();
+      const pRoom = String(roomId || '').trim();
+
+      if (bBed === pBed && (!pRoom || bRoom === pRoom)) {
+        updated = true;
+        return { ...b, status: status };
+      }
+      return b;
+    });
+    if (updated) {
+      localStorage.setItem('masters_beds', JSON.stringify(newBeds));
+    }
+  } catch (e) {
+    console.error('Failed to update bed status:', e);
+  }
+};
+
 export const registerPatient = (patient) => {
   const patients = getRegisteredPatients();
   const trimmedIp = (patient.ipNo || '').trim().toUpperCase();
@@ -67,6 +97,10 @@ export const registerPatient = (patient) => {
 
   const updated = [patient, ...patients];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  
+  // Mark bed as Occupied
+  updateBedStatus(patient.ward, patient.room, patient.bedNo, 'Occupied');
+  
   return updated;
 };
 
@@ -86,8 +120,20 @@ export const updatePatient = (oldIpNo, updatedPatient) => {
 
   const idx = patients.findIndex(p => (p.ipNo || '').trim().toUpperCase() === trimmedOldIp);
   if (idx !== -1) {
+    const oldPatient = patients[idx];
     patients[idx] = updatedPatient;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
+    // Propagate updates to saved forms and drafts
+    updatePatientInRecords(oldIpNo, updatedPatient.ipNo, updatedPatient.patientName);
+    
+    // Manage bed status if it changed
+    if (oldPatient.bedNo !== updatedPatient.bedNo || oldPatient.room !== updatedPatient.room) {
+      updateBedStatus(oldPatient.ward, oldPatient.room, oldPatient.bedNo, 'Available');
+      updateBedStatus(updatedPatient.ward, updatedPatient.room, updatedPatient.bedNo, 'Occupied');
+    } else if (updatedPatient.bedNo) {
+      // Even if it didn't change, ensure it's occupied
+      updateBedStatus(updatedPatient.ward, updatedPatient.room, updatedPatient.bedNo, 'Occupied');
+    }
   }
   return patients;
 };
@@ -126,9 +172,32 @@ export const findPatientByIpNo = (ipNo) => {
   }) || null;
 };
 
-export const deleteRegisteredPatient = (ipNo) => {
+export const deleteRegisteredPatient = async (ipNo) => {
   const patients = getRegisteredPatients();
-  const updated = patients.filter((p) => (p.ipNo || '').trim().toUpperCase() !== (ipNo || '').trim().toUpperCase());
+  const trimmedIp = (ipNo || '').trim().toUpperCase();
+  const patientToDelete = patients.find(p => (p.ipNo || '').trim().toUpperCase() === trimmedIp);
+  
+  const updated = patients.filter((p) => (p.ipNo || '').trim().toUpperCase() !== trimmedIp);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  
+  // Free up the bed
+  if (patientToDelete) {
+    updateBedStatus(patientToDelete.ward, patientToDelete.room, patientToDelete.bedNo, 'Available');
+  }
+
+  // Delete permanently from database table
+  try {
+    const response = await fetch(`http://localhost:5000/api/patients/${encodeURIComponent(ipNo)}`, {
+      method: 'DELETE'
+    });
+    if (response.ok) {
+      console.log(`Patient ${ipNo} deleted from database successfully.`);
+    } else {
+      console.warn(`Database DELETE response status: ${response.status}`);
+    }
+  } catch (err) {
+    console.warn('Database connection warning during delete:', err);
+  }
+  
   return updated;
 };

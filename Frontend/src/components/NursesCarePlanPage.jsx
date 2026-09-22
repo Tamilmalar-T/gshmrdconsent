@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
   Plus, 
   Trash2, 
   CheckCircle2,
-  FolderCheck,
-  FileEdit
+  FolderCheck
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -150,7 +149,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
         }));
       }
     }
-  };
+  }; 
 
 
   const handleRowChange = (id, field, value) => {
@@ -430,6 +429,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
                       {renderSignatureStamp(row.sign)}
                     </div>
                   </td>
+
                 </tr>
               ))}
             </tbody>
@@ -443,7 +443,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
               onClick={handleAddRow}
             >
               <Plus size={14} />
-              <span>Add Notes Row</span>
+              <span> Add Notes Row </span>
             </button>
 
             <div className="bottom-btn-row">

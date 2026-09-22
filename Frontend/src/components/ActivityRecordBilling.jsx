@@ -1,10 +1,35 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Printer, FolderCheck, Trash2, Save, CheckCircle2 } from 'lucide-react';
+import { Printer, FolderCheck, Trash2, Save, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 
 const PERSIST_KEY = 'activity_record_billing';
+
+const DatalistInput = ({ listId, ...props }) => {
+  const [activeList, setActiveList] = useState(undefined);
+  return (
+    <input
+      {...props}
+      list={activeList}
+      onChange={(e) => {
+        if (e.target.value.length > 0) setActiveList(listId);
+        else setActiveList(undefined);
+        if (props.onChange) props.onChange(e);
+      }}
+      onInput={(e) => {
+        if (e.target.value.length > 0) setActiveList(listId);
+        else setActiveList(undefined);
+        if (props.onInput) props.onInput(e);
+      }}
+      onFocus={(e) => {
+        if (e.target.value.length > 0) setActiveList(listId);
+        else setActiveList(undefined);
+        if (props.onFocus) props.onFocus(e);
+      }}
+    />
+  );
+};
 
 const AutoExpandingTextarea = (props) => {
   const textareaRef = useRef(null);
@@ -40,62 +65,166 @@ const AutoExpandingTextarea = (props) => {
 
 
 
-const TickBox = ({ className }) => {
-  const [tick, setTick] = useState('');
+const TimeClickBox = ({ className, style }) => {
   const ref = useRef(null);
 
   useEffect(() => {
-    const handleSet = (e) => setTick(e.detail);
+    const handleSet = (e) => {
+      let val = e.detail || '';
+      if (val.match(/AM|PM/i)) {
+        try {
+          const [timePart, modifier] = val.trim().split(/\s+/);
+          let [h, m] = timePart.split(':');
+          h = parseInt(h, 10);
+          if (modifier.toUpperCase() === 'PM' && h < 12) h += 12;
+          if (modifier.toUpperCase() === 'AM' && h === 12) h = 0;
+          val = `${h.toString().padStart(2, '0')}:${m.padStart(2, '0')}`;
+        } catch(err) { val = ''; }
+      } else if (!val.match(/^\d{2}:\d{2}$/)) {
+        val = ''; // Fallback for old checkmarks/crosses or invalid formats
+      }
+      if (ref.current) {
+        ref.current.value = val;
+        if (val) ref.current.classList.add('has-value');
+        else ref.current.classList.remove('has-value');
+      }
+    };
     const el = ref.current;
     if (el) el.addEventListener('set-tick', handleSet);
     return () => { if (el) el.removeEventListener('set-tick', handleSet); };
   }, []);
 
-  const handleTick = () => {
-    if (tick === '') setTick('✓');
-    else if (tick === '✓') setTick('✗');
-    else setTick('');
+  const handleClick = (e) => {
+    if (!e.target.value) {
+      const now = new Date();
+      let hours = now.getHours().toString().padStart(2, '0');
+      let minutes = now.getMinutes().toString().padStart(2, '0');
+      e.target.value = `${hours}:${minutes}`;
+      e.target.classList.add('has-value');
+      e.target.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    try { e.target.showPicker(); } catch (err) {}
   };
+
+  const handleDoubleClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.target.value = '';
+    e.target.classList.remove('has-value');
+    e.target.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
   return (
-    <div
-      ref={ref}
-      className={`arb-tick-box ${className || ''}`}
-      onClick={handleTick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        userSelect: 'none',
-        color: tick === '✓' ? '#16a34a' : tick === '✗' ? '#dc2626' : 'inherit',
-        fontWeight: 'bold',
-        fontSize: '14px'
-      }}
-    >
-      {tick}
-    </div>
+    <>
+      <input
+        type="time"
+        ref={ref}
+        className={`arb-tick-box no-icon-time auto-green-time ${className || ''}`}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onChange={(e) => {
+          if (e.target.value) e.target.classList.add('has-value');
+          else e.target.classList.remove('has-value');
+        }}
+        style={{
+          ...style,
+          cursor: 'text',
+          border: 'none',
+          outline: 'none',
+          textAlign: 'center',
+          backgroundColor: 'transparent'
+        }}
+      />
+      <span 
+        className="clear-time-btn no-print" 
+        onClick={(e) => {
+          e.stopPropagation();
+          if (ref.current) {
+            ref.current.value = '';
+            ref.current.classList.remove('has-value');
+            ref.current.dispatchEvent(new Event('input', { bubbles: true }));
+            ref.current.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }} 
+        title="Clear Time"
+        style={{ top: '50%', transform: 'translateY(-50%)' }}
+      >✕</span>
+    </>
   );
 };
 
-const renderInput = (type) => {
-  if (type === 'date') return <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ fontFamily: 'inherit' }} />;
-  if (type === 'time') return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
-      <input type="time" className="arb-value-input no-icon-time" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ fontFamily: 'inherit' }} />
-      <span className="clear-time-btn no-print" onClick={(e) => {
-        const input = e.currentTarget.previousElementSibling;
-        if (input) {
-          input.value = '';
-          input.classList.remove('has-value');
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }}>×</span>
-    </div>
+const renderInput = (type, defaultValue = '') => {
+  if (type === 'date') return <input type="date" className="arb-value-input" defaultValue={defaultValue} onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ fontFamily: 'inherit' }} />;
+  if (type === 'time') {
+    return (
+      <input 
+        type="time" 
+        className="arb-value-input no-icon-time auto-green-time" 
+        defaultValue={defaultValue} 
+        onClick={e => {
+          if (!e.target.value) {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            e.target.value = `${hours}:${minutes}`;
+            e.target.classList.add('has-value');
+            e.target.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          try { e.target.showPicker(); } catch (err) {}
+        }} 
+        onDoubleClick={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          e.target.value = '';
+          e.target.classList.remove('has-value');
+          e.target.dispatchEvent(new Event('input', { bubbles: true }));
+        }}
+        onChange={e => {
+          if (e.target.value) e.target.classList.add('has-value');
+          else e.target.classList.remove('has-value');
+        }} 
+        style={{ fontFamily: 'inherit', width: '100%', height: '100%', border: 'none', textAlign: 'center', backgroundColor: 'transparent' }} 
+      />
+    );
+  }
+  if (type === 'nurse-signature') return <DatalistInput type="text" className="arb-value-input" listId="nurse-signatures-list" defaultValue={defaultValue} />;
+  if (type === 'procedure-suggestion') return <DatalistInput type="text" className="arb-value-input" listId="procedure-list" defaultValue={defaultValue} />;
+  if (type === 'lab-particulars-suggestion') return <DatalistInput type="text" className="arb-value-input" listId="lab-particulars-list" defaultValue={defaultValue} />;
+  if (type === 'radiology-suggestion') return <DatalistInput type="text" className="arb-value-input" listId="radiology-list" defaultValue={defaultValue} />;
+  if (type === 'misc-procedure-suggestion') return <DatalistInput type="text" className="arb-value-input" listId="misc-procedure-list" defaultValue={defaultValue} />;
+  if (type === 'user-signature') {
+    const userStr = localStorage.getItem('logged_in_user');
+    let userName = defaultValue || '';
+    let sigImg = '';
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.userName) userName = user.userName;
+        if (user.signatureImage) sigImg = user.signatureImage;
+      } catch (err) { }
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '35px', padding: '2px 0' }}>
+        {sigImg && <img src={sigImg} alt="Signature" style={{ maxHeight: '25px', maxWidth: '90%', objectFit: 'contain' }} />}
+        <input type="text" defaultValue={userName} style={{ width: '90%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', outline: 'none', color: '#000' }} />
+      </div>
+    );
+  }
+  if (type === 'flow-rate') return (
+    <select className="arb-value-input" defaultValue={defaultValue} style={{ cursor: 'pointer' }}>
+      <option value=""></option>
+      <option value="1 Liter">1 Liter</option>
+      <option value="2 Liters">2 Liters</option>
+      <option value="3 Liters">3 Liters</option>
+      <option value="4 Liters">4 Liters</option>
+      <option value="5 Liters">5 Liters</option>
+      <option value="6 Liters">6 Liters</option>
+    </select>
   );
-  return <AutoExpandingTextarea className="arb-value-input" />;
+  return <AutoExpandingTextarea className="arb-value-input" defaultValue={defaultValue} />;
 };
 
-const EmptyRows = ({ count, ids, cols, colTypes, colSpans, tableKey, onRemove }) => {
+const EmptyRows = ({ count, ids, cols, colTypes, colSpans, tableKey, onRemove, defaultValues }) => {
   const rows = ids || Array.from({ length: count || 0 });
   return rows.map((idOrItem, rowIndex) => {
     const id = ids ? idOrItem : rowIndex;
@@ -105,7 +234,7 @@ const EmptyRows = ({ count, ids, cols, colTypes, colSpans, tableKey, onRemove })
           const isLast = colIndex === cols - 1;
           return (
             <td key={colIndex} className="arb-value-cell" style={{ position: 'relative' }} colSpan={colSpans ? colSpans[colIndex] : undefined}>
-              {renderInput(colTypes ? colTypes[colIndex] : 'text')}
+              {renderInput(colTypes ? colTypes[colIndex] : 'text', defaultValues ? defaultValues[colIndex] : '')}
               {isLast && ids && onRemove && (
                 <button
                   type="button"
@@ -125,8 +254,13 @@ const EmptyRows = ({ count, ids, cols, colTypes, colSpans, tableKey, onRemove })
   });
 };
 
-const AddRowBtn = ({ onClick }) => (
-  <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px', marginBottom: '10px' }}>
+const AddRowBtn = ({ onClick, onSave }) => (
+  <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px', marginBottom: '10px' }}>
+    {onSave && (
+      <button type="button" onClick={onSave} style={{ padding: '4px 12px', fontSize: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <Save size={14} /> Save Table
+      </button>
+    )}
     <button type="button" onClick={onClick} style={{ padding: '4px 12px', fontSize: '12px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
       + Add Row
     </button>
@@ -137,7 +271,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
   const handlePrint = () => window.print();
 
   const generateIds = (count) => Array.from({ length: count }, () => Math.random().toString(36).substr(2, 9));
-  
+
   const initialRowIds = {
     visits1_1: generateIds(4),
     visits1_2: generateIds(4),
@@ -147,6 +281,8 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
     nebulization: generateIds(4),
     grbs: generateIds(4),
     abg: generateIds(4),
+    physiotherapy: generateIds(4),
+    dietician: generateIds(4),
     support: generateIds(4),
     ventilator: generateIds(4),
     nurses: generateIds(4),
@@ -155,30 +291,88 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
     oxygen: generateIds(4),
     lab: generateIds(4),
     radiology: generateIds(4),
-    misc: generateIds(4),
-    alpha: generateIds(4),
-    water: generateIds(4),
-    advance: generateIds(4)
+    misc: generateIds(4)
   };
 
+  const [currentUserName] = useState(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('logged_in_user'));
+      return user?.userName || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [currentPage, setCurrentPage] = useState(() => {
+    const saved = sessionStorage.getItem('arbCurrentPage');
+    return saved ? parseInt(saved, 10) : 1;
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('arbCurrentPage', currentPage);
+  }, [currentPage]);
   const [visitTableKeys, setVisitTableKeys] = useState(['visits1_1']);
+  const [operationTableKeys, setOperationTableKeys] = useState(['ops_1']);
   const [rowIds, setRowIds] = useState(initialRowIds);
   const [toastMsg, setToastMsg] = useState('');
   const [recordId, setRecordId] = useState(null);
   const [restoredData, setRestoredData] = useState(null);
+
+  const [consultantOptions, setConsultantOptions] = useState([]);
+  const [surgeonOptions, setSurgeonOptions] = useState([]);
+  const [assistantOptions, setAssistantOptions] = useState([]);
+  const [anaesthetistOptions, setAnaesthetistOptions] = useState([]);
+  const [procedureOptions, setProcedureOptions] = useState([]);
+  const [labParticularsOptions, setLabParticularsOptions] = useState([]);
+  const [radiologyOptions, setRadiologyOptions] = useState([]);
+  const [miscProcedureOptions, setMiscProcedureOptions] = useState([]);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/general-master')
+      .then(res => res.json())
+      .then(result => {
+        if (result.success) {
+          const consultantData = result.data.filter(item => item.form_name === 'Activity Record Billing' && item.field_name.toLowerCase().includes('consultant') && item.status === 'Active');
+          setConsultantOptions(consultantData.map(d => d.suggestion_value));
+
+          const surgeonData = result.data.filter(item => item.form_name === 'Activity Record Billing' && item.field_name.toLowerCase().includes('surgeon') && item.status === 'Active');
+          setSurgeonOptions(surgeonData.map(d => d.suggestion_value));
+
+          const assistantData = result.data.filter(item => item.form_name === 'Activity Record Billing' && item.field_name.toLowerCase().includes('assistant') && item.status === 'Active');
+          setAssistantOptions(assistantData.map(d => d.suggestion_value));
+
+          const anaesthetistData = result.data.filter(item => item.form_name === 'Activity Record Billing' && item.field_name.toLowerCase().includes('anaesthetist') && item.status === 'Active');
+          setAnaesthetistOptions(anaesthetistData.map(d => d.suggestion_value));
+
+          const procedureData = result.data.filter(item => item.form_name === 'Activity Record Billing' && item.field_name.toLowerCase().includes('procedure') && item.status === 'Active');
+          setProcedureOptions(procedureData.map(d => d.suggestion_value));
+
+          const labData = result.data.filter(item => item.form_name === 'Activity Record Billing' && item.field_name.toLowerCase().includes('lab') && item.status === 'Active');
+          setLabParticularsOptions(labData.map(d => d.suggestion_value));
+
+          const radiologyData = result.data.filter(item => item.form_name === 'Activity Record Billing' && item.field_name.toLowerCase().includes('radiology') && item.status === 'Active');
+          setRadiologyOptions(radiologyData.map(d => d.suggestion_value));
+
+          const miscData = result.data.filter(item => item.form_name === 'Activity Record Billing' && (item.field_name.toLowerCase().includes('misc') || item.field_name.toLowerCase().includes('miscellaneous')) && item.status === 'Active');
+          setMiscProcedureOptions(miscData.map(d => d.suggestion_value));
+        }
+      })
+      .catch(err => console.error('Failed to load master options:', err));
+  }, []);
 
   useEffect(() => {
     let saved = editData || restoreForm(PERSIST_KEY);
     if (saved) {
       if (editRecordId) setRecordId(editRecordId);
       else if (saved.recordId) setRecordId(saved.recordId);
-      
+
       if (saved.data) {
         if (saved.data.rowIds) setRowIds(saved.data.rowIds);
         if (saved.data.visitTableKeys) setVisitTableKeys(saved.data.visitTableKeys);
+        if (saved.data.operationTableKeys) setOperationTableKeys(saved.data.operationTableKeys);
         setRestoredData(saved.data);
       }
-      
+
       if (saved.patient) {
         const setVal = (id, val) => {
           const el = document.getElementById(id);
@@ -205,13 +399,13 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
 
   useEffect(() => {
     if (!restoredData) return;
-    
+
     const tryRestore = () => {
       const root = document.querySelector('.arb-page-wrapper');
       if (!root) return false;
-      const inputs = root.querySelectorAll('input, textarea');
+      const inputs = root.querySelectorAll('input:not(.arb-tick-box), textarea');
       const ticks = root.querySelectorAll('.arb-tick-box');
-      
+
       if (restoredData.inputValues) {
         restoredData.inputValues.forEach((val, i) => {
           if (inputs[i] && val !== undefined) {
@@ -236,28 +430,28 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
 
     let attempts = 0;
     const interval = setInterval(() => {
-       if (tryRestore() || ++attempts > 10) {
-          clearInterval(interval);
-          setRestoredData(null);
-       }
+      if (tryRestore() || ++attempts > 10) {
+        clearInterval(interval);
+        setRestoredData(null);
+      }
     }, 100);
 
     return () => clearInterval(interval);
-  }, [restoredData, rowIds, visitTableKeys]);
+  }, [restoredData, rowIds, visitTableKeys, operationTableKeys]);
 
   useEffect(() => {
     const handleInput = () => {
       const root = document.querySelector('.arb-page-wrapper');
       if (!root) return;
-      const inputs = root.querySelectorAll('input, textarea');
+      const inputs = root.querySelectorAll('input:not(.arb-tick-box), textarea');
       const ticks = root.querySelectorAll('.arb-tick-box');
-      
+
       const inputValues = Array.from(inputs).map(el => el.value);
-      const tickValues = Array.from(ticks).map(el => el.textContent);
-      
+      const tickValues = Array.from(ticks).map(el => el.value || el.textContent || '');
+
       const ip = document.getElementById('arb-ip-no')?.value;
       const uhid = document.getElementById('arb-hospital-no')?.value;
-      
+
       const currentPatient = {
         patientName: document.getElementById('arb-name')?.value,
         uhidNo: uhid,
@@ -270,16 +464,16 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
         doaTime: document.getElementById('arb-doa-time')?.value,
         dodTime: document.getElementById('arb-dod-time')?.value
       };
-      
-      const dataToSave = { rowIds, visitTableKeys, inputValues, tickValues, patient: currentPatient };
+
+      const dataToSave = { rowIds, visitTableKeys, operationTableKeys, inputValues, tickValues, patient: currentPatient };
       persistForm(PERSIST_KEY, { patient: currentPatient, data: dataToSave, recordId });
-      
+
       const hasContent = inputValues.some(v => v.trim() !== '') || tickValues.some(v => v !== '');
       if (hasContent) {
         autoSaveFormDraft(recordId, 'Activity Record Billing', currentPatient, dataToSave, setRecordId);
       }
     };
-    
+
     const root = document.querySelector('.arb-page-wrapper');
     if (root) {
       root.addEventListener('input', handleInput);
@@ -289,7 +483,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
         root.removeEventListener('click', handleInput);
       };
     }
-  }, [rowIds, visitTableKeys, recordId]);
+  }, [rowIds, visitTableKeys, operationTableKeys, recordId]);
 
   const handleClearForm = () => {
     if (window.confirm("Are you sure you want to clear this entire form? All typed data will be lost.")) {
@@ -302,6 +496,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
       });
       setRowIds(initialRowIds);
       setVisitTableKeys(['visits1_1']);
+      setOperationTableKeys(['ops_1']);
       setToastMsg('Form cleared.');
       setTimeout(() => setToastMsg(''), 2000);
     }
@@ -310,14 +505,14 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
   const handleSave = () => {
     const ip = document.getElementById('arb-ip-no')?.value || document.getElementById('arb-hospital-no')?.value || 'UNASSIGNED';
     const forceDraft = ip === 'UNASSIGNED';
-    
+
     const root = document.querySelector('.arb-page-wrapper');
-    const inputs = root.querySelectorAll('input, textarea');
+    const inputs = root.querySelectorAll('input:not(.arb-tick-box), textarea');
     const ticks = root.querySelectorAll('.arb-tick-box');
-    
+
     const inputValues = Array.from(inputs).map(el => el.value);
-    const tickValues = Array.from(ticks).map(el => el.textContent);
-    
+    const tickValues = Array.from(ticks).map(el => el.value || el.textContent || '');
+
     const currentPatient = {
       patientName: document.getElementById('arb-name')?.value,
       uhidNo: document.getElementById('arb-hospital-no')?.value,
@@ -330,18 +525,76 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
       doaTime: document.getElementById('arb-doa-time')?.value,
       dodTime: document.getElementById('arb-dod-time')?.value
     };
-    
-    const dataToSave = { rowIds, visitTableKeys, inputValues, tickValues, patient: currentPatient };
-    
+
+    const dataToSave = { rowIds, visitTableKeys, operationTableKeys, inputValues, tickValues, patient: currentPatient };
+
     const saved = upsertFormRecord(recordId, 'Activity Record Billing', ip, dataToSave, null, forceDraft);
     setRecordId(saved.id);
     clearPersistedForm(PERSIST_KEY);
-    
+
     setToastMsg(forceDraft ? 'Activity Record Billing saved as Draft!' : 'Activity Record Billing saved successfully!');
     setTimeout(() => {
       setToastMsg('');
       if (!forceDraft && onNavigate) onNavigate('view-records');
     }, 2000);
+  };
+
+  const handleWardTransferSave = () => {
+    handleSave();
+
+    const table = document.getElementById('ward-transfers-table');
+    let lastToValue = '';
+    let emptyRowIndex = -1;
+    let needsNewRow = false;
+
+    if (table) {
+      const rows = table.querySelectorAll('tbody tr');
+
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const inputs = rows[i].querySelectorAll('input, textarea');
+        if (inputs.length >= 4 && inputs[3].value.trim() !== '') {
+          lastToValue = inputs[3].value;
+          emptyRowIndex = i + 1;
+          break;
+        }
+      }
+
+      if (lastToValue !== '') {
+        if (emptyRowIndex < rows.length) {
+          const newInputs = rows[emptyRowIndex].querySelectorAll('input, textarea');
+          if (newInputs.length >= 3) {
+            newInputs[2].value = lastToValue;
+            newInputs[2].classList.add('has-value');
+            newInputs[2].dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        } else {
+          needsNewRow = true;
+        }
+      } else {
+        needsNewRow = true;
+      }
+    }
+
+    if (needsNewRow) {
+      addRow('wardTransfers');
+      if (lastToValue !== '') {
+        setTimeout(() => {
+          const updatedTable = document.getElementById('ward-transfers-table');
+          if (updatedTable) {
+            const updatedRows = updatedTable.querySelectorAll('tbody tr');
+            if (updatedRows.length > 0) {
+              const newLastRow = updatedRows[updatedRows.length - 1];
+              const newInputs = newLastRow.querySelectorAll('input, textarea');
+              if (newInputs.length >= 3) {
+                newInputs[2].value = lastToValue;
+                newInputs[2].classList.add('has-value');
+                newInputs[2].dispatchEvent(new Event('input', { bubbles: true }));
+              }
+            }
+          }
+        }, 50);
+      }
+    }
   };
 
   const triggerAutofill = (ipValue) => {
@@ -361,7 +614,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
       setVal('arb-ward', found.ward);
       setVal('arb-room-bed', found.bedNo || found.bed);
       setVal('arb-address', found.address || found.contactNo);
-      
+
       // Format date from DD/MM/YYYY to YYYY-MM-DD for <input type="date">
       if (found.doa) {
         const parts = found.doa.split('/');
@@ -379,57 +632,16 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           setVal('arb-dod', found.dod);
         }
       }
-      
+
       if (found.doaTime) setVal('arb-doa-time', found.doaTime);
       if (found.dodTime) setVal('arb-dod-time', found.dodTime);
     }
   };
 
-    const handleIpKeyDown = (e) => {
+  const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const value = e.target.value;
-      const found = findPatientByIpNo(value);
-      
-      let newPatient = { ...patient };
-      if (found) {
-        newPatient = {
-          ...patient,
-          name: found.patientName || patient.name,
-          age: found.age || patient.age,
-          sex: found.sex || patient.sex,
-          uhidNo: found.uhidNo || patient.uhidNo,
-          ipNo: found.ipNo || patient.ipNo,
-          ward: found.ward || patient.ward,
-          bed: found.bedNo || patient.bedNo || patient.bed || '',
-          doa: found.doa || patient.doa
-        };
-        setPatient(newPatient);
-        if (typeof setToastMsg !== 'undefined') {
-          setToastMsg('Patient details auto-filled');
-          setTimeout(() => setToastMsg(''), 2000);
-        }
-      }
-
-      if (e.target.name === 'ipNo' && value.trim() !== '') {
-        const root = document.querySelector('.arb-page-wrapper');
-          const inputs = root.querySelectorAll('input, textarea');
-          const ticks = root.querySelectorAll('.arb-tick-box');
-          const inputValues = Array.from(inputs).map(el => el.value);
-          const tickValues = Array.from(ticks).map(el => el.textContent);
-          const dataToSave = { rowIds, visitTableKeys, inputValues, tickValues, patient: currentPatient };
-          
-          const saved = upsertFormRecord(recordId, 'Activity Record Billing', value, dataToSave, null, false);
-        setRecordId(saved.id);
-        clearPersistedForm(PERSIST_KEY);
-        if (typeof setToastMsg !== 'undefined') {
-          setToastMsg('Record saved successfully!');
-          setTimeout(() => {
-            setToastMsg('');
-            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
-          }, 2000);
-        }
-      }
+      triggerAutofill(e.target.value);
     }
   };
 
@@ -446,6 +658,15 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
 
   const removeVisitTable = (key) => {
     setVisitTableKeys(prev => prev.filter(k => k !== key));
+  };
+
+  const addOperationTable = () => {
+    const newKey = `ops_${Math.random().toString(36).substr(2, 9)}`;
+    setOperationTableKeys(prev => [...prev, newKey]);
+  };
+
+  const removeOperationTable = (key) => {
+    setOperationTableKeys(prev => prev.filter(k => k !== key));
   };
 
   const handleVentilatorInput = (e) => {
@@ -535,6 +756,10 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
 
   return (
     <div className="arb-page-wrapper">
+      {/* Consultant Datalist */}
+      <datalist id="consultant-options-list">
+        {consultantOptions.map((opt, i) => <option key={i} value={opt} />)}
+      </datalist>
       {toastMsg && (
         <div className="no-print alert-success-toast">
           <CheckCircle2 size={18} />
@@ -550,7 +775,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
             <FolderCheck size={14} />
             <span>View Records</span>
           </button>
-        
+
           <button type="button" className="btn-mint-save" onClick={handlePrint}>
             <Printer size={14} />
             <span>Print Sheet</span>
@@ -561,7 +786,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
       <div className="arb-card-container">
 
         {/* PAGE 01 */}
-        <div className="arb-print-page">
+        <div className={`arb-print-page ${currentPage === 1 ? '' : 'hide-on-screen'}`}>
           <div className="arb-page-number">01</div>
 
           <table className="arb-table" style={{ borderBottom: 'none' }}>
@@ -650,7 +875,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                   <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Date of Admission :</span><input type="date" id="arb-doa" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }} /></div>
                 </td>
                 <td style={{ width: '25%', padding: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Time :</span><input type="time" id="arb-doa-time" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }} /></div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Time :</span><input type="time" id="arb-doa-time" className="arb-value-input no-icon-time auto-green-time" onClick={e => { if (!e.target.value) { const now = new Date(); e.target.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`; e.target.classList.add('has-value'); e.target.dispatchEvent(new Event('input', { bubbles: true })); } try { e.target.showPicker(); } catch (err) {} }} onDoubleClick={e => { e.preventDefault(); e.stopPropagation(); e.target.value = ''; e.target.classList.remove('has-value'); e.target.dispatchEvent(new Event('input', { bubbles: true })); }} onChange={e => { if (e.target.value) e.target.classList.add('has-value'); else e.target.classList.remove('has-value'); }} style={{ flex: 1, textAlign: 'left', backgroundColor: 'transparent', border: 'none', outline: 'none' }} /></div>
                 </td>
                 <td style={{ width: '25%', padding: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Room/Bed No. :</span><input type="text" id="arb-room-bed" className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
@@ -664,7 +889,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                   <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Date of Discharge :</span><input type="date" id="arb-dod" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }} /></div>
                 </td>
                 <td style={{ padding: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Time :</span><input type="time" id="arb-dod-time" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }} /></div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Time :</span><input type="time" id="arb-dod-time" className="arb-value-input no-icon-time auto-green-time" onClick={e => { if (!e.target.value) { const now = new Date(); e.target.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`; e.target.classList.add('has-value'); e.target.dispatchEvent(new Event('input', { bubbles: true })); } try { e.target.showPicker(); } catch (err) {} }} onDoubleClick={e => { e.preventDefault(); e.stopPropagation(); e.target.value = ''; e.target.classList.remove('has-value'); e.target.dispatchEvent(new Event('input', { bubbles: true })); }} onChange={e => { if (e.target.value) e.target.classList.add('has-value'); else e.target.classList.remove('has-value'); }} style={{ flex: 1, textAlign: 'left', backgroundColor: 'transparent', border: 'none', outline: 'none' }} /></div>
                 </td>
                 <td style={{ padding: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Room/Bed No. :</span><input type="text" className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
@@ -693,19 +918,19 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               <table className="arb-table">
                 <colgroup>
                   <col style={{ width: '3%' }} />
-                  <col style={{ width: '25%' }} />
-                  {Array.from({ length: 12 }).map((_, i) => <col key={i} style={{ width: '6%' }} />)}
+                  <col style={{ width: '15%' }} />
+                  {Array.from({ length: 10 }).map((_, i) => <col key={i} style={{ width: '8.2%' }} />)}
                 </colgroup>
                 <thead>
                   <tr>
-                    <th colSpan={14} className="arb-section-title">
+                    <th colSpan={12} className="arb-section-title">
                       NO. OF VISITS
                     </th>
                   </tr>
                   <tr>
-                    <th rowSpan={2} style={{ width: '1%' }}></th>
-                    <th className="arb-col-header" style={{ width: '51%' }}>DATES</th>
-                    {Array.from({ length: 6 }).map((_, i) => (
+                    <th rowSpan={2}></th>
+                    <th className="arb-col-header">DATES</th>
+                    {Array.from({ length: 5 }).map((_, i) => (
                       <th key={i} colSpan={2} className="arb-value-cell" style={{ backgroundColor: '#f8fafc' }}>
                         <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} style={{ fontFamily: 'inherit' }} />
                       </th>
@@ -713,10 +938,10 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                   </tr>
                   <tr>
                     <th className="arb-col-header">CONSULTANTS</th>
-                    {Array.from({ length: 6 }).map((_, i) => (
+                    {Array.from({ length: 5 }).map((_, i) => (
                       <React.Fragment key={i}>
-                        <th className="arb-col-header" style={{ width: '4%' }}>A.M.</th>
-                        <th className="arb-col-header" style={{ width: '4%' }}>P.M.</th>
+                        <th className="arb-col-header">A.M.</th>
+                        <th className="arb-col-header">P.M.</th>
                       </React.Fragment>
                     ))}
                   </tr>
@@ -725,14 +950,14 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                   {(rowIds[tableKey] || []).map((id, i) => (
                     <tr key={id}>
                       <td className="arb-value-cell" style={{ textAlign: 'center' }}>{i + 1}</td>
-                      {Array.from({ length: 13 }).map((_, j) => (
+                      {Array.from({ length: 11 }).map((_, j) => (
                         <td key={j} className="arb-value-cell" style={{ position: 'relative' }}>
                           {j === 0 ? (
-                            <AutoExpandingTextarea className="arb-value-input" />
+                            <input type="text" className="arb-value-input" list="consultant-options-list" defaultValue={currentUserName} style={{ width: '100%', height: '100%', border: 'none', textAlign: 'center', backgroundColor: 'transparent' }} />
                           ) : (
-                            <TickBox className="arb-value-input" style={{ width: '100%', height: '100%' }} />
+                            <TimeClickBox className="arb-value-input" style={{ width: '100%', height: '100%' }} />
                           )}
-                          {j === 12 && (
+                          {j === 10 && (
                             <button
                               type="button"
                               className="no-print"
@@ -749,7 +974,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                   ))}
                 </tbody>
               </table>
-              <AddRowBtn onClick={() => addRow(tableKey)} />
+              <AddRowBtn onSave={handleSave} onClick={() => addRow(tableKey)} />
             </div>
           ))}
 
@@ -761,14 +986,12 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
         </div>
 
         {/* PAGE 02 */}
-        <div >
-
-
-
+        <div className={`arb-print-page ${currentPage === 2 ? '' : 'hide-on-screen'}`}>
+          <div className="arb-page-number">02</div>
 
           <div className="arb-spacer"></div>
 
-          <table className="arb-table">
+          <table className="arb-table" id="ward-transfers-table">
             <thead>
               <tr>
                 <th colSpan={5} className="arb-section-title">WARD TRANSFERS</th>
@@ -782,53 +1005,79 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.wardTransfers} tableKey="wardTransfers" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.wardTransfers} tableKey="wardTransfers" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'text', 'text', 'nurse-signature']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('wardTransfers')} />
+          <AddRowBtn onSave={handleWardTransferSave} onClick={() => addRow('wardTransfers')} />
 
           <div className="arb-spacer"></div>
 
-          <table className="arb-table">
-            <thead>
-              <tr>
-                <th colSpan={2} className="arb-section-title">OPERATION / PROCEDURE CHART</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan={2} style={{ padding: '8px 16px' }}>
-                  <strong>1. SURGERY DETAILS : OPERATION :</strong> <AutoExpandingTextarea className="arb-value-input" style={{ width: '300px', display: 'inline-block', borderBottom: '1px dashed #000' }} /><br /><br />
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Date : <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} style={{ width: '110px', display: 'inline-block', borderBottom: '1px dashed #000', fontFamily: 'inherit' }} /></span>
-                    <span>Duration : <AutoExpandingTextarea className="arb-value-input" style={{ width: '100px', display: 'inline-block', borderBottom: '1px dashed #000' }} /></span>
-                    <span>ICD : <AutoExpandingTextarea className="arb-value-input" style={{ width: '100px', display: 'inline-block', borderBottom: '1px dashed #000' }} /></span>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: '8px 16px', width: '40%' }}>a. SURGEON<br />PROFESSIONAL CHARGES</td>
-                <td style={{ padding: '0' }}><AutoExpandingTextarea className="arb-value-input" /></td>
-              </tr>
-              <tr>
-                <td style={{ padding: '8px 16px' }}>b. ASSISTANT<br />PROFESSIONAL CHARGES</td>
-                <td style={{ padding: '0' }}><AutoExpandingTextarea className="arb-value-input" /></td>
-              </tr>
-              <tr>
-                <td style={{ padding: '8px 16px' }}>c. ANAESTHETIST<br />PROFESSIONAL CHARGES</td>
-                <td style={{ padding: '0' }}><AutoExpandingTextarea className="arb-value-input" /></td>
-              </tr>
-              <tr>
-                <td colSpan={2} style={{ padding: '8px 16px', height: '60px', verticalAlign: 'top' }}>
-                  ANY OTHER INFORMATION :
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          {operationTableKeys.map((opKey, index) => (
+            <div key={opKey} style={{ position: 'relative', marginBottom: '15px' }}>
+              {operationTableKeys.length > 1 && (
+                <button
+                  type="button"
+                  className="no-print btn-remove-block"
+                  onClick={() => removeOperationTable(opKey)}
+                  title="Delete Table"
+                  style={{ position: 'absolute', right: '-30px', top: '10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', padding: '4px', cursor: 'pointer', zIndex: 10 }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+              <table className="arb-table">
+                <thead>
+                  <tr>
+                    <th colSpan={2} className="arb-section-title">OPERATION / PROCEDURE CHART {operationTableKeys.length > 1 ? `(${index + 1})` : ''}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td colSpan={2} style={{ padding: '8px 16px' }}>
+                      <strong>1. SURGERY DETAILS : OPERATION :</strong> <AutoExpandingTextarea className="arb-value-input" style={{ width: '300px', display: 'inline-block', borderBottom: '1px dashed #000' }} /><br /><br />
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Date : <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} style={{ width: '110px', display: 'inline-block', borderBottom: '1px dashed #000', fontFamily: 'inherit' }} /></span>
+                        <span>Duration : <AutoExpandingTextarea className="arb-value-input" style={{ width: '100px', display: 'inline-block', borderBottom: '1px dashed #000' }} /></span>
+                        <span>ICD : <AutoExpandingTextarea className="arb-value-input" style={{ width: '100px', display: 'inline-block', borderBottom: '1px dashed #000' }} /></span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '8px 16px', width: '40%' }}>a. SURGEON<br />PROFESSIONAL CHARGES</td>
+                    <td style={{ padding: '0' }}><DatalistInput type="text" className="arb-value-input" listId="surgeon-list" style={{ padding: '8px' }} /></td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '8px 16px' }}>b. ASSISTANT<br />PROFESSIONAL CHARGES</td>
+                    <td style={{ padding: '0' }}><DatalistInput type="text" className="arb-value-input" listId="assistant-list" style={{ padding: '8px' }} /></td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '8px 16px' }}>c. ANAESTHETIST<br />PROFESSIONAL CHARGES</td>
+                    <td style={{ padding: '0' }}><DatalistInput type="text" className="arb-value-input" listId="anaesthetist-list" style={{ padding: '8px' }} /></td>
+                  </tr>
+                  <tr>
+                    <td colSpan={2} style={{ padding: '8px 16px', height: '60px', verticalAlign: 'top' }}>
+                      ANY OTHER INFORMATION :
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                <button type="button" onClick={handleSave} style={{ padding: '4px 12px', fontSize: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Save size={14} /> Save Table
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <div className="no-print" style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+            <button type="button" onClick={addOperationTable} style={{ padding: '6px 16px', fontSize: '14px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              + Add Operation Table
+            </button>
+          </div>
         </div>
 
         {/* PAGE 03 */}
-        <div className="arb-print-page">
+        <div className={`arb-print-page ${currentPage === 3 ? '' : 'hide-on-screen'}`}>
           <div className="arb-page-number">03</div>
 
           <table className="arb-table">
@@ -845,7 +1094,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               <EmptyRows ids={rowIds.nebulization} tableKey="nebulization" onRemove={removeRow} cols={9} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('nebulization')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('nebulization')} />
 
           <div className="arb-spacer"></div>
 
@@ -863,7 +1112,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               <EmptyRows ids={rowIds.grbs} tableKey="grbs" onRemove={removeRow} cols={9} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('grbs')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('grbs')} />
 
           <div className="arb-spacer"></div>
 
@@ -881,143 +1130,146 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               <EmptyRows ids={rowIds.abg} tableKey="abg" onRemove={removeRow} cols={9} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('abg')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('abg')} />
         </div>
 
         {/* PAGE 04 */}
-        <div className="arb-print-page">
-          <div className="arb-page-number"></div>
+        <div className={`arb-print-page ${currentPage === 4 ? '' : 'hide-on-screen'}`}>
+          <div className="arb-page-number">04</div>
 
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={6} className="arb-section-title">VISITS : SUPPORT SERVICES</th>
+                <th colSpan={3} className="arb-section-title">VISITS : PHYSIOTHERAPY</th>
               </tr>
               <tr>
-                <th colSpan={3} className="arb-sub-header">PHYSIOTHERAPY</th>
-                <th colSpan={3} className="arb-sub-header">DIETICIAN</th>
-              </tr>
-              <tr>
-                {/* Physio */}
                 <th className="arb-col-header">DATE</th>
                 <th className="arb-col-header">TREATMENT</th>
                 <th className="arb-col-header">SIGN.</th>
-                {/* Dietician */}
+              </tr>
+            </thead>
+            <tbody>
+              <EmptyRows ids={rowIds.physiotherapy || []} tableKey="physiotherapy" onRemove={removeRow} cols={3} colTypes={['date', 'text', 'user-signature']} defaultValues={['', '', currentUserName]} />
+            </tbody>
+          </table>
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('physiotherapy')} />
+
+          <div className="arb-spacer"></div>
+
+          <table className="arb-table">
+            <thead>
+              <tr>
+                <th colSpan={3} className="arb-section-title">VISITS : DIETICIAN</th>
+              </tr>
+              <tr>
                 <th className="arb-col-header">DATE</th>
                 <th className="arb-col-header">DIET</th>
                 <th className="arb-col-header">SIGN.</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.support} tableKey="support" onRemove={removeRow} cols={6} colTypes={['date', 'text', 'text', 'date', 'text', 'text']} />
+              <EmptyRows ids={rowIds.dietician || []} tableKey="dietician" onRemove={removeRow} cols={3} colTypes={['date', 'text', 'user-signature']} defaultValues={['', '', currentUserName]} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('support')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('dietician')} />
 
           <div className="arb-spacer"></div>
 
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={6} className="arb-section-title">VENTILATOR CHART</th>
+                <th colSpan={5} className="arb-section-title">VENTILATOR CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
                 <th className="arb-col-header">CONNECTING<br />TIME</th>
                 <th className="arb-col-header">DISCONNECTING<br />TIME</th>
                 <th className="arb-col-header">TOTAL CONSUMPTION</th>
-                <th className="arb-col-header">CHARGES</th>
                 <th className="arb-col-header">SIGNATURE</th>
               </tr>
             </thead>
             <tbody onInput={handleVentilatorInput}>
-              <EmptyRows ids={rowIds.ventilator} tableKey="ventilator" onRemove={removeRow} cols={6} colTypes={['date', 'time', 'time', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.ventilator} tableKey="ventilator" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'time', 'text', 'user-signature']} defaultValues={['', '', '', '', currentUserName]} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('ventilator')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('ventilator')} />
         </div>
 
-        {/* PAGE 2 (05) */}
-        <div className="arb-print-page">
-          <div className="arb-page-number"></div>
+        {/* PAGE 05 */}
+        <div className={`arb-print-page ${currentPage === 5 ? '' : 'hide-on-screen'}`}>
+          <div className="arb-page-number">05</div>
 
           <table className="arb-table">
             <colgroup>
               <col style={{ width: '10%' }} />
               <col style={{ width: '8%' }} />
-              <col style={{ width: '50%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '10%' }} />
+              <col style={{ width: '58%' }} />
+              <col style={{ width: '24%' }} />
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={6} className="arb-section-title">NURSES CHART</th>
+                <th colSpan={4} className="arb-section-title">NURSES CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header" style={{ width: '10%' }}>DATE</th>
                 <th className="arb-col-header" style={{ width: '8%' }}>TIME</th>
-                <th className="arb-col-header" style={{ width: '50%' }}>PROCEDURE</th>
-                <th className="arb-col-header" style={{ width: '14%' }}>NAME OF STAFF</th>
-                <th className="arb-col-header" style={{ width: '8%' }}>CHARGES</th>
-                <th className="arb-col-header" style={{ width: '10%' }}>SIGNATURE</th>
+                <th className="arb-col-header" style={{ width: '58%' }}>PROCEDURE</th>
+                <th className="arb-col-header" style={{ width: '24%' }}>NAME OF STAFF / SIGNATURE</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.nurses} tableKey="nurses" onRemove={removeRow} cols={6} colTypes={['date', 'time', 'text', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.nurses} tableKey="nurses" onRemove={removeRow} cols={4} colTypes={['date', 'time', 'procedure-suggestion', 'user-signature']} defaultValues={['', '', '', currentUserName]} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('nurses')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('nurses')} />
         </div>
 
-        {/* PAGE 3 (06) */}
-        <div className="arb-print-page">
-          <div className="arb-page-number"></div>
+        {/* PAGE 06 */}
+        <div className={`arb-print-page ${currentPage === 6 ? '' : 'hide-on-screen'}`}>
+          <div className="arb-page-number">06</div>
 
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={4} className="arb-section-title">ECG CHART</th>
+                <th colSpan={3} className="arb-section-title">ECG CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
                 <th className="arb-col-header">NO.</th>
                 <th className="arb-col-header">SIGN</th>
-                <th className="arb-col-header">CHARGES</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.ecg} tableKey="ecg" onRemove={removeRow} cols={4} colTypes={['date', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.ecg} tableKey="ecg" onRemove={removeRow} cols={3} colTypes={['date', 'text', 'user-signature']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('ecg')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('ecg')} />
 
           <div className="arb-spacer"></div>
 
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={4} className="arb-section-title">BLOOD TRANSFUSION CHART</th>
+                <th colSpan={3} className="arb-section-title">BLOOD TRANSFUSION CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
                 <th className="arb-col-header">NO.</th>
                 <th className="arb-col-header">SIGN</th>
-                <th className="arb-col-header">CHARGES</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.blood} tableKey="blood" onRemove={removeRow} cols={4} colTypes={['date', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.blood} tableKey="blood" onRemove={removeRow} cols={3} colTypes={['date', 'text', 'user-signature']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('blood')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('blood')} />
 
           <div className="arb-spacer"></div>
 
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={7} className="arb-section-title">OXYGEN CHART</th>
+                <th colSpan={6} className="arb-section-title">OXYGEN CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
@@ -1025,152 +1277,103 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                 <th className="arb-col-header">DISCONNECTING<br />TIME</th>
                 <th className="arb-col-header">FLOW<br />RATE</th>
                 <th className="arb-col-header">HOURS</th>
-                <th className="arb-col-header">CHARGES</th>
                 <th className="arb-col-header">SIGNATURE</th>
               </tr>
             </thead>
-            <tbody onInput={(e) => handleTimeCalculation(e, 1)}>
-              <EmptyRows ids={rowIds.oxygen} tableKey="oxygen" onRemove={removeRow} cols={7} colTypes={['date', 'time', 'time', 'text', 'text', 'text', 'text']} />
+            <tbody onInput={handleVentilatorInput}>
+              <EmptyRows ids={rowIds.oxygen} tableKey="oxygen" onRemove={removeRow} cols={6} colTypes={['date', 'time', 'time', 'flow-rate', 'text', 'user-signature']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('oxygen')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('oxygen')} />
         </div>
 
-        {/* PAGE 4 (07) */}
-        <div className="arb-print-page">
-          <div className="arb-page-number"></div>
+        {/* PAGE 07 */}
+        <div className={`arb-print-page ${currentPage === 7 ? '' : 'hide-on-screen'}`}>
+          <div className="arb-page-number">07</div>
 
           <table className="arb-table">
+            <colgroup>
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '67%' }} />
+              <col style={{ width: '15%' }} />
+            </colgroup>
             <thead>
               <tr>
-                <th colSpan={5} className="arb-section-title">LAB INVESTIGATION CHART</th>
+                <th colSpan={4} className="arb-section-title">LAB INVESTIGATION CHART</th>
               </tr>
               <tr>
-                <th className="arb-col-header" style={{ width: '15%' }}>DATE</th>
-                <th className="arb-col-header" style={{ width: '10%' }}>TIME</th>
-                <th className="arb-col-header" style={{ width: '45%' }}>PARTICULARS</th>
-                <th className="arb-col-header" style={{ width: '15%' }}>CHARGES</th>
-                <th className="arb-col-header" style={{ width: '15%' }}>SIGNATURE</th>
+                <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">TIME</th>
+                <th className="arb-col-header">PARTICULARS</th>
+                <th className="arb-col-header">SIGNATURE</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.lab} tableKey="lab" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.lab} tableKey="lab" onRemove={removeRow} cols={4} colTypes={['date', 'time', 'lab-particulars-suggestion', 'user-signature']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('lab')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('lab')} />
         </div>
 
-        {/* PAGE 5 (08) */}
-        <div className="arb-print-page">
-          <div className="arb-page-number"></div>
+        {/* PAGE 08 */}
+        <div className={`arb-print-page ${currentPage === 8 ? '' : 'hide-on-screen'}`}>
+          <div className="arb-page-number">08</div>
 
           <table className="arb-table">
+            <colgroup>
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '67%' }} />
+              <col style={{ width: '15%' }} />
+            </colgroup>
             <thead>
               <tr>
-                <th colSpan={5} className="arb-section-title">RADIOLOGY / ULTRA SOUND / ECHO / DOPPLER</th>
+                <th colSpan={4} className="arb-section-title">RADIOLOGY / ULTRA SOUND / ECHO / DOPPLER</th>
               </tr>
               <tr>
-                <th className="arb-col-header" style={{ width: '15%' }}>DATE</th>
-                <th className="arb-col-header" style={{ width: '10%' }}>TIME</th>
-                <th className="arb-col-header" style={{ width: '45%' }}>PARTICULARS</th>
-                <th className="arb-col-header" style={{ width: '15%' }}>SIGNATURE</th>
-                <th className="arb-col-header" style={{ width: '15%' }}>CHARGES</th>
+                <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">TIME</th>
+                <th className="arb-col-header">PARTICULARS</th>
+                <th className="arb-col-header">SIGNATURE</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.radiology} tableKey="radiology" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.radiology} tableKey="radiology" onRemove={removeRow} cols={4} colTypes={['date', 'time', 'radiology-suggestion', 'user-signature']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('radiology')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('radiology')} />
 
           <div className="arb-spacer"></div>
 
           <table className="arb-table">
+            <colgroup>
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '75%' }} />
+              <col style={{ width: '15%' }} />
+            </colgroup>
             <thead>
               <tr>
-                <th colSpan={4} className="arb-section-title" style={{ textAlign: 'left', paddingLeft: '10px' }}>MISCELLANEOUS PROCEDURE :</th>
+                <th colSpan={3} className="arb-section-title" style={{ textAlign: 'left', paddingLeft: '10px' }}>MISCELLANEOUS PROCEDURE :</th>
               </tr>
               <tr>
                 <th className="arb-col-header">Date</th>
                 <th className="arb-col-header">Procedure</th>
-                <th className="arb-col-header">Charges</th>
                 <th className="arb-col-header">Signature</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.misc} tableKey="misc" onRemove={removeRow} cols={4} colTypes={['date', 'text', 'text', 'text']} />
+              <EmptyRows ids={rowIds.misc} tableKey="misc" onRemove={removeRow} cols={3} colTypes={['date', 'misc-procedure-suggestion', 'user-signature']} />
             </tbody>
           </table>
-          <AddRowBtn onClick={() => addRow('misc')} />
-
-          <div className="arb-spacer"></div>
-
-          <table className="arb-table">
-            <thead>
-              <tr>
-                <th colSpan={5} className="arb-section-title" style={{ textAlign: 'left', paddingLeft: '10px' }}>ALPHA BED CHARGES :</th>
-              </tr>
-              <tr>
-                <th className="arb-col-header">Date</th>
-                <th className="arb-col-header">Connecting<br />Time</th>
-                <th className="arb-col-header">Disconnecting<br />Time</th>
-                <th className="arb-col-header">Charges</th>
-                <th className="arb-col-header">Signature</th>
-              </tr>
-            </thead>
-            <tbody>
-              <EmptyRows ids={rowIds.alpha} tableKey="alpha" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'time', 'text', 'text']} />
-            </tbody>
-          </table>
-          <AddRowBtn onClick={() => addRow('alpha')} />
-
-          <div className="arb-spacer"></div>
-
-          <table className="arb-table">
-            <thead>
-              <tr>
-                <th colSpan={5} className="arb-section-title" style={{ textAlign: 'left', paddingLeft: '10px' }}>WATER BED CHARGES :</th>
-              </tr>
-              <tr>
-                <th className="arb-col-header">Date</th>
-                <th className="arb-col-header">Connecting<br />Time</th>
-                <th className="arb-col-header">Disconnecting<br />Time</th>
-                <th className="arb-col-header">Charges</th>
-                <th className="arb-col-header">Signature</th>
-              </tr>
-            </thead>
-            <tbody>
-              <EmptyRows ids={rowIds.water} tableKey="water" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'time', 'text', 'text']} />
-            </tbody>
-          </table>
-          <AddRowBtn onClick={() => addRow('water')} />
-
-          <div className="arb-spacer"></div>
-
-          <table className="arb-table">
-            <thead>
-              <tr>
-                <th colSpan={4} className="arb-section-title">ADVANCE</th>
-              </tr>
-              <tr>
-                <th className="arb-col-header">DATE</th>
-                <th className="arb-col-header">RT. No.</th>
-                <th className="arb-col-header">Rs.</th>
-                <th className="arb-col-header">P.</th>
-              </tr>
-            </thead>
-            <tbody>
-              <EmptyRows ids={rowIds.advance} tableKey="advance" onRemove={removeRow} cols={4} colTypes={['date', 'text', 'text', 'text']} />
-            </tbody>
-          </table>
-          <AddRowBtn onClick={() => addRow('advance')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('misc')} />
 
           <div className="arb-footer-section">
             <div className="arb-footer-row">
               <div className="arb-footer-col" style={{ display: 'flex', alignItems: 'center' }}>
                 <span className="arb-label">DATE :</span>
                 <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: '150px' }}>
-                  <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => {try{e.target.showPicker()}catch(err){}}} style={{ width: '100%', borderBottom: '1px dashed #000', fontFamily: 'inherit', padding: '0 4px', textAlign: 'left' }} />
+                  <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ width: '100%', borderBottom: '1px dashed #000', fontFamily: 'inherit', padding: '0 4px', textAlign: 'left' }} />
                   <span className="clear-time-btn no-print" style={{ right: '22px' }} onClick={(e) => {
                     const input = e.currentTarget.previousElementSibling;
                     if (input) {
@@ -1189,7 +1392,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               <div className="arb-footer-col" style={{ display: 'flex', alignItems: 'center' }}>
                 <span className="arb-label">TIME :</span>
                 <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: '150px' }}>
-                  <input type="time" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => {try{e.target.showPicker()}catch(err){}}} style={{ width: '100%', borderBottom: '1px dashed #000', fontFamily: 'inherit', padding: '0 4px', textAlign: 'left' }} />
+                  <input type="time" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ width: '100%', borderBottom: '1px dashed #000', fontFamily: 'inherit', padding: '0 4px', textAlign: 'left' }} />
                   <span className="clear-time-btn no-print" style={{ right: '22px' }} onClick={(e) => {
                     const input = e.currentTarget.previousElementSibling;
                     if (input) {
@@ -1219,10 +1422,32 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
 
       </div>
 
-      <div className="no-print" style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        gap: '12px', 
+      <div className="no-print pagination-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', marginBottom: '20px', padding: '0 10px' }}>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          disabled={currentPage === 1}
+          style={{ minWidth: '100px', display: 'flex', justifyContent: 'center' }}
+        >
+          <ChevronLeft size={16} style={{ marginRight: '4px' }} /> Previous
+        </button>
+        <span style={{ fontWeight: 'bold' }}>Page {currentPage} of 8</span>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => setCurrentPage(p => Math.min(8, p + 1))}
+          disabled={currentPage === 8}
+          style={{ minWidth: '100px', display: 'flex', justifyContent: 'center' }}
+        >
+          Next <ChevronRight size={16} style={{ marginLeft: '4px' }} />
+        </button>
+      </div>
+
+      <div className="no-print" style={{
+        display: 'flex',
+        justifyContent: 'center',
+        gap: '12px',
         padding: '20px 0',
         marginTop: '20px',
         borderTop: '2px dashed #cbd5e1'
@@ -1364,8 +1589,10 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           font-size: 13px;
           color: #444;
         }
-        .no-icon-time::-webkit-calendar-picker-indicator {
+        .no-icon-time::-webkit-calendar-picker-indicator,
+        .no-icon-time::-webkit-clear-button {
           display: none;
+          -webkit-appearance: none;
         }
         .clear-time-btn {
           display: none;
@@ -1373,10 +1600,10 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           right: 2px;
           cursor: pointer;
           color: #ef4444;
-          font-weight: 900;
-          font-size: 14px;
-          background: #fff;
-          padding: 0 4px;
+          font-weight: normal;
+          font-size: 10px;
+          background: transparent;
+          padding: 0 2px;
           border-radius: 2px;
           z-index: 5;
         }
@@ -1439,7 +1666,43 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
             display: none !important;
           }
         }
+        @media screen {
+          .hide-on-screen {
+            display: none !important;
+          }
+        }
       `}</style>
+
+      <datalist id="nurse-signatures-list">
+        <option value="Sister Anjali" />
+        <option value="Sister Priya" />
+        <option value="Sister Mary" />
+        <option value="Sister Kavita" />
+        <option value="Sister Nisha" />
+        <option value="Brother Rahul" />
+      </datalist>
+
+      <datalist id="surgeon-list">
+        {surgeonOptions.map((opt, i) => <option key={`s-${i}`} value={opt} />)}
+      </datalist>
+      <datalist id="assistant-list">
+        {assistantOptions.map((opt, i) => <option key={`a-${i}`} value={opt} />)}
+      </datalist>
+      <datalist id="anaesthetist-list">
+        {anaesthetistOptions.map((opt, i) => <option key={`an-${i}`} value={opt} />)}
+      </datalist>
+      <datalist id="procedure-list">
+        {procedureOptions.map((opt, i) => <option key={`p-${i}`} value={opt} />)}
+      </datalist>
+      <datalist id="lab-particulars-list">
+        {labParticularsOptions.map((opt, i) => <option key={`l-${i}`} value={opt} />)}
+      </datalist>
+      <datalist id="radiology-list">
+        {radiologyOptions.map((opt, i) => <option key={`r-${i}`} value={opt} />)}
+      </datalist>
+      <datalist id="misc-procedure-list">
+        {miscProcedureOptions.map((opt, i) => <option key={`m-${i}`} value={opt} />)}
+      </datalist>
     </div>
   );
 }

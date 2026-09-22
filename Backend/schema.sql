@@ -141,3 +141,29 @@ CREATE TABLE IF NOT EXISTS regulardrugprescription (
     form_data JSONB NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 17. Emergency Doctor Initial Assessment
+CREATE TABLE IF NOT EXISTS emergencydoctorinitialassessment (
+    id SERIAL PRIMARY KEY,
+    patient_id INT REFERENCES patients(id) ON DELETE CASCADE,
+    form_data JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 18. Initial Assessment Form
+CREATE TABLE IF NOT EXISTS initialassessmentform (
+    id SERIAL PRIMARY KEY,
+    patient_id INT REFERENCES patients(id) ON DELETE CASCADE,
+    form_data JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 19. Patient Register Master
+CREATE TABLE IF NOT EXISTS patient_register_master (
+    id SERIAL PRIMARY KEY,
+    category VARCHAR(50) NOT NULL,
+    label VARCHAR(100) NOT NULL,
+    status VARCHAR(20) DEFAULT 'Active',
+    color VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

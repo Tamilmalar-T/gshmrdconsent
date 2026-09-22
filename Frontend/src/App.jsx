@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import LoginPage from './components/LoginPage';
-import PatientRegistrationPage from './components/PatientRegistrationPage';
+import IPRegister from './components/IPRegister';
+import { IPListPage } from './components/WardMasterPage';
+import NewPatientRegistrationPage from './components/NewPatientRegistrationPage';
 import PatientDetailsPage from './components/PatientDetailsPage';
 import VitalsChartPage from './components/VitalsChartPage';
 import ConsentGeneralAdmissionPage from './components/ConsentGeneralAdmissionPage';
@@ -19,14 +21,49 @@ import UserMasterPage from './components/UserMasterPage';
 import TypeMasterPage from './components/TypeMasterPage';
 import CaseSheetMasterPage from './components/CaseSheetMasterPage';
 import NurseMasterPage from './components/NurseMasterPage';
-import AssessmentMasterPage from './components/AssessmentMasterPage';
+import GeneralMasterPage from './components/GeneralMasterPage';
+import PatientRegisterMasterPage from './components/PatientRegisterMasterPage';
+import WardMasterPage from './components/WardMasterPage';
 import InvestigationChartPage from './components/InvestigationChartPage';
 import InternalTransferFormPage from './components/InternalTransferFormPage';
+import ExternalTransferFormPage from './components/ExternalTransferFormPage';
 import RegularDrugPrescriptionPage from './components/RegularDrugPrescriptionPage';
 import ActivityRecordBilling from './components/ActivityRecordBilling';
 import LoginDetailsPage from './components/LoginDetailsPage';
+import CultureChartPage from './components/CultureChartPage';
+import ConsolidatedAssessmentPage from './components/ConsolidatedAssessmentPage';
+import InitialAssessmentFormPage from './components/InitialAssessmentFormPage';
+import InitialAssessmentByDoctorPage from './components/InitialAssessmentByDoctorPage';
+import EmergencyDoctorInitialAssessmentPage from './components/EmergencyDoctorInitialAssessmentPage';
+import AntenatalCaseRecordPage from './components/AntenatalCaseRecordPage';
+import LabourRecordPage from './components/LabourRecordPage';
+import PartographPage from './components/PartographPage';
+import OperationNotesCaesareanSectionPage from './components/OperationNotesCaesareanSectionPage';
+import OperationNotesPage from './components/OperationNotesPage';
+import MedicoLegalRegisterPage from './components/MedicoLegalRegisterPage';
+import IncidentReportPage from './components/IncidentReportPage';
+import AdverseDrugReactionReportPage from './components/AdverseDrugReactionReportPage';
+import PhysiotherapyAssessmentPage from './components/PhysiotherapyAssessmentPage';
+import NursingInitialAssessmentObstetricsPage from './components/NursingInitialAssessmentObstetricsPage';
+import ConsentHospitalizationConditionsOfServicePage from './components/ConsentHospitalizationConditionsOfServicePage';
+import AdmissionRecordPage from './components/AdmissionRecordPage';
+import RoomTariffPage from './components/RoomTariffPage';
+import ConsentHospitalizationConductProceduresPage from './components/ConsentHospitalizationConductProceduresPage';
+import ConsentHivAntibodiesTestPage from './components/ConsentHivAntibodiesTestPage';
+import PreOperativeChecklistPage from './components/PreOperativeChecklistPage';
+import PostOperativeChecklistPage from './components/PostOperativeChecklistPage';
+import SurgicalSafetyChecklistPage from './components/SurgicalSafetyChecklistPage';
+import ProductMasterPage from './components/ProductMasterPage';
+import DepartmentMasterPage from './components/DepartmentMasterPage';
+import SubDepartmentMasterPage from './components/SubDepartmentMasterPage';
+import ConsultantMasterPage from './components/ConsultantMasterPage';
+import ControlMasterPage from './components/ControlMasterPage';
+import PackageMappingPage from './components/PackageMappingPage';
+import HospitalBranchMasterPage from './components/HospitalBranchMasterPage';
 import { Undo2 } from 'lucide-react';
 import { hasUndoHistory, performGlobalUndo } from './utils/formPersist';
+import { initKeyboardNavigation } from './utils/keyboardNavigation';
+import Breadcrumb from './components/Breadcrumb';
 import './App.css';
 
 function App() {
@@ -45,8 +82,20 @@ function App() {
   const [formKeyCounter, setFormKeyCounter] = useState(0);
   const scrollPosRef = useRef(0);
 
+  // Initialize Global Keyboard Navigation for all forms
+  useEffect(() => {
+    const cleanup = initKeyboardNavigation();
+    return cleanup;
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('active_tab', activeTab);
+    scrollPosRef.current = 0;
+    const mainContent = document.querySelector('.app-main-content');
+    if (mainContent) {
+      mainContent.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
   }, [activeTab]);
 
   // Global Undo checker
@@ -69,10 +118,9 @@ function App() {
     const handleKeyDown = (e) => {
       // Ctrl+Z or Cmd+Z
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        // If user is focused on an input or textarea, let the native browser text undo handle it
         const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
         if (activeTag === 'input' || activeTag === 'textarea') {
-          return; // Allow native text undo
+          return;
         }
 
         if (hasUndoHistory()) {
@@ -116,6 +164,29 @@ function App() {
 
     localStorage.setItem('logged_in_user', JSON.stringify(user));
     setLoggedInUser(user);
+
+    if (user.landingPage) {
+      const pageTabMap = {
+        'Patient Registration': 'patient-registration',
+        'New Patient Registration': 'new-patient-registration',
+        'Ward Master': 'ward-master',
+        'Consent Form': 'general-admission-consent',
+        'Nurses Care Plan': 'nurse-care-plan',
+        'Nurses Daily Assessment': 'nurses-daily-assessment',
+        'Resident Doctor Progress': 'resident-doctor-progress',
+        'Vitals Chart': 'vitals-chart',
+        'Lab Requisition': 'lab-requisition',
+        'User Master': 'user-master',
+        'Department Master': 'department-master',
+        'Consultant Master': 'consultant-master',
+        'Hospital Branch Master': 'hospital-branch-master',
+        'Control Master': 'control-master',
+        'Activity Record Billing': 'activity-record-billing'
+      };
+      if (pageTabMap[user.landingPage]) {
+        setActiveTab(pageTabMap[user.landingPage]);
+      }
+    }
   };
 
   const handleLogout = () => {
@@ -151,14 +222,22 @@ function App() {
     if (activeTab !== 'view-records' && activeTab !== 'view-drafts') {
       setLastFormTab(activeTab);
     }
+    scrollPosRef.current = 0;
     setActiveTab(targetTab);
+    const mainContent = document.querySelector('.app-main-content');
+    if (mainContent) mainContent.scrollTop = 0;
+    window.scrollTo(0, 0);
   };
 
   const handleSidebarNavigate = (targetTab) => {
     window.isPrintViewMode = false;
-    setEditRecord(null); // Clear any edit state so draft restores correctly
-    setFormKeyCounter(prev => prev + 1); // Force unmount/remount
+    setEditRecord(null);
+    scrollPosRef.current = 0;
+    setFormKeyCounter(prev => prev + 1);
     handleNavigate(targetTab);
+    const mainContent = document.querySelector('.app-main-content');
+    if (mainContent) mainContent.scrollTop = 0;
+    window.scrollTo(0, 0);
   };
 
   const handleBackToForm = () => {
@@ -178,22 +257,12 @@ function App() {
   // --- Auto-Resize Textareas Globally ---
   useEffect(() => {
     const resizeTextareas = () => {
-      const mainContent = document.querySelector('.app-main-content');
-      const scrollPos = mainContent ? mainContent.scrollTop : window.scrollY;
-      
       document.querySelectorAll('textarea').forEach(textarea => {
         textarea.style.height = 'auto';
         textarea.style.height = `${textarea.scrollHeight}px`;
       });
-
-      if (mainContent) {
-        mainContent.scrollTop = scrollPos;
-      } else {
-        window.scrollTo(0, scrollPos);
-      }
     };
 
-    // 1) Global event listener for manual typing
     const handleInput = (e) => {
       if (e.target.tagName.toLowerCase() === 'textarea') {
         e.target.style.height = 'auto';
@@ -202,16 +271,13 @@ function App() {
     };
     document.addEventListener('input', handleInput);
 
-    // 2) Run resize after tab switches and state restoration
     const timer1 = setTimeout(resizeTextareas, 10);
     const timer2 = setTimeout(resizeTextareas, 100);
-    const timer3 = setTimeout(resizeTextareas, 300);
 
     return () => {
       document.removeEventListener('input', handleInput);
       clearTimeout(timer1);
       clearTimeout(timer2);
-      clearTimeout(timer3);
     };
   }, [activeTab, editRecord, selectedIpNoForView]);
 
@@ -237,7 +303,15 @@ function App() {
     const editRecordId = editRecord && editRecord.tabId === activeTab ? editRecord.recId : null;
     switch (activeTab) {
       case 'patient-registration':
-        return <PatientRegistrationPage onViewDetails={handleViewPatientDetails} />;
+        return <IPRegister onViewDetails={handleViewPatientDetails} onNavigate={handleNavigate} editData={editData} />;
+      case 'ip-list':
+        return <IPListPage onNavigate={handleNavigate} onEditRecord={handleEditRecord} />;
+      case 'new-patient-registration':
+        return <NewPatientRegistrationPage setSidebarOpen={setSidebarOpen} />;
+      case 'ward-master':
+        return <WardMasterPage />;
+      case 'consolidated-assessment':
+        return <ConsolidatedAssessmentPage onEdit={handleEditRecord} />;
       case 'view-records':
         return <PatientDetailsPage initialMode="records" onBack={handleBackToForm} onEdit={handleEditRecord} filterTabId={lastFormTab} />;
       case 'view-drafts':
@@ -254,6 +328,22 @@ function App() {
         return <ProgressSheetPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'general-admission-consent':
         return <ConsentGeneralAdmissionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'consent-hospitalization-conditions-of-service':
+        return <ConsentHospitalizationConditionsOfServicePage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'consent-hospitalization-conduct-procedures':
+        return <ConsentHospitalizationConductProceduresPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'consent-hiv-antibodies-test':
+        return <ConsentHivAntibodiesTestPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'admission-record':
+        return <AdmissionRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'room-tariff':
+        return <RoomTariffPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'pre-operative-checklist':
+        return <PreOperativeChecklistPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'post-operative-checklist':
+        return <PostOperativeChecklistPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'surgical-safety-checklist':
+        return <SurgicalSafetyChecklistPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'vitals-chart':
         return <VitalsChartPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'bp-chart':
@@ -279,18 +369,64 @@ function App() {
         return <CaseSheetMasterPage />;
       case 'nurse-master':
         return <NurseMasterPage />;
-      case 'assessment-master':
-        return <AssessmentMasterPage />;
+      case 'general-master':
+        return <GeneralMasterPage />;
+      case 'patient-register-master':
+        return <PatientRegisterMasterPage />;
+      case 'consultant-master':
+        return <ConsultantMasterPage setSidebarOpen={setSidebarOpen} />;
+      case 'control-master':
+        return <ControlMasterPage />;
+      case 'package-mapping':
+        return <PackageMappingPage />;
+      case 'product-master':
+        return <ProductMasterPage />;
+      case 'hospital-branch-master':
+        return <HospitalBranchMasterPage />;
+      case 'department-master':
+        return <DepartmentMasterPage />;
+      case 'sub-department-master':
+        return <SubDepartmentMasterPage />;
       case 'investigation-chart':
         return <InvestigationChartPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'culture-chart':
+        return <CultureChartPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'internal-transfer-form':
         return <InternalTransferFormPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'external-transfer-form':
+        return <ExternalTransferFormPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'regular-drug-prescription':
         return <RegularDrugPrescriptionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'activity-record-billing':
         return <ActivityRecordBilling onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'login-details':
         return <LoginDetailsPage />;
+      case 'initial-assessment-form':
+        return <InitialAssessmentFormPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'initial-assessment-by-doctor':
+        return <InitialAssessmentByDoctorPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'emergency-doctor-initial-assessment':
+        return <EmergencyDoctorInitialAssessmentPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'antenatal-case-record':
+        return <AntenatalCaseRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'labour-record':
+        return <LabourRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'partograph':
+        return <PartographPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'operation-notes-caesarean-section':
+        return <OperationNotesCaesareanSectionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'operation-notes':
+        return <OperationNotesPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'medico-legal-register':
+        return <MedicoLegalRegisterPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'incident-report':
+        return <IncidentReportPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'adverse-drug-reaction-report':
+        return <AdverseDrugReactionReportPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'physiotherapy-assessment':
+        return <PhysiotherapyAssessmentPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'nursing-initial-assessment-obstetrics':
+        return <NursingInitialAssessmentObstetricsPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       default:
         return <NursesCarePlanPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
     }
@@ -314,9 +450,12 @@ function App() {
         <Sidebar
           sidebarOpen={sidebarOpen}
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleSidebarNavigate}
         />
         <main key={formKeyCounter} className={`app-main-content ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
+          <div className="global-breadcrumb-wrapper no-print">
+            <Breadcrumb activeTab={activeTab} />
+          </div>
           {renderContent()}
         </main>
       </div>

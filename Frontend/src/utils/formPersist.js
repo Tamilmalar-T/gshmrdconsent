@@ -4,8 +4,17 @@
  * and page refresh. Uses a unique key per form to avoid collisions.
  */
 
+const restoreTimestamps = {};
+
 export const persistForm = (key, data) => {
   try {
+    // If restoreForm was called very recently (e.g. within 200ms), 
+    // it means the component just mounted. We ignore this persist call 
+    // to prevent overwriting sessionStorage with the initial empty state.
+    if (restoreTimestamps[key] && Date.now() - restoreTimestamps[key] < 200) {
+      return;
+    }
+
     const rawNew = JSON.stringify(data);
     const rawPrev = sessionStorage.getItem(`form_persist_${key}`);
 
@@ -30,6 +39,7 @@ export const persistForm = (key, data) => {
  */
 export const restoreForm = (key) => {
   try {
+    restoreTimestamps[key] = Date.now();
     const raw = sessionStorage.getItem(`form_persist_${key}`);
     return raw ? JSON.parse(raw) : null;
   } catch (e) {

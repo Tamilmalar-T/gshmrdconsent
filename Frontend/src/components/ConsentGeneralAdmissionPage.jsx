@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
@@ -7,12 +7,14 @@ import {
   FileText,
   Upload,
   FolderCheck,
-  FileEdit
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft, getSavedRecords } from '../utils/savedRecordsDB';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
+import { focusFirstInputOfVisiblePage } from '../utils/keyboardNavigation';
 
 const PERSIST_KEY = 'consent_general_admission';
 
@@ -41,6 +43,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     fatherName: '',
     husbandName: '',
     address: '',
+    presentAddress: '',
     phoneNo: '',
     mobileNo: '', // Added to match the input name
     informantName: '',
@@ -133,6 +136,14 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     return () => clearTimeout(t);
   }, [form, recordId]);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Focus first input of page on page navigation
+  useEffect(() => {
+    focusFirstInputOfVisiblePage();
+  }, [currentPage]);
+
   // Canvas Refs & State
   const patientCanvasRef = useRef(null);
   const witnessCanvasRef = useRef(null);
@@ -140,6 +151,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
   const [isDrawingWitness, setIsDrawingWitness] = useState(false);
   const [hasPatientSigned, setHasPatientSigned] = useState(false);
   const [hasWitnessSigned, setHasWitnessSigned] = useState(false);
+  const [expandedCanvas, setExpandedCanvas] = useState(null);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -149,7 +161,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     }));
   };
 
-  const handleIpKeyDown = (e) => {
+   const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const value = e.target.value;
@@ -167,6 +179,8 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
           medicalInsurance: found.medicalInsurance || prev.medicalInsurance,
           doa: found.doa || prev.doa,
           ward: found.ward || prev.ward,
+          address: found.address || prev.address,
+          presentAddress: found.address || prev.presentAddress,
           officeUhid: found.uhidNo || prev.officeUhid,
           officeIpNo: found.ipNo || prev.officeIpNo,
           officeWard: found.ward || prev.officeWard,
@@ -175,6 +189,8 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
       }
     }
   };
+
+  
 
 
   // Canvas Handlers for Patient Signature
@@ -367,7 +383,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     setForm({
       patientName: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', ipOpNo: '', bedNo: '',
       medicalInsurance: 'Yes', doa: '', occupation: '', fatherName: '',
-      husbandName: '', address: '', phoneNo: '', mobileNo: '', informantName: '',
+      husbandName: '', address: '', presentAddress: '', phoneNo: '', mobileNo: '', informantName: '',
       relationship: '', informantAddress: '', consentAccepted: false,
       patientSignDate: getCurrentDate(), witnessSignDate: getCurrentDate(), patientSignTime: getCurrentTime(),
       witnessSignTime: getCurrentTime(), ward: '', insuranceDetails: '',
@@ -389,6 +405,72 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
 
   return (
     <div className="paper-consent-wrapper full-width-layout">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .page-1-content, .page-2-content {
+            display: flex !important;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 270mm;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .page-2-content {
+            break-before: page;
+            page-break-before: always;
+          }
+          .numbered-dotted-section {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            margin: 15px 0;
+          }
+          .page-2-content > table.box-grid-table {
+            flex-grow: 1;
+            margin: 10px 0;
+          }
+          .page-2-content > .office-grid-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+          }
+          .page-2-content > .office-grid-container > .office-grid-table {
+            flex-grow: 1;
+            height: 100%;
+          }
+          .pagination-controls {
+            display: none !important;
+          }
+        }
+        @media screen {
+          .hide-on-screen {
+            display: none !important;
+          }
+          .page-1-content, .page-2-content {
+            display: flex;
+            flex-direction: column;
+            min-height: 60vh;
+          }
+          .numbered-dotted-section {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+          }
+          .page-2-content > table.box-grid-table, .page-2-content > .office-grid-container {
+            flex-grow: 1;
+          }
+        }
+      `}</style>
       {/* Top Page Action Header Bar */}
       <div className="no-print page-header-row">
         <div className="page-title-group">
@@ -426,8 +508,10 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
       {/* SINGLE PAGE FULL WIDTH DOCUMENT SHEET */}
       <div className="single-page-fullwidth-sheet">
         
-        {/* Hospital Header */}
-        <HospitalPaperHeader />
+        {/* PAGE 1 WRAPPER */}
+        <div className={`page-1-content ${currentPage !== 1 ? 'hide-on-screen' : ''}`}>
+          {/* Hospital Header */}
+          <HospitalPaperHeader />
 
         {/* Form Banner Title */}
         <div className="form-banner-header">
@@ -616,12 +700,35 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
           <div className="dot-line-item align-start">
             <span className="item-no">5</span>
             <div className="item-sub-col">
-              <div className="sub-row">
-                <span className="item-txt">Present Address / ಈಗಿನ ವಿಳಾಸ :</span>
-                <input type="text" name="presentAddressLine1" value={form.presentAddressLine1} onChange={handleChange} className="dot-input" />
-              </div>
-              <div className="sub-row">
-                <input type="text" name="presentAddressLine2" value={form.presentAddressLine2} onChange={handleChange} className="dot-input" />
+              <div className="sub-row" style={{ alignItems: 'flex-start' }}>
+                <span className="item-txt" style={{ whiteSpace: 'nowrap', paddingTop: '4px' }}>Present Address / ಈಗಿನ ವಿಳಾಸ :</span>
+                <textarea
+                  name="presentAddress"
+                  value={form.presentAddress ?? form.address ?? form.presentAddressLine1 ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm(prev => ({
+                      ...prev,
+                      presentAddress: val,
+                      address: val,
+                      presentAddressLine1: val
+                    }));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const patientInput = document.querySelector('input[name="patientName"]');
+                      if (patientInput) {
+                        patientInput.focus();
+                        if (patientInput.select) patientInput.select();
+                      }
+                    }
+                  }}
+                  className="dot-textarea"
+                  rows={2}
+                  placeholder="Enter present address..."
+                />
               </div>
             </div>
           </div>
@@ -681,7 +788,10 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
 
         {/* Section Divider Line */}
         <div className="consent-divider-bar"></div>
+        </div> {/* END PAGE 1 WRAPPER */}
 
+        {/* PAGE 2 WRAPPER */}
+        <div className={`page-2-content ${currentPage !== 2 ? 'hide-on-screen' : ''}`}>
         {/* Rules and Regulations Clauses */}
         <div className="p2-rules-wrapper">
           <div className="p2-clause-block">
@@ -761,7 +871,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
               <td className="lbl-col-cell">Signature/ಸಹಿ</td>
               <td className="sig-td-cell">
                 <div className="sig-canvas-row">
-                  <div className="canvas-box">
+                  <div className={`canvas-box ${expandedCanvas === 'patient' ? 'expanded' : ''}`} onClick={() => !expandedCanvas && setExpandedCanvas('patient')}>
                     <canvas 
                       ref={patientCanvasRef} 
                       width={550} 
@@ -776,7 +886,18 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                       className="canvas-el"
                     />
                     {!hasPatientSigned && <span className="canvas-placeholder">Draw or Upload Patient Signature</span>}
+                    {expandedCanvas === 'patient' && (
+                      <div className="expanded-btn-group">
+                        <button type="button" className="btn-clear-sig expanded-clear-btn" onClick={(e) => { e.stopPropagation(); clearPatientSig(); }}>
+                          <RotateCcw size={16} /> Clear
+                        </button>
+                        <button type="button" className="btn-done-sig" onClick={(e) => { e.stopPropagation(); setExpandedCanvas(null); }}>
+                          <CheckCircle2 size={16} /> Done
+                        </button>
+                      </div>
+                    )}
                   </div>
+                  {expandedCanvas === 'patient' && <div className="canvas-expanded-overlay" onClick={() => setExpandedCanvas(null)} />}
                   <div className="sig-btn-group no-print">
                     <label className="btn-upload-sig" title="Upload Signature Image">
                       <Upload size={12} />
@@ -860,7 +981,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
               <td className="lbl-col-cell">Signature/ಸಹಿ</td>
               <td className="sig-td-cell">
                 <div className="sig-canvas-row">
-                  <div className="canvas-box">
+                  <div className={`canvas-box ${expandedCanvas === 'witness' ? 'expanded' : ''}`} onClick={() => !expandedCanvas && setExpandedCanvas('witness')}>
                     <canvas 
                       ref={witnessCanvasRef} 
                       width={550} 
@@ -875,7 +996,18 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                       className="canvas-el"
                     />
                     {!hasWitnessSigned && <span className="canvas-placeholder">Draw or Upload Witness Signature</span>}
+                    {expandedCanvas === 'witness' && (
+                      <div className="expanded-btn-group">
+                        <button type="button" className="btn-clear-sig expanded-clear-btn" onClick={(e) => { e.stopPropagation(); clearWitnessSig(); }}>
+                          <RotateCcw size={16} /> Clear
+                        </button>
+                        <button type="button" className="btn-done-sig" onClick={(e) => { e.stopPropagation(); setExpandedCanvas(null); }}>
+                          <CheckCircle2 size={16} /> Done
+                        </button>
+                      </div>
+                    )}
                   </div>
+                  {expandedCanvas === 'witness' && <div className="canvas-expanded-overlay" onClick={() => setExpandedCanvas(null)} />}
                   <div className="sig-btn-group no-print">
                     <label className="btn-upload-sig" title="Upload Signature Image">
                       <Upload size={12} />
@@ -975,16 +1107,41 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
             </tbody>
           </table>
         </div>
+        </div> {/* END PAGE 2 WRAPPER */}
+
+        {/* Pagination Controls */}
+        <div className="no-print pagination-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', marginBottom: '20px', padding: '0 10px' }}>
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={() => setCurrentPage(1)} 
+            disabled={currentPage === 1}
+            style={{ minWidth: '100px', display: 'flex', justifyContent: 'center' }}
+          >
+            <ChevronLeft size={16} style={{ marginRight: '4px' }} /> Previous
+          </button>
+          <span style={{ fontWeight: 'bold' }}>Page {currentPage} of 2</span>
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={() => setCurrentPage(2)} 
+            disabled={currentPage === 2}
+            style={{ minWidth: '100px', display: 'flex', justifyContent: 'center' }}
+          >
+            Next <ChevronRight size={16} style={{ marginLeft: '4px' }} />
+          </button>
+        </div>
 
         {/* Bottom Action Bar */}
         <div className="no-print form-bottom-actions">
           <button type="button" className="btn btn-secondary" onClick={handleSave}>
             <Save size={15} />
             <span>Save</span>
+           
           </button>
           <button type="button" className="btn btn-form-clear" onClick={handleClear}>
             <RotateCcw size={15} />
-            <span>Clear Form</span>
+            <span>Clear All Pages </span>
           </button>
         </div>
 

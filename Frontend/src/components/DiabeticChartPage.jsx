@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, 
   Trash2, 
   Save, 
   CheckCircle2,
   FolderCheck,
-  FileEdit,
   Printer
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
@@ -432,6 +431,16 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
                             onChange={(e) => handleRowChange(row.id, 'grbsType', e.target.value)} 
                           />
                           PPBS
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>
+                          <input 
+                            type="radio" 
+                            name={`grbsType-${row.id}`}
+                            value="GRBS" 
+                            checked={row.grbsType === 'GRBS'}
+                            onChange={(e) => handleRowChange(row.id, 'grbsType', e.target.value)} 
+                          />
+                          GRBS
                         </label>
                       </div>
                       <textarea 

@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Save,
   Printer,
   CheckCircle2,
-  FolderCheck,
-  FileEdit
+  FolderCheck
 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import HospitalPaperHeader from './HospitalPaperHeader';
@@ -85,6 +84,7 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
     sigTime: getCurrentTime()
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
   const [recordId, setRecordId] = useState(null);
   const [systemUsers, setSystemUsers] = useState([]);
   const [assessmentSuggestions, setAssessmentSuggestions] = useState([]);
@@ -184,6 +184,16 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
     return () => clearTimeout(t);
   }, [patient, vitals, exam, casualty, investigations, bottomPg1, pg2, recordId]);
 
+  // Auto-resize textareas to fit content dynamically so they aren't clipped on print
+  useEffect(() => {
+    const textareas = document.querySelectorAll('textarea');
+    textareas.forEach(ta => {
+      ta.style.height = 'auto';
+      if (ta.scrollHeight > 0) {
+        ta.style.height = `${ta.scrollHeight}px`;
+      }
+    });
+  });
 
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
@@ -317,6 +327,65 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
 
   return (
     <div className="nursing-assessment-wrapper">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .page-1-content, .page-2-content {
+            display: flex !important;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 270mm;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .page-2-content {
+            break-before: page;
+            page-break-before: always;
+          }
+          
+          /* Stretch Page 1 */
+          .examination-block, .assessment-bordered-box {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            margin-bottom: 10px;
+          }
+          
+          /* Stretch Page 2 */
+          .page-2-content > .assessment-section-box {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            margin-bottom: 15px;
+          }
+          
+          .pagination-controls {
+            display: none !important;
+          }
+        }
+        @media screen {
+          .hide-on-screen {
+            display: none !important;
+          }
+          .page-1-content, .page-2-content {
+            display: flex;
+            flex-direction: column;
+            min-height: 60vh;
+          }
+          .examination-block, .assessment-bordered-box, .page-2-content > .assessment-section-box {
+            flex-grow: 1;
+          }
+        }
+      `}</style>
       {toastMsg && (
         <div className="no-print alert-success-toast">
           <CheckCircle2 size={18} />
@@ -353,7 +422,7 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
       </div>
 
       {/* PAGE 1 SHEET CONTAINER */}
-      <div className="green-paper-container">
+      <div className={`green-paper-container page-1-content ${currentPage !== 1 ? 'hide-on-screen' : ''}`}>
 
         {/* Hospital Header */}
         <HospitalPaperHeader />
@@ -723,7 +792,7 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
       </div>
 
       {/* PAGE 2 SHEET CONTAINER (Matching User Screenshot Exactly) */}
-      <div className="green-paper-container page-break-top">
+      <div className={`green-paper-container page-break-top page-2-content ${currentPage !== 2 ? 'hide-on-screen' : ''}`}>
 
         {/* PAIN ASSESSMENT SCALE HEADER */}
         <div className="pain-scale-title">PAIN ASSESSMENT SCALE</div>
@@ -860,19 +929,42 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
           </div>
         </div>
 
-        {/* Action Row */}
-        <div className="mint-action-controls no-print" style={{ marginTop: '20px' }}>
-          <div className="bottom-btn-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-            <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
-              <span>Clear Form</span>
-            </button>
-            <button type="button" className="btn-mint-clear" onClick={handleSave}>
-              <Save size={14} />
-              <span>Save Record</span>
-            </button>
-          </div>
-        </div>
+      </div> {/* END PAGE 2 SHEET CONTAINER */}
 
+      {/* Pagination Controls */}
+      <div className="no-print pagination-controls" style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginTop: '20px', marginBottom: '10px' }}>
+        <button 
+          type="button" 
+          className="btn btn-secondary" 
+          onClick={() => setCurrentPage(1)} 
+          disabled={currentPage === 1}
+          style={{ padding: '8px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+        >
+          Previous
+        </button>
+        <span style={{ alignSelf: 'center', fontWeight: 'bold', color: '#0f172a' }}>Page {currentPage} of 2</span>
+        <button 
+          type="button" 
+          className="btn btn-secondary" 
+          onClick={() => setCurrentPage(2)} 
+          disabled={currentPage === 2}
+          style={{ padding: '8px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: currentPage === 2 ? 'not-allowed' : 'pointer' }}
+        >
+          Next
+        </button>
+      </div>
+
+      {/* Action Row */}
+      <div className="mint-action-controls no-print" style={{ marginTop: '20px' }}>
+        <div className="bottom-btn-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <button type="button" className="btn-form-clear-action" onClick={handleClearForm} style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}>
+            <span>Clear Form</span>
+          </button>
+          <button type="button" className="btn-mint-clear" onClick={handleSave}>
+            <Save size={14} />
+            <span>Save Record</span>
+          </button>
+        </div>
       </div>
 
     </div>

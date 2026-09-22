@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  User, 
   Search, 
   Eye, 
   Printer, 
@@ -16,12 +15,10 @@ import {
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { getRegisteredPatients, findPatientByIpNo } from '../utils/patientRegistry';
 import { 
-  getSavedRecords, 
-  getCompletedRecords, 
   getDraftRecords, 
-  getRecordsByPatientIp, 
   deleteSavedRecord,
-  deleteAllDrafts
+  deleteAllDrafts,
+  API_BASE_URL
 } from '../utils/savedRecordsDB';
 
 import ConsentGeneralAdmissionPage from './ConsentGeneralAdmissionPage';
@@ -36,48 +33,132 @@ import VitalsChartPage from './VitalsChartPage';
 import BPChartPage from './BPChartPage';
 import IntakeOutputRecordPage from './IntakeOutputRecordPage';
 import InternalTransferFormPage from './InternalTransferFormPage';
+import ExternalTransferFormPage from './ExternalTransferFormPage';
 import InvestigationChartPage from './InvestigationChartPage';
 import RegularDrugPrescriptionPage from './RegularDrugPrescriptionPage';
 import ProgressReassessmentRecordPage from './ProgressReassessmentRecordPage';
 import ActivityRecordBilling from './ActivityRecordBilling';
+import InitialAssessmentFormPage from './InitialAssessmentFormPage';
+import InitialAssessmentByDoctorPage from './InitialAssessmentByDoctorPage';
+import EmergencyDoctorInitialAssessmentPage from './EmergencyDoctorInitialAssessmentPage';
+import CultureChartPage from './CultureChartPage';
+import AntenatalCaseRecordPage from './AntenatalCaseRecordPage';
+import OperationNotesCaesareanSectionPage from './OperationNotesCaesareanSectionPage';
+import OperationNotesPage from './OperationNotesPage';
+import ConsentHospitalizationConditionsOfServicePage from './ConsentHospitalizationConditionsOfServicePage';
+import AdmissionRecordPage from './AdmissionRecordPage';
+import ConsentHospitalizationConductProceduresPage from './ConsentHospitalizationConductProceduresPage';
+import ConsentHivAntibodiesTestPage from './ConsentHivAntibodiesTestPage';
+import IncidentReportPage from './IncidentReportPage';
+import AdverseDrugReactionReportPage from './AdverseDrugReactionReportPage';
+import PhysiotherapyAssessmentPage from './PhysiotherapyAssessmentPage';
+import NursingInitialAssessmentObstetricsPage from './NursingInitialAssessmentObstetricsPage';
+import RoomTariffPage from './RoomTariffPage';
+import PreOperativeChecklistPage from './PreOperativeChecklistPage';
+import PostOperativeChecklistPage from './PostOperativeChecklistPage';
+import SurgicalSafetyChecklistPage from './SurgicalSafetyChecklistPage';
+import PartographPage from './PartographPage';
+import LabourRecordPage from './LabourRecordPage';
 
 const COMPONENT_MAP = {
   'Consent for General Admission': ConsentGeneralAdmissionPage,
+  'Consent for Hospitalization & Conditions of Service': ConsentHospitalizationConditionsOfServicePage,
+  'Consent for Hospitalization and Conduct of All Procedures': ConsentHospitalizationConductProceduresPage,
+  'Informed Consent for HIV Antibodies Test': ConsentHivAntibodiesTestPage,
+  'INFORMED CONSENT FOR HIV ANTIBODIES TEST': ConsentHivAntibodiesTestPage,
+  'Incident Report': IncidentReportPage,
+  'Adverse Drug Reaction Report Form': AdverseDrugReactionReportPage,
+  'Physiotherapy Assessment & Reassessment Form': PhysiotherapyAssessmentPage,
+  'Physiotherapy Assessment Form': PhysiotherapyAssessmentPage,
+  'Admission Record': AdmissionRecordPage,
+  'ADMISSION RECORD': AdmissionRecordPage,
+  'Room Tariff': RoomTariffPage,
+  'Pre-Operative Checklist': PreOperativeChecklistPage,
+  'PRE-OPERATIVE CHECKLIST': PreOperativeChecklistPage,
+  'Surgical Safety Check List': SurgicalSafetyChecklistPage,
+  'Post Operative Check List': PostOperativeChecklistPage,
   'Nurses Care Plan': NursesCarePlanPage,
   'Nurses Daily Assessment Care Plan': NursesDailyAssessmentPage,
   'Nursing Initial Assessment': NursingInitialAssessmentPage,
+  'Nursing Initial Assessment - Obstetrics': NursingInitialAssessmentObstetricsPage,
   'Progress & Reassessment Record - Resident Doctor': ResidentDoctorProgressRecordPage,
+  'Progress and Reassessment Record - Resident Doctor': ResidentDoctorProgressRecordPage,
+  'Progress Sheet - Consultant': ProgressSheetPage,
   'Progress Sheet': ProgressSheetPage,
   'Laboratory Requisition': LabRequisitionPage,
   'Diabetic Chart': DiabeticChartPage,
   'Vitals Chart': VitalsChartPage,
   'BP Chart': BPChartPage,
+  'Intake & Output Record': IntakeOutputRecordPage,
   'Intake Output Record': IntakeOutputRecordPage,
   'Internal Transfer Form': InternalTransferFormPage,
+  'External Transfer Form': ExternalTransferFormPage,
+  'Transfer Form - External': ExternalTransferFormPage,
   'Investigation Chart': InvestigationChartPage,
+  'Regular Drug Prescriptions': RegularDrugPrescriptionPage,
   'Regular Drug Prescription': RegularDrugPrescriptionPage,
   'Progress and Reassessment Record': ProgressReassessmentRecordPage,
   'Activity Record Billing': ActivityRecordBilling,
+  'Initial Assessment Form': InitialAssessmentFormPage,
+  'Initial Assessment By Doctor - OP': InitialAssessmentByDoctorPage,
+  'Emergency Doctor Initial Assessment': EmergencyDoctorInitialAssessmentPage,
+  'Culture Chart': CultureChartPage,
+  'Antenatal Case Record': AntenatalCaseRecordPage,
+  'Partograph': PartographPage,
+  'Labour Record': LabourRecordPage,
+  'Operation Notes for Caesarean Section': OperationNotesCaesareanSectionPage,
+  'Operation Notes': OperationNotesPage,
 };
 
 // Maps formType string → route tab id
 const FORM_TYPE_TO_TAB = {
   'Consent for General Admission': 'general-admission-consent',
+  'Consent for Hospitalization & Conditions of Service': 'consent-hospitalization-conditions-of-service',
+  'Consent for Hospitalization and Conduct of All Procedures': 'consent-hospitalization-conduct-procedures',
+  'Informed Consent for HIV Antibodies Test': 'consent-hiv-antibodies-test',
+  'INFORMED CONSENT FOR HIV ANTIBODIES TEST': 'consent-hiv-antibodies-test',
+  'Incident Report': 'incident-report',
+  'Adverse Drug Reaction Report Form': 'adverse-drug-reaction-report',
+  'Physiotherapy Assessment & Reassessment Form': 'physiotherapy-assessment',
+  'Physiotherapy Assessment Form': 'physiotherapy-assessment',
+  'Admission Record': 'admission-record',
+  'ADMISSION RECORD': 'admission-record',
+  'Room Tariff': 'room-tariff',
+  'Pre-Operative Checklist': 'pre-operative-checklist',
+  'PRE-OPERATIVE CHECKLIST': 'pre-operative-checklist',
+  'Surgical Safety Check List': 'surgical-safety-checklist',
+  'Post Operative Check List': 'post-operative-checklist',
   'Nurses Care Plan': 'nurse-care-plan',
   'Nurses Daily Assessment Care Plan': 'nurses-daily-assessment',
   'Nursing Initial Assessment': 'nursing-initial-assessment',
+  'Nursing Initial Assessment - Obstetrics': 'nursing-initial-assessment-obstetrics',
   'Progress & Reassessment Record - Resident Doctor': 'resident-doctor-progress',
+  'Progress and Reassessment Record - Resident Doctor': 'resident-doctor-progress',
+  'Progress Sheet - Consultant': 'progress-sheet',
   'Progress Sheet': 'progress-sheet',
   'Laboratory Requisition': 'lab-requisition',
   'Diabetic Chart': 'diabetic-chart',
   'Vitals Chart': 'vitals-chart',
   'BP Chart': 'bp-chart',
+  'Intake & Output Record': 'intake-output',
   'Intake Output Record': 'intake-output',
   'Internal Transfer Form': 'internal-transfer-form',
+  'External Transfer Form': 'external-transfer-form',
+  'Transfer Form - External': 'external-transfer-form',
   'Investigation Chart': 'investigation-chart',
+  'Regular Drug Prescriptions': 'regular-drug-prescription',
   'Regular Drug Prescription': 'regular-drug-prescription',
   'Progress and Reassessment Record': 'progress-reassessment',
   'Activity Record Billing': 'activity-record-billing',
+  'Initial Assessment Form': 'initial-assessment-form',
+  'Initial Assessment By Doctor - OP': 'initial-assessment-by-doctor',
+  'Emergency Doctor Initial Assessment': 'emergency-doctor-initial-assessment',
+  'Culture Chart': 'culture-chart',
+  'Antenatal Case Record': 'antenatal-case-record',
+  'Partograph': 'partograph',
+  'Labour Record': 'labour-record',
+  'Operation Notes for Caesarean Section': 'operation-notes-caesarean-section',
+  'Operation Notes': 'operation-notes',
 };
 
 // Formats key names (e.g. CamelCase/snake_case to Title Case)
@@ -244,7 +325,7 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
     // Fetch all completed records globally when the page opens or refreshes
     const fetchAllPostgresRecords = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/records/all');
+        const res = await fetch(`${API_BASE_URL}/records/all`);
         const json = await res.json();
         if (json.success) {
           setAllCompletedRecords(json.data);
@@ -277,7 +358,7 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
 
   useEffect(() => { refreshRecords(); }, [viewMode, selectedPatientIp, searchQuery, selectedFormTab, allCompletedRecords]);
 
-  const refreshRecords = async () => {
+  async function refreshRecords() {
     let list = [];
     if (viewMode === 'records') {
       list = allCompletedRecords;
@@ -301,9 +382,20 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
   };
 
 
-  const handleDeleteRecord = (id) => {
+  const handleDeleteRecord = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this record? This action cannot be undone.')) return;
+    
     deleteSavedRecord(id);
-    refreshRecords();
+    
+    try {
+      await fetch(`${API_BASE_URL}/records/${id}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to delete backend record:', err);
+    }
+
+    setAllCompletedRecords(prev => prev.filter(r => r.id !== id));
+    setDisplayedRecords(prev => prev.filter(r => r.id !== id));
+
     if (activeRecordModal && activeRecordModal.id === id) {
       window.isPrintViewMode = false;
       setActiveRecordModal(null);
@@ -327,6 +419,22 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
   const completedCount = allCompletedRecords.filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab).length;
 
   const draftCount = getDraftRecords().filter(r => FORM_TYPE_TO_TAB[r.formType] === selectedFormTab).length;
+
+  const getDisplayPatient = (rec) => {
+    const currentIp = rec.rawIpNo || (rec.patientIpNo === 'Draft (No IP)' ? '' : rec.patientIpNo) || rec.data?.ipNo || rec.data?.patient?.ipNo;
+    if (currentIp) {
+       const searchIp = (currentIp || '').trim().toUpperCase();
+       const found = patients.find(p => (p.ipNo || '').trim().toUpperCase() === searchIp || 
+                                        (p.uhidNo || '').trim().toUpperCase() === searchIp);
+       if (found) {
+           return { ipNo: found.ipNo, name: found.patientName };
+       }
+    }
+    return {
+        ipNo: rec.patientIpNo === 'Draft (No IP)' ? 'No IP' : (rec.patientIpNo || rec.rawIpNo || 'No IP'),
+        name: rec.patientName || rec.data?.patientName || rec.data?.name || rec.data?.patName || rec.data?.patient?.name || rec.data?.patient?.patientName || '—'
+    };
+  };
 
   return (
     <div className="daily-assessment-wrapper">
@@ -428,18 +536,11 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
                   <tr key={rec.id}>
                     <td className="pd-cell-center pd-cell-muted">{idx + 1}</td>
                     <td>
-                      {rec.isDraft
-                        ? <span className="badge-draft-tag">Draft</span>
-                        : <span className="pd-ip-text">{rec.patientIpNo}</span>}
+                      {rec.isDraft && <span className="badge-draft-tag" style={{marginRight: '8px'}}>Draft</span>}
+                      <span className="pd-ip-text">{getDisplayPatient(rec).ipNo}</span>
                     </td>
                     <td className="pd-cell-name">
-                      {rec.patientName || 
-                       rec.data?.patientName || 
-                       rec.data?.name || 
-                       rec.data?.patName || 
-                       rec.data?.patient?.name || 
-                       rec.data?.patient?.patientName || 
-                       '—'}
+                      {getDisplayPatient(rec).name}
                     </td>
                     <td className="pd-cell-muted">
                       <Clock size={12} className="inline-icon" />

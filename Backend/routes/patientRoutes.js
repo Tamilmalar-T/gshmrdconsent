@@ -6,5 +6,6 @@ const patientController = require('../controllers/patientController');
 router.post('/', patientController.createPatient);
 router.get('/', patientController.getPatients);
 router.get('/:id', patientController.getPatientById);
-
+router.put('/:ipNo', patientController.updatePatient);
+router.delete('/:ipNo', patientController.deletePatient);
 module.exports = router;

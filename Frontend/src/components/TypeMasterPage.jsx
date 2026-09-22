@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  UserPlus, 
   CheckCircle2, 
   AlertCircle, 
   Search, 
@@ -9,7 +8,8 @@ import {
   Layers,
   Minus,
   Maximize2,
-  X
+  X,
+  Eye
 } from 'lucide-react';
 
 const STORAGE_KEY = 'masters_types';
@@ -43,6 +43,7 @@ export default function TypeMasterPage() {
   const [isEditModalMinimized, setIsEditModalMinimized] = useState(false);
   const [addErrorMsg, setAddErrorMsg] = useState('');
   const [editErrorMsg, setEditErrorMsg] = useState('');
+  const [viewRecord, setViewRecord] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -479,24 +480,30 @@ export default function TypeMasterPage() {
                       </span>
                     </td>
                     <td className="text-center no-print">
-                      <div className="tbl-action-btns" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      <div className="tbl-action-btns" style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                         <button 
-                          type="button" 
-                          className="btn-export-pdf"
-                          style={{ borderColor: '#f97316', color: '#f97316', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'semibold', cursor: 'pointer' }}
-                          onClick={() => handleEditClick(typeItem)}
+                          type="button"
+                          title="View"
+                          style={{ borderColor: '#3b82f6', color: '#3b82f6', padding: '4px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid' }}
+                          onClick={() => setViewRecord(typeItem)}
                         >
-                          <Pencil size={11} />
-                          <span>Edit</span>
+                          <Eye size={13} />
                         </button>
                         <button 
-                          type="button" 
-                          className="btn-tbl-action-delete"
-                          style={{ borderColor: '#ef4444', color: '#ef4444', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'semibold', cursor: 'pointer', border: '1px solid' }}
+                          type="button"
+                          title="Edit"
+                          style={{ borderColor: '#f97316', color: '#f97316', padding: '4px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid' }}
+                          onClick={() => handleEditClick(typeItem)}
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button 
+                          type="button"
+                          title="Delete"
+                          style={{ borderColor: '#ef4444', color: '#ef4444', padding: '4px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid' }}
                           onClick={() => handleDelete(typeItem.typeCode)}
                         >
-                          <Trash2 size={11} />
-                          <span>Delete</span>
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>
@@ -507,6 +514,44 @@ export default function TypeMasterPage() {
           </table>
         </div>
       </div>
+
+      {/* VIEW RECORD MODAL */}
+      {viewRecord && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setViewRecord(null)}>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '500px', maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ color: '#fff' }}>
+                <div style={{ fontSize: '13px', opacity: 0.8, marginBottom: '2px' }}>User Type Details</div>
+                <div style={{ fontSize: '18px', fontWeight: '700' }}>{viewRecord.typeName}</div>
+              </div>
+              <button onClick={() => setViewRecord(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: '#fff', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            </div>
+            <div style={{ padding: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                {[
+                  { label: 'Type Code', value: viewRecord.typeCode },
+                  { label: 'Status', value: viewRecord.status, badge: true },
+                ].map(({ label, value, badge }) => (
+                  <div key={label} style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{label}</div>
+                    {badge ? (
+                      <span style={{ padding: '2px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: value === 'Active' ? '#dcfce7' : '#fee2e2', color: value === 'Active' ? '#15803d' : '#b91c1c' }}>{value}</span>
+                    ) : (
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{value || '—'}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {viewRecord.description && (
+                <div style={{ marginTop: '16px', background: '#f8fafc', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Description</div>
+                  <div style={{ fontSize: '13px', color: '#334155', lineHeight: '1.6' }}>{viewRecord.description}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

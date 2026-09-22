@@ -1,5 +1,21 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Lock, User, AlertCircle, ShieldAlert, Eye, EyeOff } from 'lucide-react';
+
+// Hashing helper for validating stored SHA-256 passwords
+async function hashPassword(plainText) {
+  if (!plainText) return '';
+  if (plainText.startsWith('$sha256$')) return plainText;
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plainText);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return `$sha256$${hashHex}`;
+  } catch (err) {
+    return `$sha256$${btoa(plainText)}`;
+  }
+}
 
 export default function LoginPage({ onLoginSuccess }) {
   const [userId, setUserId] = useState('');
@@ -7,7 +23,7 @@ export default function LoginPage({ onLoginSuccess }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -16,12 +32,16 @@ export default function LoginPage({ onLoginSuccess }) {
       return;
     }
 
-    // Load users from localStorage (or fallback to INITIAL_USERS if not in storage yet)
+    // Load users from localStorage (or fallback to default list)
     const storedUsers = localStorage.getItem('masters_users');
     let usersList = [];
 
     if (storedUsers) {
-      usersList = JSON.parse(storedUsers);
+      try {
+        usersList = JSON.parse(storedUsers);
+      } catch (err) {
+        usersList = [];
+      }
       
       // Ensure the default admin 'mrd' always exists in the system so users don't get locked out.
       if (!usersList.some(u => (u.userId || '').toLowerCase() === 'mrd')) {
@@ -53,7 +73,16 @@ export default function LoginPage({ onLoginSuccess }) {
       return;
     }
 
-    if (matchedUser.password !== password) {
+    // Check Password (Support both hashed SHA-256 and legacy plain-text passwords)
+    let isPasswordValid = false;
+    if (matchedUser.password && matchedUser.password.startsWith('$sha256$')) {
+      const hashedEntered = await hashPassword(password);
+      isPasswordValid = (hashedEntered === matchedUser.password);
+    } else {
+      isPasswordValid = (matchedUser.password === password);
+    }
+
+    if (!isPasswordValid) {
       setErrorMsg('Invalid User ID or Password. (Password mismatch)');
       return;
     }
@@ -85,10 +114,12 @@ export default function LoginPage({ onLoginSuccess }) {
         )}
 
         <form onSubmit={handleLogin} className="login-form">
+          
           <div className="login-field-group">
             <label className="login-label">User ID</label>
             <div className="login-input-wrapper">
               <User className="login-input-icon" size={16} />
+              
               <input
                 type="text"
                 placeholder="Enter User ID (e.g. admin01)"

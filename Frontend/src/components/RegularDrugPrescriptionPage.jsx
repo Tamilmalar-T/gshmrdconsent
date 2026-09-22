@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Printer, Save, CheckCircle2, FolderCheck, Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Printer, CheckCircle2, FolderCheck, Plus, Trash2 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
@@ -91,44 +91,10 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
     }
   };
 
-    const handleIpKeyDown = (e) => {
+  const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const value = e.target.value;
-      const found = findPatientByIpNo(value);
-      
-      let newPatient = { ...patient };
-      if (found) {
-        newPatient = {
-          ...patient,
-          name: found.patientName || patient.name,
-          age: found.age || patient.age,
-          sex: found.sex || patient.sex,
-          uhidNo: found.uhidNo || patient.uhidNo,
-          ipNo: found.ipNo || patient.ipNo,
-          ward: found.ward || patient.ward,
-          bed: found.bedNo || patient.bedNo || patient.bed || '',
-          doa: found.doa || patient.doa
-        };
-        setPatient(newPatient);
-        if (typeof setToastMsg !== 'undefined') {
-          setToastMsg('Patient details auto-filled');
-          setTimeout(() => setToastMsg(''), 2000);
-        }
-      }
-
-      if (e.target.name === 'ipNo' && value.trim() !== '') {
-        const saved = upsertFormRecord(recordId, 'Regular Drug Prescription', value, { patient: newPatient, drugBlocks }, null, false);
-        setRecordId(saved.id);
-        clearPersistedForm(PERSIST_KEY);
-        if (typeof setToastMsg !== 'undefined') {
-          setToastMsg('Record saved successfully!');
-          setTimeout(() => {
-            setToastMsg('');
-            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
-          }, 2000);
-        }
-      }
+      triggerAutofill(e.target.value);
     }
   };
 

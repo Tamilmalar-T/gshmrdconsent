@@ -1,7 +1,7 @@
 // Saved Form Records Database for storing and retrieving filled patient forms and drafts
 
 const SAVED_RECORDS_KEY = 'saved_form_records_db';
-const API_BASE_URL = 'http://localhost:5000/api';
+export const API_BASE_URL = 'http://localhost:5000/api';
 
 const mapFormTypeToEndpoint = (formType) => {
   if (!formType) return null;
@@ -194,6 +194,45 @@ export const deleteAllDrafts = () => {
   const updated = records.filter((r) => !r.isDraft && r.patientIpNo && r.patientIpNo !== 'Draft (No IP)');
   localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(updated));
   return updated;
+};
+
+export const updatePatientInRecords = (oldIpNo, newIpNo, newPatientName) => {
+  const records = getSavedRecords();
+  const searchIp = (oldIpNo || '').trim().toUpperCase();
+  const newCleanIp = (newIpNo || '').trim().toUpperCase();
+  
+  let updatedCount = 0;
+  const updatedRecords = records.map(r => {
+    const recIp = (r.rawIpNo || r.patientIpNo || '').trim().toUpperCase();
+    if (recIp === searchIp && searchIp !== '') {
+      updatedCount++;
+      return {
+        ...r,
+        patientIpNo: (r.isDraft && (!r.patientIpNo || r.patientIpNo === 'Draft (No IP)')) ? 'Draft (No IP)' : newCleanIp,
+        rawIpNo: newCleanIp,
+        patientName: newPatientName || r.patientName,
+        data: {
+          ...r.data,
+          patientName: newPatientName || r.data?.patientName,
+          name: newPatientName || r.data?.name,
+          patName: newPatientName || r.data?.patName,
+          ipNo: newCleanIp,
+          ipOpNo: newCleanIp,
+          patient: r.data?.patient ? {
+            ...r.data.patient,
+            patientName: newPatientName || r.data.patient.patientName,
+            name: newPatientName || r.data.patient.name,
+            ipNo: newCleanIp
+          } : undefined
+        }
+      };
+    }
+    return r;
+  });
+
+  if (updatedCount > 0) {
+    localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(updatedRecords));
+  }
 };
 
 export const autoSaveFormDraft = (recordId, formType, patient, formData, setRecordId) => {

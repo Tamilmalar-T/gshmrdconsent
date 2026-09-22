@@ -38,7 +38,9 @@ const createTables = async () => {
       'progressreassessmentrecord',
       'investigationchart',
       'internaltransferform',
-      'regulardrugprescription'
+      'regulardrugprescription',
+      'emergencydoctorinitialassessment',
+      'initialassessmentform'
     ];
 
     for (const form of forms) {

@@ -1,25 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Printer, Save, CheckCircle2, FolderCheck, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Printer, Save, CheckCircle2, FolderCheck, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 
 const PERSIST_KEY = 'investigation_chart';
 const NUM_COLS = 10;
-
-const INVESTIGATION_PARAMETERS = [
-  "Blood Group/Rh Type", "Haemoglobin", "T. WBC", "Neutrophils", "Lymphocytes", 
-  "Monocytes", "Esinophil", "ESR", "RBC", "Platelet Count", "PCV", "MCV", 
-  "MCH", "MCHC", "Blood Urea", "Serum Creatnine", "Sodium", "Potassium", 
-  "Chlorides", "PPBS / RBS", "FBS", "HbA1C", "MBG", "PT", "PTT", "INR", 
-  "BT / CT", "HIV", "HBSAg", "HCV / TPHA", "CRP", "LFT T. Bilirubin", 
-  "D. Bilirubin", "I Bilirubin", "SGOT", "SGPT", "Alkaline Phspt", "T. Protein", 
-  "Albumin", "Globulin", "A/G Ratio", "Uric Acid", "Calcium", "Phosphorus", 
-  "MP", "Dengue Profile - NS1", "IgG", "IgM", "Widal - O", "H", "AH", "BH", 
-  "Thyroid : TSH", "T3", "T4", "Lipid Profile", "Total cholesterol", "Triglycirdes", 
-  "HDL", "LDL", "VLDL", "Total Cholesterol / HDL", "LDL/HDL", "Pseudocholenestarase", 
-  "CPK", "CPKMB", "Troponine - I", "Urine", "S. Amylase", "S. Lipase"
-];
 
 export default function InvestigationChartPage({ onNavigate, editData, editRecordId }) {
   const [patient, setPatient] = useState({
@@ -31,6 +17,22 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
   
   const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [investigationParameters, setInvestigationParameters] = useState([]);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/general-master')
+      .then(res => res.json())
+      .then(result => {
+        if (result.success) {
+          const invData = result.data.filter(item => item.form_name === 'Investigations' && item.status === 'Active');
+          if (invData.length > 0) {
+            setInvestigationParameters(invData.map(d => d.field_name));
+          }
+        }
+      })
+      .catch(err => console.error('Failed to load investigation parameters:', err));
+  }, []);
 
   const sanitizeFormData = (data) => {
     if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
@@ -100,44 +102,10 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
     }
   };
 
-    const handleIpKeyDown = (e) => {
+  const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const value = e.target.value;
-      const found = findPatientByIpNo(value);
-      
-      let newPatient = { ...patient };
-      if (found) {
-        newPatient = {
-          ...patient,
-          name: found.patientName || patient.name,
-          age: found.age || patient.age,
-          sex: found.sex || patient.sex,
-          uhidNo: found.uhidNo || patient.uhidNo,
-          ipNo: found.ipNo || patient.ipNo,
-          ward: found.ward || patient.ward,
-          bed: found.bedNo || patient.bedNo || patient.bed || '',
-          doa: found.doa || patient.doa
-        };
-        setPatient(newPatient);
-        if (typeof setToastMsg !== 'undefined') {
-          setToastMsg('Patient details auto-filled');
-          setTimeout(() => setToastMsg(''), 2000);
-        }
-      }
-
-      if (e.target.name === 'ipNo' && value.trim() !== '') {
-        const saved = upsertFormRecord(recordId, 'Investigation Chart', value, { patient: newPatient, dates, data }, null, false);
-        setRecordId(saved.id);
-        clearPersistedForm(PERSIST_KEY);
-        if (typeof setToastMsg !== 'undefined') {
-          setToastMsg('Record saved successfully!');
-          setTimeout(() => {
-            setToastMsg('');
-            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
-          }, 2000);
-        }
-      }
+      triggerAutofill(e.target.value);
     }
   };
 
@@ -346,16 +314,16 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
                   ))}
                 </tr>
               </thead>
-              <tbody>
-                {INVESTIGATION_PARAMETERS.map((param, paramIndex) => (
-                  <tr key={paramIndex}>
-                    <td className="investigation-param-cell">{param}</td>
+              <tbody className={`page-1-content ${currentPage !== 1 ? 'hide-on-screen' : ''}`}>
+                  {investigationParameters.slice(0, 31).map((param, pIdx) => (
+                    <tr key={pIdx}>
+                      <td className="investigation-param-cell">{param}</td>
                     {dates.map((_, colIndex) => (
                       <td key={colIndex} className="investigation-value-cell">
                         <textarea
                           className="investigation-value-input"
-                          value={data[`${paramIndex}_${colIndex}`] || ''}
-                          onChange={(e) => handleDataChange(paramIndex, colIndex, e.target.value)}
+                          value={data[`${pIdx}_${colIndex}`] || ''}
+                          onChange={(e) => handleDataChange(pIdx, colIndex, e.target.value)}
                           onInput={(e) => {
                             e.target.style.height = 'auto';
                             e.target.style.height = `${e.target.scrollHeight}px`;
@@ -368,7 +336,55 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
                   </tr>
                 ))}
               </tbody>
+              <tbody className={`page-2-content ${currentPage !== 2 ? 'hide-on-screen' : ''}`}>
+                {investigationParameters.slice(31).map((param, slicedIndex) => {
+                  const paramIndex = slicedIndex + 31;
+                  return (
+                    <tr key={paramIndex}>
+                      <td className="investigation-param-cell">{param}</td>
+                      {dates.map((_, colIndex) => (
+                        <td key={colIndex} className="investigation-value-cell">
+                          <textarea
+                            className="investigation-value-input"
+                            value={data[`${paramIndex}_${colIndex}`] || ''}
+                            onChange={(e) => handleDataChange(paramIndex, colIndex, e.target.value)}
+                            onInput={(e) => {
+                              e.target.style.height = 'auto';
+                              e.target.style.height = `${e.target.scrollHeight}px`;
+                            }}
+                            style={{ resize: 'none', overflow: 'hidden' }}
+                            rows={1}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="no-print pagination-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', marginBottom: '20px', padding: '0 10px' }}>
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              onClick={() => setCurrentPage(1)} 
+              disabled={currentPage === 1}
+              style={{ minWidth: '100px', display: 'flex', justifyContent: 'center' }}
+            >
+              <ChevronLeft size={16} style={{ marginRight: '4px' }} /> Previous
+            </button>
+            <span style={{ fontWeight: 'bold' }}>Page {currentPage} of 2</span>
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              onClick={() => setCurrentPage(2)} 
+              disabled={currentPage === 2}
+              style={{ minWidth: '100px', display: 'flex', justifyContent: 'center' }}
+            >
+              Next <ChevronRight size={16} style={{ marginLeft: '4px' }} />
+            </button>
           </div>
 
           {/* Bottom Action Controls */}
@@ -441,6 +457,20 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
           background-color: #f0f8ff;
         }
         @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          .page-1-content, .page-2-content {
+            display: table-row-group !important;
+          }
+          .page-2-content {
+            break-before: page;
+            page-break-before: always;
+          }
+          .pagination-controls {
+            display: none !important;
+          }
           .investigation-table {
             font-size: 11px;
           }
@@ -461,6 +491,11 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
           }
           .investigation-grid-container {
              margin-top: 5px !important;
+          }
+        }
+        @media screen {
+          .hide-on-screen {
+            display: none !important;
           }
         }
       `}</style>

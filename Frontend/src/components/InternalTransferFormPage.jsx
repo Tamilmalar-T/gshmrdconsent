@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, Plus, Trash2 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -101,44 +101,10 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
     }
   };
 
-    const handleIpKeyDown = (e) => {
+  const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const value = e.target.value;
-      const found = findPatientByIpNo(value);
-      
-      let newPatient = { ...patient };
-      if (found) {
-        newPatient = {
-          ...patient,
-          name: found.patientName || patient.name,
-          age: found.age || patient.age,
-          sex: found.sex || patient.sex,
-          uhidNo: found.uhidNo || patient.uhidNo,
-          ipNo: found.ipNo || patient.ipNo,
-          ward: found.ward || patient.ward,
-          bed: found.bedNo || patient.bedNo || patient.bed || '',
-          doa: found.doa || patient.doa
-        };
-        setPatient(newPatient);
-        if (typeof setToastMsg !== 'undefined') {
-          setToastMsg('Patient details auto-filled');
-          setTimeout(() => setToastMsg(''), 2000);
-        }
-      }
-
-      if (e.target.name === 'ipNo' && value.trim() !== '') {
-        const saved = upsertFormRecord(recordId, 'Internal Transfer Form', value, { patient: newPatient, formDetails, handingOver }, null, false);
-        setRecordId(saved.id);
-        clearPersistedForm(PERSIST_KEY);
-        if (typeof setToastMsg !== 'undefined') {
-          setToastMsg('Record saved successfully!');
-          setTimeout(() => {
-            setToastMsg('');
-            if (typeof onNavigate !== 'undefined' && onNavigate) onNavigate('view-records');
-          }, 2000);
-        }
-      }
+      triggerAutofill(e.target.value);
     }
   };
 
@@ -337,9 +303,28 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
             </div>
 
             <div className="form-row-flex">
-              <div className="field-group" style={{ flex: '1' }}>
+              <div className="field-group" style={{ flex: '1', alignItems: 'center', gap: '20px' }}>
                 <label>Nurse accompanied during transfer</label>
-                <input type="text" name="nurseAccompanied" value={formDetails.nurseAccompanied} onChange={handleFormChange} className="dotted-input" />
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', whiteSpace: 'nowrap', border: 'none' }}>
+                    <input 
+                      type="radio" 
+                      name="nurseAccompanied" 
+                      value="Yes" 
+                      checked={formDetails.nurseAccompanied === 'Yes'} 
+                      onChange={handleFormChange} 
+                    /> Yes
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', whiteSpace: 'nowrap', border: 'none' }}>
+                    <input 
+                      type="radio" 
+                      name="nurseAccompanied" 
+                      value="No" 
+                      checked={formDetails.nurseAccompanied === 'No'} 
+                      onChange={handleFormChange} 
+                    /> No
+                  </label>
+                </div>
               </div>
             </div>
 

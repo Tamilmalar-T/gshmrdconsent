@@ -1,16 +1,14 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
   RotateCcw, 
   CheckCircle2, 
   Upload,
-  Stethoscope,
-  FileText,
-  FolderCheck
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
-import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 
@@ -61,11 +59,13 @@ export default function ProgressReassessmentRecordPage() {
   });
 
   const [toastMsg, setToastMsg] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Signature Canvas State
   const sigCanvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
+  const [expandedCanvas, setExpandedCanvas] = useState(false);
 
   const [systemUsers, setSystemUsers] = useState([]);
   useEffect(() => {
@@ -411,7 +411,7 @@ export default function ProgressReassessmentRecordPage() {
             <col style={{ width: '30%' }} />
             <col style={{ width: '70%' }} />
           </colgroup>
-          <tbody>
+          <tbody className={`page-1-content ${currentPage !== 1 ? 'hide-on-screen' : ''}`}>
             
             {/* SECTION 1: S (Subjective) */}
             <tr>
@@ -503,7 +503,8 @@ export default function ProgressReassessmentRecordPage() {
                 </div>
               </td>
             </tr>
-
+          </tbody>
+          <tbody className={`page-2-content ${currentPage !== 2 ? 'hide-on-screen' : ''}`}>
             {/* SECTION 3: A (Assessment) */}
             <tr>
               <td className="td-soap-label-box">
@@ -592,7 +593,7 @@ export default function ProgressReassessmentRecordPage() {
         </table>
 
         {/* FOOTER SIGNATURE GRID */}
-        <table className="yellow-footer-table">
+        <table className={`yellow-footer-table page-2-content ${currentPage !== 2 ? 'hide-on-screen' : ''}`}>
           <colgroup>
             <col style={{ width: '30%' }} />
             <col style={{ width: '35%' }} />
@@ -617,7 +618,7 @@ export default function ProgressReassessmentRecordPage() {
               <td className="foot-cell sig-td-cell">
                 <span className="foot-lbl">Signature :</span>
                 <div className="sig-canvas-row">
-                  <div className="canvas-box">
+                  <div className={`canvas-box ${expandedCanvas ? 'expanded' : ''}`} onClick={() => !expandedCanvas && setExpandedCanvas(true)}>
                     <canvas 
                       ref={sigCanvasRef} 
                       width={400} 
@@ -632,7 +633,18 @@ export default function ProgressReassessmentRecordPage() {
                       className="canvas-el"
                     />
                     {!hasSigned && <span className="canvas-placeholder">Draw or Upload Signature</span>}
+                    {expandedCanvas && (
+                      <div className="expanded-btn-group">
+                        <button type="button" className="btn-clear-sig expanded-clear-btn" onClick={(e) => { e.stopPropagation(); clearSig(); }}>
+                          <RotateCcw size={16} /> Clear
+                        </button>
+                        <button type="button" className="btn-done-sig" onClick={(e) => { e.stopPropagation(); setExpandedCanvas(false); }}>
+                          <CheckCircle2 size={16} /> Done
+                        </button>
+                      </div>
+                    )}
                   </div>
+                  {expandedCanvas && <div className="canvas-expanded-overlay" onClick={() => setExpandedCanvas(false)} />}
                   <div className="sig-btn-group no-print">
                     <label className="btn-upload-sig" title="Upload Signature Image">
                       <Upload size={12} />
@@ -674,7 +686,56 @@ export default function ProgressReassessmentRecordPage() {
           </tbody>
         </table>
 
+        {/* Pagination Controls */}
+        <div className="no-print pagination-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', marginBottom: '20px', padding: '0 10px' }}>
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={() => setCurrentPage(1)} 
+            disabled={currentPage === 1}
+            style={{ minWidth: '100px', display: 'flex', justifyContent: 'center' }}
+          >
+            <ChevronLeft size={16} style={{ marginRight: '4px' }} /> Previous
+          </button>
+          <span style={{ fontWeight: 'bold' }}>Page {currentPage} of 2</span>
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={() => setCurrentPage(2)} 
+            disabled={currentPage === 2}
+            style={{ minWidth: '100px', display: 'flex', justifyContent: 'center' }}
+          >
+            Next <ChevronRight size={16} style={{ marginLeft: '4px' }} />
+          </button>
+        </div>
+
       </div>
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          .page-1-content, table.page-2-content, tbody.page-2-content {
+            display: table-row-group !important;
+          }
+          table.page-2-content {
+            display: table !important;
+          }
+          .page-2-content {
+            break-before: page;
+            page-break-before: always;
+          }
+          .pagination-controls {
+            display: none !important;
+          }
+        }
+        @media screen {
+          .hide-on-screen {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

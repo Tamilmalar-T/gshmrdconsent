@@ -39,3 +39,34 @@ exports.getPatientById = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
+
+// @desc    Update a patient
+// @route   PUT /api/patients/:ipNo
+exports.updatePatient = async (req, res) => {
+  try {
+    const updatedPatient = await PatientModel.updatePatient(req.params.ipNo, req.body);
+    if (!updatedPatient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+    res.status(200).json({ success: true, data: updatedPatient });
+  } catch (error) {
+    console.error('Error updating patient:', error);
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+};
+
+// @desc    Delete a patient
+// @route   DELETE /api/patients/:ipNo
+exports.deletePatient = async (req, res) => {
+  try {
+    const deletedPatient = await PatientModel.deletePatient(req.params.ipNo);
+    res.status(200).json({ 
+      success: true, 
+      message: 'Patient deleted successfully', 
+      deletedRecord: deletedPatient || null 
+    });
+  } catch (error) {
+    console.error('Error deleting patient:', error);
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+};

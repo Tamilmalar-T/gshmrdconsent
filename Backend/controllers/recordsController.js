@@ -25,7 +25,10 @@ const models = {
   progressreassessmentrecord: require('../models/progressReassessmentRecordModel'),
   investigationchart: require('../models/investigationChartModel'),
   internaltransferform: require('../models/internalTransferFormModel'),
-  regulardrugprescription: require('../models/regularDrugPrescriptionModel')
+  culturechart: require('../models/cultureChartModel'),
+  regulardrugprescription: require('../models/regularDrugPrescriptionModel'),
+  emergencydoctorinitialassessment: require('../models/emergencyDoctorInitialAssessmentModel'),
+  initialassessmentform: require('../models/initialAssessmentFormModel')
 };
 
 exports.getAllCompletedRecords = async (req, res) => {
@@ -47,7 +50,10 @@ exports.getAllCompletedRecords = async (req, res) => {
       { name: 'progressreassessmentrecord', formType: 'Progress & Reassessment Record - Resident Doctor' },
       { name: 'investigationchart', formType: 'Investigation Chart' },
       { name: 'internaltransferform', formType: 'Internal Transfer Form' },
-      { name: 'regulardrugprescription', formType: 'Regular Drug Prescription' }
+      { name: 'culturechart', formType: 'Culture Chart' },
+      { name: 'regulardrugprescription', formType: 'Regular Drug Prescription' },
+      { name: 'emergencydoctorinitialassessment', formType: 'Emergency Doctor Initial Assessment' },
+      { name: 'initialassessmentform', formType: 'Initial Assessment Form' }
     ];
 
     let allRecords = [];
@@ -87,5 +93,51 @@ exports.getAllCompletedRecords = async (req, res) => {
   } catch (error) {
     console.error('Error fetching all records:', error);
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+};
+
+exports.deleteRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Record ID required' });
+    }
+
+    const parts = id.split('_');
+    if (parts.length >= 2) {
+      const tableName = parts[0];
+      const dbId = parts.slice(1).join('_');
+
+      const allowedTables = [
+        'vitalschart',
+        'nursesdailyassessment',
+        'nursinginitialassessment',
+        'activityrecordbilling',
+        'intakeoutputrecord',
+        'diabeticchart',
+        'progresssheet',
+        'consentgeneraladmission',
+        'nursescareplan',
+        'labrequisition',
+        'bpchart',
+        'progressreassessmentrecord',
+        'investigationchart',
+        'internaltransferform',
+        'culturechart',
+        'regulardrugprescription',
+        'emergencydoctorinitialassessment',
+        'initialassessmentform'
+      ];
+
+      if (allowedTables.includes(tableName)) {
+        await pool.query(`DELETE FROM ${tableName} WHERE id = $1`, [dbId]);
+        return res.status(200).json({ success: true, message: 'Record deleted successfully' });
+      }
+    }
+
+    return res.status(200).json({ success: true, message: 'Local storage record cleared' });
+  } catch (error) {
+    console.error('Error deleting record:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete record', error: error.message });
   }
 };

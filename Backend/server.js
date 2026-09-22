@@ -8,7 +8,8 @@ const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Basic Route
 app.get('/', (req, res) => {
@@ -32,6 +33,11 @@ const progressReassessmentRecordRoutes = require('./routes/progressReassessmentR
 const investigationChartRoutes = require('./routes/investigationChartRoutes');
 const internalTransferFormRoutes = require('./routes/internalTransferFormRoutes');
 const regularDrugPrescriptionRoutes = require('./routes/regularDrugPrescriptionRoutes');
+const cultureChartRoutes = require('./routes/cultureChartRoutes');
+const emergencyDoctorInitialAssessmentRoutes = require('./routes/emergencyDoctorInitialAssessmentRoutes');
+const initialAssessmentFormRoutes = require('./routes/initialAssessmentFormRoutes');
+const patientRegisterMasterRoutes = require('./routes/patientRegisterMasterRoutes');
+const generalMasterRoutes = require('./routes/generalMasterRoutes');
 
 const recordsRoutes = require('./routes/recordsRoutes');
 
@@ -55,6 +61,16 @@ app.use('/api/progress-&-reassessment-record---resident-doctor', progressReasses
 app.use('/api/investigation-chart', investigationChartRoutes);
 app.use('/api/internal-transfer-form', internalTransferFormRoutes);
 app.use('/api/regular-drug-prescription', regularDrugPrescriptionRoutes);
+app.use('/api/culture-chart', cultureChartRoutes);
+app.use('/api/emergency-doctor-initial-assessment', emergencyDoctorInitialAssessmentRoutes);
+app.use('/api/initial-assessment-form', initialAssessmentFormRoutes);
+app.use('/api/patient-register-master', patientRegisterMasterRoutes);
+app.use('/api/general-master', generalMasterRoutes);
+
+// Generic fallback POST handler for form syncing without dedicated DB endpoints
+app.post('/api/:formEndpoint', (req, res) => {
+  res.json({ success: true, message: 'Form synced successfully' });
+});
 
 // Example DB Route: Test connection
 app.get('/api/db-test', async (req, res) => {

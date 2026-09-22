@@ -1,14 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
   CheckCircle2, 
   RotateCcw, 
   Upload,
-  Stethoscope,
-  FileCheck,
-  FolderCheck,
-  FileEdit
+  FolderCheck
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -82,6 +79,7 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
+  const [expandedCanvas, setExpandedCanvas] = useState(false);
   const [recordId, setRecordId] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
@@ -710,7 +708,7 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                 <div className="tbl-field flex-col">
                   <span className="tbl-lbl">Signature :</span>
                   <div className="sig-canvas-row">
-                    <div className="canvas-box">
+                    <div className={`canvas-box ${expandedCanvas ? 'expanded' : ''}`} onClick={() => !expandedCanvas && setExpandedCanvas(true)}>
                       <canvas 
                         ref={canvasRef} 
                         width={300} 
@@ -725,7 +723,18 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                         className="canvas-el"
                       />
                       {!hasSigned && <span className="canvas-placeholder">Doctor Signature</span>}
+                      {expandedCanvas && (
+                        <div className="expanded-btn-group">
+                          <button type="button" className="btn-clear-sig expanded-clear-btn" onClick={(e) => { e.stopPropagation(); clearSig(); }}>
+                            <RotateCcw size={16} /> Clear
+                          </button>
+                          <button type="button" className="btn-done-sig" onClick={(e) => { e.stopPropagation(); setExpandedCanvas(false); }}>
+                            <CheckCircle2 size={16} /> Done
+                          </button>
+                        </div>
+                      )}
                     </div>
+                    {expandedCanvas && <div className="canvas-expanded-overlay" onClick={() => setExpandedCanvas(false)} />}
                     <div className="sig-btn-group no-print">
                       <label className="btn-upload-sig" title="Upload Signature Image">
                         <Upload size={12} />
