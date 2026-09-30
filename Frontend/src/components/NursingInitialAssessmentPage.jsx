@@ -910,7 +910,7 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
           <div className="sig-field-item">
             <span className="info-lbl-bold">Date :</span>
             <input
-              type="date" max={getCurrentDate()}
+              type="date"
               name="sigDate"
               value={pg2.sigDate}
               onChange={handlePg2Change}

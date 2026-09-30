@@ -757,7 +757,7 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                 <div className="tbl-field">
                   <span className="tbl-lbl">Date :</span>
                   <input 
-                    type="date" max={getCurrentDate()} 
+                    type="date" 
                     name="docDate" 
                     value={soap.docDate} 
                     onChange={handleSoapChange} 

@@ -210,6 +210,7 @@ const ConsolidatedAssessmentPage = ({ onEdit }) => {
         'Initial Assessment Form': 'initial-assessment-form',
         'Emergency Doctor Initial Assessment': 'emergency-doctor-initial-assessment',
         'Nursing Initial Assessment': 'nursing-initial-assessment',
+        'Nursing Initial Assessment - Obstetrics': 'nursing-initial-assessment-obstetrics',
         'Antenatal Case Record': 'antenatal-case-record',
         'Progress Sheet - Consultant': 'progress-sheet',
         'Progress Sheet': 'progress-sheet',

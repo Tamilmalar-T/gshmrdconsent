@@ -9,16 +9,31 @@ import {
   AlertCircle, 
   X, 
   RotateCcw, 
-  Save
+  Save,
+  Building,
+  ChevronDown,
+  ChevronUp,
+  List,
+  Edit3
 } from 'lucide-react';
 
 import { getActiveRegisterMasterValues } from './PatientRegisterMasterPage';
 
-const STORAGE_KEY = 'masters_hospital_branch_records';
+const BRANCH_STORAGE_KEY = 'masters_hospital_branch_records';
+const HOSPITAL_STORAGE_KEY = 'masters_hospital_records';
+
+const INITIAL_HOSPITAL_RECORDS = [
+  { id: 1, hospitalCode: 'SMSH', hospitalName: 'SNEKARAM MULTI SPECIALITY HOSPITAL', phone: '0422-2490100', email: 'info@snekaram.com', city: 'Coimbatore', active: true },
+  { id: 2, hospitalCode: 'GSH', hospitalName: 'GURUSHREE HOSPITAL', phone: '0422-2570000', email: 'info@gurushreehospital.com', city: 'Coimbatore', active: true },
+  { id: 3, hospitalCode: 'APOLLO', hospitalName: 'APOLLO HOSPITALS', phone: '044-28290200', email: 'info@apollohospitals.com', city: 'Chennai', active: true },
+  { id: 4, hospitalCode: 'MIOT', hospitalName: 'MIOT HOSPITALS', phone: '044-42002288', email: 'info@miothospitals.com', city: 'Chennai', active: true },
+  { id: 5, hospitalCode: 'KMCH', hospitalName: 'KOVAI MEDICAL CENTER AND HOSPITAL', phone: '0422-4323800', email: 'info@kmchhospitals.com', city: 'Coimbatore', active: true }
+];
 
 const INITIAL_BRANCH_RECORDS = [
   {
     id: 101,
+    hospitalCode: 'SMSH',
     hospitalName: 'SNEKARAM MULTI SPECIALITY HOSPITAL',
     branchNo: 'LMHB4',
     branchName: 'NANDHU MEDICAL CENTRE',
@@ -36,6 +51,7 @@ const INITIAL_BRANCH_RECORDS = [
   },
   {
     id: 102,
+    hospitalCode: 'SMSH',
     hospitalName: 'SNEKARAM MULTI SPECIALITY HOSPITAL',
     branchNo: 'LMHB5',
     branchName: 'SRI RAMA MEDICAL CARE',
@@ -53,6 +69,7 @@ const INITIAL_BRANCH_RECORDS = [
   },
   {
     id: 103,
+    hospitalCode: 'GSH',
     hospitalName: 'GURUSHREE HOSPITAL',
     branchNo: 'GHB1',
     branchName: 'GURUSHREE MAIN BRANCH',
@@ -70,6 +87,7 @@ const INITIAL_BRANCH_RECORDS = [
   },
   {
     id: 104,
+    hospitalCode: 'GSH',
     hospitalName: 'GURUSHREE HOSPITAL',
     branchNo: 'GHB2',
     branchName: 'GURUSHREE CITY CENTRE',
@@ -87,55 +105,21 @@ const INITIAL_BRANCH_RECORDS = [
   }
 ];
 
-const HOSPITALS_LIST_DEFAULT = [
-  'SNEKARAM MULTI SPECIALITY HOSPITAL',
-  'GURUSHREE HOSPITAL',
-  'APOLLO HOSPITALS',
-  'MIOT HOSPITALS',
-  'KOVAI MEDICAL CENTER AND HOSPITAL'
+const BRANCH_CODE_OPTIONS_DEFAULT = [
+  { code: 'LMHB4', name: 'NANDHU MEDICAL CENTRE' },
+  { code: 'LMHB5', name: 'SRI RAMA MEDICAL CARE' },
+  { code: 'GHB1', name: 'GURUSHREE MAIN BRANCH' },
+  { code: 'GHB2', name: 'GURUSHREE CITY CENTRE' }
 ];
 
-const AREA_LIST_DEFAULT = [
-  'Gandhipuram',
-  'RS Puram',
-  'Peelamedu',
-  'Singanallur',
-  'Ukadam',
-  'Saibaba Colony',
-  'Saravanampatti',
-  'Kovai'
-];
+const AREA_LIST_DEFAULT = ['Gandhipuram', 'RS Puram', 'Peelamedu', 'Singanallur', 'Ukadam', 'Saibaba Colony', 'Saravanampatti', 'Kovai'];
+const CITY_LIST_DEFAULT = ['Coimbatore', 'Chennai', 'Madurai', 'Trichy', 'Salem', 'Tirupur', 'Erode', 'Vellore', 'Tirunelveli'];
+const STATE_LIST_DEFAULT = ['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Maharashtra'];
+const COUNTRY_LIST_DEFAULT = ['India', 'Singapore', 'United States', 'United Kingdom'];
 
-const CITY_LIST_DEFAULT = [
-  'Coimbatore',
-  'Chennai',
-  'Madurai',
-  'Trichy',
-  'Salem',
-  'Tirupur',
-  'Erode',
-  'Vellore',
-  'Tirunelveli'
-];
-
-const STATE_LIST_DEFAULT = [
-  'Tamil Nadu',
-  'Kerala',
-  'Karnataka',
-  'Andhra Pradesh',
-  'Telangana',
-  'Maharashtra'
-];
-
-const COUNTRY_LIST_DEFAULT = [
-  'India',
-  'Singapore',
-  'United States',
-  'United Kingdom'
-];
-
-const EMPTY_FORM = {
-  hospitalName: 'SNEKARAM MULTI SPECIALITY HOSPITAL',
+const EMPTY_BRANCH_FORM = {
+  hospitalCode: '',
+  hospitalName: '',
   branchNo: '',
   branchName: '',
   address1: '',
@@ -152,9 +136,46 @@ const EMPTY_FORM = {
 };
 
 export default function HospitalBranchMasterPage() {
-  const activeHospitals = getActiveRegisterMasterValues('Hospital Name');
-  const hospitalsList = activeHospitals.length > 0 ? activeHospitals : HOSPITALS_LIST_DEFAULT;
+  const [activeTab, setActiveTab] = useState('branches'); // 'branches' or 'hospitals'
+  const [showRegistry, setShowRegistry] = useState(true);
+  const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
+  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
 
+  /* Collapsible section states matching screenshot */
+  const [isHospitalInfoOpen, setIsHospitalInfoOpen] = useState(true);
+  const [isBranchInfoOpen, setIsBranchInfoOpen] = useState(true);
+
+  /* Hospitals State */
+  const [hospitals, setHospitals] = useState(() => {
+    try {
+      const saved = localStorage.getItem(HOSPITAL_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) { console.error('Failed to parse hospitals from localStorage:', e); }
+    return INITIAL_HOSPITAL_RECORDS;
+  });
+
+  /* Branches State */
+  const [branches, setBranches] = useState(() => {
+    try {
+      const saved = localStorage.getItem(BRANCH_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) { console.error('Failed to parse branches from localStorage:', e); }
+    return INITIAL_BRANCH_RECORDS;
+  });
+
+  const [editingBranchId, setEditingBranchId] = useState(null);
+  const [branchForm, setBranchForm] = useState(EMPTY_BRANCH_FORM);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  /* Active master options fallback */
   const activeAreas = getActiveRegisterMasterValues('Area');
   const areaList = activeAreas.length > 0 ? activeAreas : AREA_LIST_DEFAULT;
 
@@ -167,141 +188,141 @@ export default function HospitalBranchMasterPage() {
   const activeCountries = getActiveRegisterMasterValues('Country');
   const countryList = activeCountries.length > 0 ? activeCountries : COUNTRY_LIST_DEFAULT;
 
-  const BRANCH_LIST_DEFAULT = [
-    'NANDHU MEDICAL CENTRE',
-    'SRI RAMA MEDICAL CARE',
-    'GURUSHREE MAIN BRANCH',
-    'GURUSHREE CITY CENTRE'
-  ];
+  const BRANCH_LIST_DEFAULT = ['NANDHU MEDICAL CENTRE', 'SRI RAMA MEDICAL CARE', 'GURUSHREE MAIN BRANCH', 'GURUSHREE CITY CENTRE'];
   const activeBranches = getActiveRegisterMasterValues('Branch');
   const branchList = activeBranches.length > 0 ? activeBranches : BRANCH_LIST_DEFAULT;
 
-  const [branches, setBranches] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error('Failed to parse hospital branches from localStorage:', e);
-    }
-    return INITIAL_BRANCH_RECORDS;
-  });
+  /* Combine default and registered branch codes for the dropdown */
+  const branchCodeList = Array.from(new Set([
+    ...BRANCH_CODE_OPTIONS_DEFAULT.map(b => b.code),
+    ...branches.map(b => b.branchNo).filter(Boolean)
+  ]));
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  /* Save to localStorage */
+  useEffect(() => {
+    try { localStorage.setItem(HOSPITAL_STORAGE_KEY, JSON.stringify(hospitals)); }
+    catch (e) { console.error('Failed to save hospitals to localStorage:', e); }
+  }, [hospitals]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(branches));
-    } catch (e) {
-      console.error('Failed to save hospital branches to localStorage:', e);
-    }
+    try { localStorage.setItem(BRANCH_STORAGE_KEY, JSON.stringify(branches)); }
+    catch (e) { console.error('Failed to save branches to localStorage:', e); }
   }, [branches]);
 
-  const handleChange = (e) => {
+  const handleBranchFormChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm(prev => ({
+    setBranchForm(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
     setErrorMsg('');
   };
 
-  const handleOpenAddModal = () => {
-    setForm(EMPTY_FORM);
-    setEditingId(null);
-    setErrorMsg('');
-    setIsModalOpen(true);
-  };
-
-  const handleOpenEditModal = (record) => {
-    setForm({ ...record });
-    setEditingId(record.id);
-    setErrorMsg('');
-    setIsModalOpen(true);
-  };
-
   const handleClearForm = () => {
-    setForm({
-      ...EMPTY_FORM,
-      hospitalName: form.hospitalName || 'SNEKARAM MULTI SPECIALITY HOSPITAL'
-    });
+    setBranchForm(EMPTY_BRANCH_FORM);
+    setIsCustomHospitalCode(false);
+    setIsCustomBranchCode(false);
+    setEditingBranchId(null);
     setErrorMsg('');
   };
 
-  const handleSave = (e) => {
+  const handleSaveBranch = (e) => {
     if (e) e.preventDefault();
     setErrorMsg('');
 
-    if (!form.hospitalName.trim()) {
+    if (!branchForm.hospitalCode.trim()) {
+      setErrorMsg('Hospital Code is mandatory!');
+      return;
+    }
+    if (!branchForm.hospitalName.trim()) {
       setErrorMsg('Hospital Name is mandatory!');
       return;
     }
-    if (!form.branchNo.trim()) {
+    if (!branchForm.branchNo.trim()) {
       setErrorMsg('Branch No. is mandatory!');
       return;
     }
-    if (!form.branchName.trim()) {
+    if (!branchForm.branchName.trim()) {
       setErrorMsg('Branch Name is mandatory!');
       return;
     }
-    if (!form.address1.trim()) {
+    if (!branchForm.address1.trim()) {
       setErrorMsg('Address 1 is mandatory!');
       return;
     }
-    if (!form.area.trim()) {
+    if (!branchForm.area.trim()) {
       setErrorMsg('Area is mandatory!');
       return;
     }
-    if (!form.city.trim()) {
+    if (!branchForm.city.trim()) {
       setErrorMsg('City is mandatory!');
       return;
     }
-    if (!form.state.trim()) {
-      setErrorMsg('State is mandatory!');
-      return;
-    }
-    if (!form.country.trim()) {
-      setErrorMsg('Country is mandatory!');
-      return;
+
+    /* Auto-register Hospital Entity if code doesn't exist yet */
+    const existingHosp = hospitals.find(h => h.hospitalCode.toUpperCase() === branchForm.hospitalCode.toUpperCase());
+    if (!existingHosp && branchForm.hospitalCode.trim() && branchForm.hospitalName.trim()) {
+      const newHosp = {
+        id: Date.now(),
+        hospitalCode: branchForm.hospitalCode.toUpperCase(),
+        hospitalName: branchForm.hospitalName.toUpperCase(),
+        phone: branchForm.phone || '',
+        email: branchForm.email || '',
+        city: branchForm.city || 'Coimbatore',
+        active: true
+      };
+      setHospitals(prev => [newHosp, ...prev]);
     }
 
     let updated;
-    if (editingId) {
-      updated = branches.map(b => b.id === editingId ? { ...form, id: editingId } : b);
-      setSuccessMsg(`Hospital Branch "${form.branchName}" updated successfully!`);
+    if (editingBranchId) {
+      updated = branches.map(b => b.id === editingBranchId ? { ...branchForm, id: editingBranchId } : b);
+      setSuccessMsg(`Hospital Branch "${branchForm.branchName}" updated successfully!`);
     } else {
-      const newRecord = { ...form, id: Date.now() };
+      const newRecord = { ...branchForm, id: Date.now() };
       updated = [newRecord, ...branches];
-      setSuccessMsg(`Hospital Branch "${form.branchName}" saved successfully!`);
+      setSuccessMsg(`Hospital Branch "${branchForm.branchName}" saved successfully!`);
     }
 
     setBranches(updated);
-    setIsModalOpen(false);
-    setEditingId(null);
+    setEditingBranchId(null);
+    setIsCustomHospitalCode(false);
+    setIsCustomBranchCode(false);
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
-  const handleDelete = (id, branchName) => {
+  const handleOpenEditBranch = (record) => {
+    setBranchForm({ ...record });
+    setEditingBranchId(record.id);
+    setIsCustomHospitalCode(false);
+    setIsCustomBranchCode(false);
+    setErrorMsg('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteBranch = (id, branchName) => {
     if (window.confirm(`Are you sure you want to delete branch "${branchName}"?`)) {
-      const updated = branches.filter(b => b.id !== id);
-      setBranches(updated);
+      setBranches(prev => prev.filter(b => b.id !== id));
       setSuccessMsg('Hospital Branch record deleted successfully.');
       setTimeout(() => setSuccessMsg(''), 3000);
     }
   };
 
+  const handleDeleteHospital = (id, name) => {
+    if (window.confirm(`Are you sure you want to delete Hospital "${name}"?`)) {
+      setHospitals(prev => prev.filter(h => h.id !== id));
+      setSuccessMsg(`Hospital "${name}" deleted successfully.`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    }
+  };
+
+  /* Filtering */
   const filteredBranches = branches.filter(b => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
       (b.hospitalName && b.hospitalName.toLowerCase().includes(q)) ||
+      (b.hospitalCode && b.hospitalCode.toLowerCase().includes(q)) ||
       (b.branchNo && b.branchNo.toLowerCase().includes(q)) ||
       (b.branchName && b.branchName.toLowerCase().includes(q)) ||
       (b.city && b.city.toLowerCase().includes(q)) ||
@@ -310,8 +331,18 @@ export default function HospitalBranchMasterPage() {
     );
   });
 
+  const filteredHospitals = hospitals.filter(h => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (h.hospitalName && h.hospitalName.toLowerCase().includes(q)) ||
+      (h.hospitalCode && h.hospitalCode.toLowerCase().includes(q)) ||
+      (h.city && h.city.toLowerCase().includes(q))
+    );
+  });
+
   return (
-    <div className="patient-register-container">
+    <div className="patient-register-container" style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px' }}>
       {/* Toast Notifications */}
       {successMsg && (
         <div className="no-print alert-success-toast">
@@ -321,399 +352,662 @@ export default function HospitalBranchMasterPage() {
       )}
 
       {/* Main Page Title Header */}
-      <div className="pr-page-header">
+      <div className="pr-page-header" style={{ marginBottom: '20px' }}>
         <div className="pr-header-titles">
           <h1 className="pr-main-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Building2 size={24} className="text-sky-600" />
-            <span>Hospital Master</span>
+            <span>Hospital &amp; Branch Registration</span>
           </h1>
-          <p className="pr-sub-title">Configure and manage multi-speciality hospital branches and locations.</p>
+          <p className="pr-sub-title">Register multi-speciality hospital entities, select or add branches, and location details.</p>
         </div>
+        
+        {/* Top Right Pinkish List Badge Button */}
         <div className="pr-header-actions">
           <button 
             type="button" 
-            className="btn-pr-register"
-            style={{ backgroundColor: '#0284c7', display: 'flex', alignItems: 'center', gap: '8px' }}
-            onClick={handleOpenAddModal}
+            onClick={() => setShowRegistry(prev => !prev)}
+            style={{
+              backgroundColor: '#fff0f3',
+              color: '#e11d48',
+              border: '1px solid #fecdd3',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '6px 14px', borderRadius: '8px',
+              fontWeight: '700', fontSize: '12px', cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(225,29,72,0.1)'
+            }}
           >
-            <Plus size={16} />
-            <span>+ Add Hospital Branch</span>
+            <List size={14} />
+            <span>{showRegistry ? 'Hide Registry' : 'Hospital & Branch List'}</span>
           </button>
         </div>
       </div>
 
-      {/* Main Table Card Box */}
-      <div className="pr-card-box pr-table-card" style={{ marginTop: '20px' }}>
-        <div className="pr-card-header-strip" style={{ backgroundColor: '#0284c7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Building2 size={16} />
-            <span>Hospital Branch Registry ({filteredBranches.length})</span>
-          </div>
+      {errorMsg && (
+        <div style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '13px' }}>
+          <AlertCircle size={18} />
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
-          {/* Search Input */}
-          <div className="pr-search-bar" style={{ margin: 0, width: '280px', backgroundColor: '#fff' }}>
-            <Search size={14} color="#64748b" />
-            <input 
-              type="text" 
-              placeholder="Search branch name, code, city..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ fontSize: '13px' }}
-            />
+      {/* ══ INLINE FORM CONTENT PAGE (Matching Collapsible Section Design) ══ */}
+      <form onSubmit={handleSaveBranch} style={{ marginBottom: '28px' }}>
+        
+        {/* SECTION 1: Hospital Information (Blue Strip Collapsible Header with Add Hospital feature) */}
+        <div style={{
+          backgroundColor: '#0284c7', color: '#ffffff',
+          padding: '12px 20px', borderRadius: '8px 8px 0 0',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          fontWeight: '700', fontSize: '14px', cursor: 'pointer',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.06)'
+        }} onClick={() => setIsHospitalInfoOpen(o => !o)}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Building size={18} />
+            <span>Hospital Information (Add / Select Hospital)</span>
           </div>
+          {isHospitalInfoOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
 
-        {/* Branch Table */}
-        <div className="pr-table-responsive">
-          <table className="pr-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '2px solid #e2e8f0' }}>
-                <th style={{ padding: '12px 14px', width: '60px', fontWeight: '700' }}>Sl.No</th>
-                <th style={{ padding: '12px 14px', fontWeight: '700' }}>Hospital Name</th>
-                <th style={{ padding: '12px 14px', width: '110px', fontWeight: '700' }}>Branch No</th>
-                <th style={{ padding: '12px 14px', fontWeight: '700' }}>Branch Name</th>
-                <th style={{ padding: '12px 14px', fontWeight: '700' }}>Location (Area / City)</th>
-                <th style={{ padding: '12px 14px', width: '130px', fontWeight: '700' }}>Mobile / Phone</th>
-                <th style={{ padding: '12px 14px', width: '80px', fontWeight: '700', textAlign: 'center' }}>Active</th>
-                <th style={{ padding: '12px 14px', width: '100px', fontWeight: '700', textAlign: 'center' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredBranches.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center" style={{ padding: '36px', color: '#64748b', textAlign: 'center' }}>
-                    No hospital branches found. Click "+ Add Hospital Branch" to add a record.
-                  </td>
-                </tr>
-              ) : (
-                filteredBranches.map((b, idx) => (
-                  <tr key={b.id || idx} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                    <td style={{ padding: '12px 14px', fontWeight: '700', color: '#64748b' }}>{idx + 1}</td>
-                    <td style={{ padding: '12px 14px', fontWeight: '600', color: '#0f172a' }}>{b.hospitalName}</td>
-                    <td style={{ padding: '12px 14px', fontWeight: '700', color: '#0284c7' }}>{b.branchNo}</td>
-                    <td style={{ padding: '12px 14px', fontWeight: '700', color: '#1e293b' }}>{b.branchName}</td>
-                    <td style={{ padding: '12px 14px', color: '#475569', fontSize: '13px' }}>
-                      {b.area ? `${b.area}, ` : ''}{b.city} ({b.state})
-                    </td>
-                    <td style={{ padding: '12px 14px', color: '#334155', fontWeight: '600' }}>{b.mobile || b.phone || '—'}</td>
-                    <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={b.active !== false} 
-                        readOnly 
-                        style={{ width: '16px', height: '16px', cursor: 'default' }}
-                      />
-                    </td>
-                    <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button 
-                          type="button"
-                          onClick={() => handleOpenEditModal(b)}
-                          title="Edit Hospital Branch"
-                          style={{ borderColor: '#3b82f6', color: '#2563eb', padding: '6px 8px', borderRadius: '6px', backgroundColor: '#eff6ff', cursor: 'pointer', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center' }}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => handleDelete(b.id, b.branchName)}
-                          title="Delete Branch"
-                          style={{ borderColor: '#ef4444', color: '#dc2626', padding: '6px 8px', borderRadius: '6px', backgroundColor: '#fef2f2', cursor: 'pointer', border: '1px solid #fecaca', display: 'flex', alignItems: 'center' }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* EDIT / ADD HOSPITAL BRANCH MODAL (Matching Screenshot) */}
-      {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={() => setIsModalOpen(false)}>
-          <div style={{ background: '#e2e8f0', borderRadius: '18px', width: '920px', maxWidth: '95vw', overflow: 'hidden', boxShadow: '0 25px 80px rgba(0,0,0,0.45)', border: '2px solid #cbd5e1' }} onClick={e => e.stopPropagation()}>
-            
-            {/* Modal Header Bar matching image design */}
-            <div style={{ background: '#ffffff', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1' }}>
-              <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#000000', letterSpacing: '-0.01em' }}>
-                {editingId ? 'Edit Hospital Branch' : 'Add Hospital Branch'}
-              </h2>
-              <button 
-                type="button" 
-                onClick={() => setIsModalOpen(false)}
-                style={{ background: '#000000', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', color: '#ffffff', fontSize: '16px', fontWeight: '900', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        {isHospitalInfoOpen && (
+          <div style={{
+            backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderTop: 'none',
+            borderRadius: '0 0 8px 8px', padding: '24px 28px', marginBottom: '20px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '18px 24px', alignItems: 'center' }}>
+              
+              {/* Hospital Code Text Input with Hover/Focus Popup List */}
+              <div 
+                style={{ position: 'relative' }}
+                onMouseEnter={() => setShowHospitalDropdown(true)}
+                onMouseLeave={() => setShowHospitalDropdown(false)}
               >
-                ✕
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Hospital Code <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="hospitalCode" 
+                  value={branchForm.hospitalCode} 
+                  onChange={handleBranchFormChange} 
+                  onFocus={() => setShowHospitalDropdown(true)}
+                  placeholder="Hospital Code" 
+                  required 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+
+                {showHospitalDropdown && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                    marginTop: '4px', backgroundColor: '#ffffff', border: '1px solid #0284c7',
+                    borderRadius: '8px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                    maxHeight: '220px', overflowY: 'auto'
+                  }}>
+                    <div style={{ padding: '6px 12px', fontSize: '11px', fontWeight: '800', color: '#0284c7', backgroundColor: '#f0f9ff', borderBottom: '1px solid #bae6fd', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Saved Hospital Codes
+                    </div>
+                    {hospitals && hospitals.length > 0 ? (
+                      hospitals.map((h, i) => (
+                        <div 
+                          key={h.id || i}
+                          onClick={() => {
+                            setBranchForm(prev => ({
+                              ...prev,
+                              hospitalCode: h.hospitalCode,
+                              hospitalName: h.hospitalName,
+                              phone: h.phone || prev.phone,
+                              email: h.email || prev.email
+                            }));
+                            setShowHospitalDropdown(false);
+                          }}
+                          style={{
+                            padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                            backgroundColor: '#ffffff', transition: 'background-color 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e0f2fe'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                        >
+                          <div style={{ fontWeight: '700', fontSize: '12px', color: '#0369a1' }}>
+                            {h.hospitalCode}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {h.hospitalName}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: '#94a3b8' }}>No saved hospital records</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Hospital Name Text Input */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Hospital Name <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="hospitalName" 
+                  value={branchForm.hospitalName} 
+                  onChange={handleBranchFormChange} 
+                  placeholder="Hospital Name" 
+                  required 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Phone
+                </label>
+                <input 
+                  type="text" 
+                  name="phone" 
+                  value={branchForm.phone} 
+                  onChange={handleBranchFormChange} 
+                  placeholder="0422-XXXXXXX" 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Email ID
+                </label>
+                <input 
+                  type="email" 
+                  name="email" 
+                  value={branchForm.email} 
+                  onChange={handleBranchFormChange} 
+                  placeholder="info@hospital.com" 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 2: Branch Details & Additional Information */}
+        <div style={{
+          backgroundColor: '#0284c7', color: '#ffffff',
+          padding: '12px 20px', borderRadius: '8px 8px 0 0',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          fontWeight: '700', fontSize: '14px', cursor: 'pointer',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.06)'
+        }} onClick={() => setIsBranchInfoOpen(o => !o)}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Building2 size={18} />
+            <span>Branch Details &amp; Additional Information</span>
+          </div>
+          {isBranchInfoOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </div>
+
+        {isBranchInfoOpen && (
+          <div style={{
+            backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderTop: 'none',
+            borderRadius: '0 0 8px 8px', padding: '24px 28px', marginBottom: '20px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '18px 24px', alignItems: 'center' }}>
+              
+              {/* Branch Code / No. Text Input with Hover/Focus Popup List */}
+              <div 
+                style={{ position: 'relative' }}
+                onMouseEnter={() => setShowBranchDropdown(true)}
+                onMouseLeave={() => setShowBranchDropdown(false)}
+              >
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Branch Code / No. <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="branchNo" 
+                  value={branchForm.branchNo} 
+                  onChange={handleBranchFormChange} 
+                  onFocus={() => setShowBranchDropdown(true)}
+                  placeholder="Branch Code / No." 
+                  required 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+
+                {showBranchDropdown && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                    marginTop: '4px', backgroundColor: '#ffffff', border: '1px solid #0284c7',
+                    borderRadius: '8px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                    maxHeight: '220px', overflowY: 'auto'
+                  }}>
+                    <div style={{ padding: '6px 12px', fontSize: '11px', fontWeight: '800', color: '#0284c7', backgroundColor: '#f0f9ff', borderBottom: '1px solid #bae6fd', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Saved Branch Codes
+                    </div>
+                    {branches && branches.length > 0 ? (
+                      branches.map((b, i) => (
+                        <div 
+                          key={b.id || i}
+                          onClick={() => {
+                            setBranchForm(prev => ({
+                              ...prev,
+                              branchNo: b.branchNo,
+                              branchName: b.branchName,
+                              address1: b.address1 || prev.address1,
+                              address2: b.address2 || prev.address2,
+                              mobile: b.mobile || prev.mobile,
+                              fax: b.fax || prev.fax,
+                              area: b.area || prev.area,
+                              city: b.city || prev.city,
+                              state: b.state || prev.state,
+                              country: b.country || prev.country
+                            }));
+                            setShowBranchDropdown(false);
+                          }}
+                          style={{
+                            padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                            backgroundColor: '#ffffff', transition: 'background-color 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e0f2fe'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                        >
+                          <div style={{ fontWeight: '700', fontSize: '12px', color: '#0369a1' }}>
+                            {b.branchNo}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {b.branchName}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: '#94a3b8' }}>No saved branch records</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Branch Name Text Input */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Branch Name <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="branchName" 
+                  value={branchForm.branchName} 
+                  onChange={handleBranchFormChange} 
+                  placeholder="Branch Name" 
+                  required 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Address Line 1 <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="address1" 
+                  value={branchForm.address1} 
+                  onChange={handleBranchFormChange} 
+                  placeholder="Door / Street No." 
+                  required 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Address Line 2
+                </label>
+                <input 
+                  type="text" 
+                  name="address2" 
+                  value={branchForm.address2} 
+                  onChange={handleBranchFormChange} 
+                  placeholder="Landmark, Locality" 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+              </div>
+
+              {/* Row 2 */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Mobile
+                </label>
+                <input 
+                  type="text" 
+                  name="mobile" 
+                  value={branchForm.mobile} 
+                  onChange={handleBranchFormChange} 
+                  placeholder="63692 47195" 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Fax
+                </label>
+                <input 
+                  type="text" 
+                  name="fax" 
+                  value={branchForm.fax} 
+                  onChange={handleBranchFormChange} 
+                  placeholder="Fax No." 
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Area <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select 
+                  name="area" 
+                  value={branchForm.area} 
+                  onChange={handleBranchFormChange}
+                  required
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none', cursor: 'pointer' }}
+                >
+                  <option value="">--Select--</option>
+                  {areaList.map((a, i) => (
+                    <option key={i} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  City <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select 
+                  name="city" 
+                  value={branchForm.city} 
+                  onChange={handleBranchFormChange}
+                  required
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none', cursor: 'pointer' }}
+                >
+                  <option value="">--Select--</option>
+                  {cityList.map((c, i) => (
+                    <option key={i} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Row 3 */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  State <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select 
+                  name="state" 
+                  value={branchForm.state} 
+                  onChange={handleBranchFormChange}
+                  required
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none', cursor: 'pointer' }}
+                >
+                  {stateList.map((s, i) => (
+                    <option key={i} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  Country <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select 
+                  name="country" 
+                  value={branchForm.country} 
+                  onChange={handleBranchFormChange}
+                  required
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none', cursor: 'pointer' }}
+                >
+                  {countryList.map((c, i) => (
+                    <option key={i} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '20px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>Active Status</span>
+                  <input 
+                    type="checkbox" 
+                    name="active" 
+                    checked={branchForm.active} 
+                    onChange={handleBranchFormChange} 
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0284c7' }}
+                  />
+                </label>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* BOTTOM FORM ACTION BUTTONS */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '14px', marginTop: '16px' }}>
+          <button 
+            type="button" 
+            onClick={handleClearForm}
+            style={{
+              backgroundColor: '#f8fafc', color: '#475569',
+              border: '1px solid #cbd5e1', padding: '9px 24px',
+              borderRadius: '8px', fontWeight: '700', fontSize: '13px',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+            }}
+          >
+            <RotateCcw size={15} />
+            <span>Clear Form</span>
+          </button>
+
+          <button 
+            type="submit" 
+            style={{
+              backgroundColor: '#0284c7', color: '#ffffff',
+              border: 'none', padding: '9px 28px',
+              borderRadius: '8px', fontWeight: '700', fontSize: '13px',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              boxShadow: '0 2px 6px rgba(2,132,199,0.35)'
+            }}
+          >
+            <Save size={15} />
+            <span>{editingBranchId ? 'Update Registration' : 'Save Registration'}</span>
+          </button>
+        </div>
+      </form>
+
+      {/* ══ REGISTRY TABLE SECTION (Collapsible / Toggleable) ══ */}
+      {showRegistry && (
+        <div className="pr-card-box pr-table-card" style={{ marginTop: '20px' }}>
+          
+          {/* Card Header Strip with View Tabs & Search */}
+          <div className="pr-card-header-strip" style={{ backgroundColor: '#0284c7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', padding: '10px 16px' }}>
+            
+            {/* View Tabs */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('branches')}
+                style={{
+                  backgroundColor: activeTab === 'branches' ? '#ffffff' : 'rgba(255,255,255,0.18)',
+                  color: activeTab === 'branches' ? '#0284c7' : '#ffffff',
+                  border: 'none', padding: '6px 14px', borderRadius: '6px',
+                  fontWeight: '800', fontSize: '13px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s'
+                }}
+              >
+                <Building2 size={15} />
+                <span>Hospital Branches ({branches.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('hospitals')}
+                style={{
+                  backgroundColor: activeTab === 'hospitals' ? '#ffffff' : 'rgba(255,255,255,0.18)',
+                  color: activeTab === 'hospitals' ? '#0284c7' : '#ffffff',
+                  border: 'none', padding: '6px 14px', borderRadius: '6px',
+                  fontWeight: '800', fontSize: '13px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s'
+                }}
+              >
+                <Building size={15} />
+                <span>Hospitals List ({hospitals.length})</span>
               </button>
             </div>
 
-            {/* Modal Form Body with Light Grey Background */}
-            <div style={{ padding: '24px 32px', background: '#e5e7eb' }}>
-              {errorMsg && (
-                <div style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '13px' }}>
-                  <AlertCircle size={16} />
-                  <span>{errorMsg}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleSave}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px 24px', alignItems: 'center' }}>
-                  
-                  {/* Row 1 */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Hospital Name <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <select 
-                      name="hospitalName" 
-                      value={form.hospitalName} 
-                      onChange={handleChange}
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '700', backgroundColor: '#38bdf8', color: '#ffffff', outline: 'none', cursor: 'pointer' }}
-                      required
-                    >
-                      {hospitalsList.map((h, i) => (
-                        <option key={i} value={h} style={{ backgroundColor: '#fff', color: '#0f172a' }}>{h}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Branch No. <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input 
-                      type="text" 
-                      name="branchNo" 
-                      value={form.branchNo} 
-                      onChange={handleChange} 
-                      placeholder="e.g. LMHB4" 
-                      required 
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '700', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Branch Name <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <select 
-                      name="branchName" 
-                      value={form.branchName} 
-                      onChange={handleChange}
-                      required
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '700', backgroundColor: '#38bdf8', color: '#ffffff', outline: 'none', cursor: 'pointer' }}
-                    >
-                      <option value="" style={{ backgroundColor: '#fff', color: '#0f172a' }}>--Select--</option>
-                      {branchList.map((b, i) => (
-                        <option key={i} value={b} style={{ backgroundColor: '#fff', color: '#0f172a' }}>{b}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Row 2 */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Address 1 <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input 
-                      type="text" 
-                      name="address1" 
-                      value={form.address1} 
-                      onChange={handleChange} 
-                      placeholder="No. 132, Thendral..." 
-                      required 
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '600', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Address 2
-                    </label>
-                    <input 
-                      type="text" 
-                      name="address2" 
-                      value={form.address2} 
-                      onChange={handleChange} 
-                      placeholder="Coimbatore - 641..." 
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '600', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
-                    />
-                  </div>
-
-                  <div></div>
-
-                  {/* Row 3 */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Phone
-                    </label>
-                    <input 
-                      type="text" 
-                      name="phone" 
-                      value={form.phone} 
-                      onChange={handleChange} 
-                      placeholder="Phone number" 
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '600', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Mobile
-                    </label>
-                    <input 
-                      type="text" 
-                      name="mobile" 
-                      value={form.mobile} 
-                      onChange={handleChange} 
-                      placeholder="63692 47195" 
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '600', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Email
-                    </label>
-                    <input 
-                      type="email" 
-                      name="email" 
-                      value={form.email} 
-                      onChange={handleChange} 
-                      placeholder="Email address" 
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '600', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
-                    />
-                  </div>
-
-                  {/* Row 4 */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Fax
-                    </label>
-                    <input 
-                      type="text" 
-                      name="fax" 
-                      value={form.fax} 
-                      onChange={handleChange} 
-                      placeholder="Fax number" 
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '600', backgroundColor: '#ffffff', color: '#0f172a', outline: 'none' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Area <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <select 
-                      name="area" 
-                      value={form.area} 
-                      onChange={handleChange}
-                      required
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '700', backgroundColor: '#38bdf8', color: '#ffffff', outline: 'none', cursor: 'pointer' }}
-                    >
-                      <option value="" style={{ backgroundColor: '#fff', color: '#0f172a' }}>--Select--</option>
-                      {areaList.map((a, i) => (
-                        <option key={i} value={a} style={{ backgroundColor: '#fff', color: '#0f172a' }}>{a}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      City <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <select 
-                      name="city" 
-                      value={form.city} 
-                      onChange={handleChange}
-                      required
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '700', backgroundColor: '#38bdf8', color: '#ffffff', outline: 'none', cursor: 'pointer' }}
-                    >
-                      <option value="" style={{ backgroundColor: '#fff', color: '#0f172a' }}>--Select--</option>
-                      {cityList.map((c, i) => (
-                        <option key={i} value={c} style={{ backgroundColor: '#fff', color: '#0f172a' }}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Row 5 */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      State <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <select 
-                      name="state" 
-                      value={form.state} 
-                      onChange={handleChange}
-                      required
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '700', backgroundColor: '#38bdf8', color: '#ffffff', outline: 'none', cursor: 'pointer' }}
-                    >
-                      {stateList.map((s, i) => (
-                        <option key={i} value={s} style={{ backgroundColor: '#fff', color: '#0f172a' }}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-                      Country <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <select 
-                      name="country" 
-                      value={form.country} 
-                      onChange={handleChange}
-                      required
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #94a3b8', fontSize: '13px', fontWeight: '700', backgroundColor: '#38bdf8', color: '#ffffff', outline: 'none', cursor: 'pointer' }}
-                    >
-                      {countryList.map((c, i) => (
-                        <option key={i} value={c} style={{ backgroundColor: '#fff', color: '#0f172a' }}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: '800', color: '#000000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>Active</span>
-                      <input 
-                        type="checkbox" 
-                        name="active" 
-                        checked={form.active} 
-                        onChange={handleChange} 
-                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                      />
-                    </label>
-                  </div>
-
-                </div>
-
-                {/* Bottom Action Buttons matching image design */}
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '28px' }}>
-                  <button 
-                    type="submit" 
-                    style={{ backgroundColor: '#60a5fa', color: '#ffffff', fontWeight: '700', fontSize: '14px', padding: '8px 32px', borderRadius: '18px', border: 'none', cursor: 'pointer', boxShadow: '0 2px 6px rgba(96,165,250,0.4)', minWidth: '110px' }}
-                  >
-                    {editingId ? 'Update' : 'Save'}
-                  </button>
-
-                  <button 
-                    type="button" 
-                    onClick={handleClearForm}
-                    style={{ backgroundColor: '#f87171', color: '#ffffff', fontWeight: '700', fontSize: '14px', padding: '8px 32px', borderRadius: '18px', border: 'none', cursor: 'pointer', boxShadow: '0 2px 6px rgba(248,113,113,0.4)', minWidth: '110px' }}
-                  >
-                    Clear
-                  </button>
-                </div>
-
-              </form>
+            {/* Search Box */}
+            <div className="pr-search-bar" style={{ margin: 0, width: '280px', backgroundColor: '#fff', borderRadius: '6px' }}>
+              <Search size={14} color="#64748b" />
+              <input 
+                type="text" 
+                placeholder={activeTab === 'branches' ? "Search branch, code, city..." : "Search hospital name, code..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ fontSize: '12px' }}
+              />
             </div>
-
           </div>
+
+          {/* VIEW 1: Hospital Branches Table */}
+          {activeTab === 'branches' && (
+            <div className="pr-table-responsive">
+              <table className="pr-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '2px solid #e2e8f0' }}>
+                    <th style={{ padding: '12px 14px', width: '60px', fontWeight: '700' }}>Sl.No</th>
+                    <th style={{ padding: '12px 14px', width: '110px', fontWeight: '700' }}>Hosp Code</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '700' }}>Hospital Name</th>
+                    <th style={{ padding: '12px 14px', width: '110px', fontWeight: '700' }}>Branch No</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '700' }}>Branch Name</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '700' }}>Location (Area / City)</th>
+                    <th style={{ padding: '12px 14px', width: '130px', fontWeight: '700' }}>Mobile / Phone</th>
+                    <th style={{ padding: '12px 14px', width: '80px', fontWeight: '700', textAlign: 'center' }}>Active</th>
+                    <th style={{ padding: '12px 14px', width: '100px', fontWeight: '700', textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredBranches.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="text-center" style={{ padding: '36px', color: '#64748b', textAlign: 'center' }}>
+                        No hospital branches found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredBranches.map((b, idx) => (
+                      <tr key={b.id || idx} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                        <td style={{ padding: '12px 14px', fontWeight: '700', color: '#64748b' }}>{idx + 1}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: '700', color: '#0f766e' }}>{b.hospitalCode || '—'}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: '600', color: '#0f172a' }}>{b.hospitalName}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: '700', color: '#0284c7' }}>{b.branchNo}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: '700', color: '#1e293b' }}>{b.branchName}</td>
+                        <td style={{ padding: '12px 14px', color: '#475569', fontSize: '13px' }}>
+                          {b.area ? `${b.area}, ` : ''}{b.city} ({b.state})
+                        </td>
+                        <td style={{ padding: '12px 14px', color: '#334155', fontWeight: '600' }}>{b.mobile || b.phone || '—'}</td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={b.active !== false} 
+                            readOnly 
+                            style={{ width: '16px', height: '16px', cursor: 'default' }}
+                          />
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button 
+                              type="button"
+                              onClick={() => handleOpenEditBranch(b)}
+                              title="Edit Hospital Branch"
+                              style={{ borderColor: '#3b82f6', color: '#2563eb', padding: '6px 8px', borderRadius: '6px', backgroundColor: '#eff6ff', cursor: 'pointer', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center' }}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => handleDeleteBranch(b.id, b.branchName)}
+                              title="Delete Branch"
+                              style={{ borderColor: '#ef4444', color: '#dc2626', padding: '6px 8px', borderRadius: '6px', backgroundColor: '#fef2f2', cursor: 'pointer', border: '1px solid #fecaca', display: 'flex', alignItems: 'center' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* VIEW 2: Hospitals Master Table */}
+          {activeTab === 'hospitals' && (
+            <div className="pr-table-responsive">
+              <table className="pr-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '2px solid #e2e8f0' }}>
+                    <th style={{ padding: '12px 14px', width: '60px', fontWeight: '700' }}>Sl.No</th>
+                    <th style={{ padding: '12px 14px', width: '130px', fontWeight: '700' }}>Hospital Code</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '700' }}>Hospital Name</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '700' }}>City / Location</th>
+                    <th style={{ padding: '12px 14px', width: '140px', fontWeight: '700' }}>Phone</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '700' }}>Email</th>
+                    <th style={{ padding: '12px 14px', width: '80px', fontWeight: '700', textAlign: 'center' }}>Active</th>
+                    <th style={{ padding: '12px 14px', width: '100px', fontWeight: '700', textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHospitals.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center" style={{ padding: '36px', color: '#64748b', textAlign: 'center' }}>
+                        No hospitals found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredHospitals.map((h, idx) => (
+                      <tr key={h.id || idx} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                        <td style={{ padding: '12px 14px', fontWeight: '700', color: '#64748b' }}>{idx + 1}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: '700', color: '#0f766e' }}>{h.hospitalCode}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: '700', color: '#0f172a' }}>{h.hospitalName}</td>
+                        <td style={{ padding: '12px 14px', color: '#475569', fontSize: '13px' }}>{h.city || '—'}</td>
+                        <td style={{ padding: '12px 14px', color: '#334155', fontWeight: '600' }}>{h.phone || '—'}</td>
+                        <td style={{ padding: '12px 14px', color: '#334155' }}>{h.email || '—'}</td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={h.active !== false} 
+                            readOnly 
+                            style={{ width: '16px', height: '16px', cursor: 'default' }}
+                          />
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button 
+                              type="button"
+                              onClick={() => handleDeleteHospital(h.id, h.hospitalName)}
+                              title="Delete Hospital"
+                              style={{ borderColor: '#ef4444', color: '#dc2626', padding: '6px 8px', borderRadius: '6px', backgroundColor: '#fef2f2', cursor: 'pointer', border: '1px solid #fecaca', display: 'flex', alignItems: 'center' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
         </div>
       )}
+
     </div>
   );
 }

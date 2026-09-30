@@ -45,7 +45,8 @@ export default function Sidebar({ sidebarOpen, activeTab, setActiveTab }) {
         { id: 'case-sheet-master', label: 'Case Sheet Master', icon: Settings },
         { id: 'nurse-master', label: 'Nurse Master', icon: Users },
         { id: 'ward-master', label: 'Ward Master', icon: Layers },
-          { id: 'room-tariff', label: 'Room Tariff', icon: ClipboardCheck },
+        { id: 'room-tariff', label: 'Room Tariff', icon: ClipboardCheck },
+        { id: 'form-header-master', label: 'Form Header Master', icon: Building2 },
         { id: 'general-master', label: 'General Master', icon: FileText },
         { id: 'patient-register-master', label: 'Patient Register Master', icon: FileText },
         { id: 'consultant-master', label: 'Consultant Master', icon: UserCheck },
@@ -84,7 +85,9 @@ export default function Sidebar({ sidebarOpen, activeTab, setActiveTab }) {
         { id: 'initial-assessment-form', label: 'Initial Assessment', icon: FileEdit },
         { id: 'emergency-doctor-initial-assessment', label: 'EDIA', icon: FileEdit },
         { id: 'nursing-initial-assessment', label: 'Nursing IA', icon: FileText },
+        { id: 'nursing-initial-assessment-obstetrics', label: 'Nursing IA - Obstetrics', icon: FileText },
         { id: 'antenatal-case-record', label: 'Antenatal Case ', icon: FileText },
+        { id: 'antenatal-case-record-op', label: 'Antenatal Case Record (OP)', icon: FileText },
         { id: 'progress-sheet', label: 'Progress Sheet - Consultant', icon: SquareCheck },
         { id: 'resident-doctor-progress', label: 'Reassessment-R Dr', icon: FileText },
         { id: 'nurse-care-plan', label: 'Nurses Care Plan', icon: Info },
@@ -115,7 +118,8 @@ export default function Sidebar({ sidebarOpen, activeTab, setActiveTab }) {
         { id: 'consent-hiv-antibodies-test', label: 'Informed Consent for HIV Antibodies Test', icon: ClipboardCheck },
         { id: 'incident-report', label: 'Incident Report', icon: FileEdit },
         { id: 'adverse-drug-reaction-report', label: 'Adverse Drug Reaction Report ', icon: FileEdit },
-        { id: 'physiotherapy-assessment', label: 'Physiotherapy Assessment & Reassessment', icon: FileEdit }
+        { id: 'physiotherapy-assessment', label: 'Physiotherapy Assessment & Reassessment', icon: FileEdit },
+        { id: 'neonatal-inpatient-medical-record', label: 'Neonatal Medical Record', icon: FileText }
       ]
     }
   ];

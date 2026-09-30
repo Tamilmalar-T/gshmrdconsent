@@ -372,7 +372,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
                   {/* DATE Cell */}
                   <td className="td-mint-date">
                     <input 
-                      type="date" max={getCurrentDate()} 
+                      type="date" 
                       value={row.date || ''} 
                       onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                       className="mint-date-picker"

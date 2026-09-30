@@ -6042,7 +6042,7 @@ input[type="time"].no-icon-time::-webkit-calendar-picker-indicator {
 
 .partograph-compact-matrix-table th,
 .partograph-compact-matrix-table td {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #64748b;
   padding: 3px 2px;
   text-align: center;
   box-sizing: border-box;
@@ -6056,8 +6056,8 @@ input[type="time"].no-icon-time::-webkit-calendar-picker-indicator {
   font-weight: 700;
   text-align: left !important;
   padding-left: 8px !important;
-  width: 190px;
-  min-width: 190px;
+  width: 28%;
+  min-width: 200px;
   color: #334155;
   box-shadow: 2px 0 5px rgba(0,0,0,0.05);
 }
@@ -6200,6 +6200,248 @@ button:focus,
 }
 
 /* Radio & Checkbox High Visibility Focus */
+
+/* ========================================================= */
+/* NEONATAL IN-PATIENT MEDICAL RECORD EXACT PAPER STYLES */
+/* ========================================================= */
+.exact-paper-sheet {
+  font-family: Arial, Helvetica, sans-serif, -apple-system, BlinkMacSystemFont;
+  color: #0f172a;
+  background-color: #ffffff;
+}
+
+.paper-input-line,
+.dot-line-input {
+  border-bottom: 1.5px dotted #1e293b !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 1px 4px !important;
+  outline: none !important;
+  font-size: 11px !important;
+  font-family: inherit !important;
+  color: #000000 !important;
+}
+
+.paper-input-line:focus,
+.dot-line-input:focus {
+  border-bottom: 2px solid #0f766e !important;
+  background-color: #f0fdf4 !important;
+}
+
+.paper-checkbox,
+.paper-square-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  border: 1px solid #000000;
+  border-radius: 1px;
+  background-color: #ffffff;
+  cursor: pointer;
+  display: inline-block;
+  position: relative;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.paper-checkbox:checked,
+.paper-square-checkbox:checked {
+  background-color: #0f172a;
+}
+
+.paper-checkbox:checked::after,
+.paper-square-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  width: 3px;
+  height: 6px;
+  border: solid #ffffff;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.dark-title-banner {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px !important;
+  padding: 5px 12px !important;
+  text-align: center !important;
+  border-radius: 1px !important;
+}
+
+.paper-box {
+  border: 1px solid #1e293b !important;
+  background-color: #ffffff !important;
+  border-radius: 1px !important;
+}
+
+.underline-row {
+  line-height: 1.8;
+}
+
+.neonatal-medical-record-container {
+  max-width: 1050px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+
+.neonatal-medical-record-container .paper-form-wrapper {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  padding: 24px 32px;
+  border: 1px solid #cbd5e1;
+}
+
+.neonatal-medical-record-container .main-form-heading {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-bottom: 2px solid #0f766e;
+  display: inline-block;
+  padding-bottom: 4px;
+}
+
+.neonatal-medical-record-container .form-section-block {
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 16px;
+  background-color: #ffffff;
+}
+
+.neonatal-medical-record-container .block-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f766e;
+  background-color: #f0fdf4;
+  padding: 6px 12px;
+  border-left: 4px solid #0f766e;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.neonatal-medical-record-container .sub-block-header {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1e293b;
+  border-bottom: 1px solid #cbd5e1;
+  padding-bottom: 4px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.neonatal-medical-record-container .form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 16px;
+}
+
+.neonatal-medical-record-container .form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 16px;
+}
+
+.neonatal-medical-record-container .form-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px 16px;
+}
+
+.neonatal-medical-record-container .span-2 {
+  grid-column: span 2;
+}
+
+.neonatal-medical-record-container .span-3 {
+  grid-column: span 3;
+}
+
+.neonatal-medical-record-container .two-column-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.neonatal-medical-record-container .column-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.neonatal-medical-record-container .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neonatal-medical-record-container .form-field label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.neonatal-medical-record-container .form-field input[type="text"],
+.neonatal-medical-record-container .form-field input[type="date"],
+.neonatal-medical-record-container .form-field input[type="time"],
+.neonatal-medical-record-container .form-field select,
+.neonatal-medical-record-container .form-field textarea {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #0f172a;
+  background-color: #ffffff;
+  transition: border-color 0.15s ease-in-out;
+}
+
+.neonatal-medical-record-container .checkbox-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.neonatal-medical-record-container .apgar-table input[type="text"] {
+  width: 100%;
+  text-align: center;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .neonatal-medical-record-container {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  .neonatal-medical-record-container .paper-form-wrapper {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  .page-break-before {
+    page-break-before: always !important;
+  }
+}
 input[type="radio"]:focus,
 input[type="checkbox"]:focus {
   outline: 3px solid #0f766e !important;

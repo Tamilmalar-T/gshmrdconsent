@@ -665,7 +665,7 @@ export default function ProgressReassessmentRecordPage() {
               <td className="foot-cell">
                 <span className="foot-lbl">Date :</span>
                 <input 
-                  type="date" max={getCurrentDate()} 
+                  type="date" 
                   name="recordDate" 
                   value={soap.recordDate} 
                   onChange={handleSoapChange} 

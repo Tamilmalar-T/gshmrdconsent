@@ -383,7 +383,7 @@ export default function DiabeticChartPage({ onNavigate, editData, editRecordId }
                   {/* Date Cell */}
                   <td className="td-mint-date">
                     <input 
-                      type="date" max={getCurrentDate()} 
+                      type="date" 
                       value={row.date} 
                       onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                       className="mint-date-picker"

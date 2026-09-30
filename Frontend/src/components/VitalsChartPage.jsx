@@ -886,7 +886,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                 <div className="entry-field-group">
                   <label className="entry-label">Date</label>
                   <input
-                    type="date" max={getCurrentDate()}
+                    type="date"
                     name="date"
                     value={entry.date}
                     onChange={handleEntryChange}

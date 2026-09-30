@@ -1279,7 +1279,6 @@ export default function AntenatalCaseRecordPage({ onNavigate, editData, editReco
               <span className="info-lbl-bold">DATE :</span>
               <input
                 type="date"
-                max={getCurrentDate()}
                 name="signDate"
                 value={form.signDate}
                 onChange={handleFormChange}

@@ -15,6 +15,13 @@ import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 
 const PERSIST_KEY = 'partograph_form';
 
+const CLOCK_TIME_OPTIONS = [
+  '12:00 AM', '1:00 AM', '2:00 AM', '3:00 AM', '4:00 AM', '5:00 AM',
+  '6:00 AM', '7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
+  '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM',
+  '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM', '10:00 PM', '11:00 PM'
+];
+
 const INITIAL_HOURS_DATA = Array.from({ length: 12 }, (_, i) => ({
   hour: i + 1,
   clockTime: '',
@@ -130,11 +137,64 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
     triggerAutofill(e.target.value);
   };
 
-  // Update hourly cell directly
+  // Update hourly cell directly with strict range validation
   const handleHourlyCellChange = (hourIndex, field, value) => {
+    let finalVal = value;
+
+    if (field === 'cervicalDilatation' && finalVal !== '') {
+      const num = parseFloat(finalVal);
+      if (!isNaN(num)) {
+        if (num > 10) finalVal = '10';
+        if (num < 4 && finalVal.length >= 2) finalVal = '4';
+      }
+    }
+
+    if (field === 'descentOfHead' && finalVal !== '' && finalVal !== '-') {
+      const num = parseFloat(finalVal);
+      if (!isNaN(num)) {
+        if (num > 2) finalVal = '2';
+        if (num < -2) finalVal = '-2';
+      }
+    }
+
     setHourlyData(prev => {
       const updated = [...prev];
-      updated[hourIndex] = { ...updated[hourIndex], [field]: value };
+      updated[hourIndex] = { ...updated[hourIndex], [field]: finalVal };
+      return updated;
+    });
+  };
+
+  const handleDilatationBlur = (hourIndex, value) => {
+    if (value !== '') {
+      const num = parseFloat(value);
+      if (isNaN(num) || num < 4) {
+        handleHourlyCellChange(hourIndex, 'cervicalDilatation', '4');
+      } else if (num > 10) {
+        handleHourlyCellChange(hourIndex, 'cervicalDilatation', '10');
+      }
+    }
+  };
+
+  const handleDescentBlur = (hourIndex, value) => {
+    if (value !== '' && value !== '-') {
+      const num = parseFloat(value);
+      if (isNaN(num)) {
+        handleHourlyCellChange(hourIndex, 'descentOfHead', '');
+      } else if (num < -2) {
+        handleHourlyCellChange(hourIndex, 'descentOfHead', '-2');
+      } else if (num > 2) {
+        handleHourlyCellChange(hourIndex, 'descentOfHead', '2');
+      }
+    } else if (value === '-') {
+      handleHourlyCellChange(hourIndex, 'descentOfHead', '');
+    }
+  };
+
+  // Dropdown clock time change handler
+  const handleClockTimeSelect = (hourIndex, selectedTime) => {
+    setHourlyData(prev => {
+      const updated = [...prev];
+      updated[hourIndex] = { ...updated[hourIndex], clockTime: selectedTime };
       return updated;
     });
   };
@@ -190,20 +250,20 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
     window.print();
   };
 
-  // SVG PARTOGRAPH GRID CALCULATIONS (Compact 850 x 290 ViewBox)
-  const SVG_WIDTH = 850;
-  const SVG_HEIGHT = 290;
-  const MARGIN_LEFT = 95;
-  const MARGIN_RIGHT = 800;
-  const MARGIN_TOP = 25;
-  const MARGIN_BOTTOM = 245;
+  // SVG PARTOGRAPH GRID CALCULATIONS (Wide 1000 x 260 ViewBox)
+  const SVG_WIDTH = 1000;
+  const SVG_HEIGHT = 260;
+  const MARGIN_LEFT = 280;
+  const MARGIN_RIGHT = 1000;
+  const MARGIN_TOP = 20;
+  const MARGIN_BOTTOM = 225;
 
-  const GRAPH_WIDTH = MARGIN_RIGHT - MARGIN_LEFT; // 705px
-  const GRAPH_HEIGHT = MARGIN_BOTTOM - MARGIN_TOP; // 220px
+  const GRAPH_WIDTH = MARGIN_RIGHT - MARGIN_LEFT; // 720px
+  const GRAPH_HEIGHT = MARGIN_BOTTOM - MARGIN_TOP; // 205px
 
   const getX = (hourNum) => {
     const idx = Math.max(1, Math.min(12, hourNum)) - 1;
-    return MARGIN_LEFT + (idx * (GRAPH_WIDTH / 11));
+    return MARGIN_LEFT + ((idx + 0.5) * (GRAPH_WIDTH / 12));
   };
 
   const getYDilatation = (cmVal) => {
@@ -214,13 +274,31 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
   };
 
   const getYDescent = (descentVal) => {
-    const val = parseFloat(descentVal);
-    if (isNaN(val)) return null;
-    let norm = val;
-    if (val < 0) norm = 0;
-    if (val > 5) norm = 5;
-    const ratio = (5 - norm) / 5;
-    return MARGIN_BOTTOM - (ratio * GRAPH_HEIGHT);
+    if (descentVal === undefined || descentVal === null || descentVal === '') return null;
+    const str = String(descentVal).trim();
+    
+    let cmEquiv = null;
+
+    if (str === '-2') cmEquiv = 9;
+    else if (str === '-1') cmEquiv = 8;
+    else if (str === '0') cmEquiv = 7;
+    else if (str === '1' || str === '+1') cmEquiv = 6;
+    else if (str === '2' || str === '+2') cmEquiv = 5;
+    else {
+      const val = parseFloat(str);
+      if (!isNaN(val)) {
+        if (val === -2) cmEquiv = 9;
+        else if (val === -1) cmEquiv = 8;
+        else if (val === 0) cmEquiv = 7;
+        else if (val === 1) cmEquiv = 6;
+        else if (val === 2) cmEquiv = 5;
+      }
+    }
+
+    if (cmEquiv !== null) {
+      return getYDilatation(cmEquiv);
+    }
+    return null;
   };
 
   const alertStart = { x: getX(1), y: getYDilatation(4) };
@@ -518,19 +596,38 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '8px' }}>
-              <div className="entry-field-group">
-                <label className="entry-label">Clock Time</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 04:00"
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', alignItems: 'end' }}>
+              <div className="entry-field-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                <label className="entry-label" style={{ color: '#7c3aed', fontWeight: '800', marginBottom: '6px', minHeight: '24px', display: 'flex', alignItems: 'flex-end' }}>Clock Time</label>
+                <select
                   value={activeHourObj.clockTime || ''}
-                  onChange={(e) => handleHourlyCellChange(selectedHour - 1, 'clockTime', e.target.value)}
+                  onChange={(e) => handleClockTimeSelect(selectedHour - 1, e.target.value)}
                   className="entry-input"
-                />
+                  style={{
+                    height: '38px',
+                    borderColor: '#7c3aed',
+                    backgroundColor: '#f5f3ff',
+                    fontWeight: '700',
+                    color: '#6d28d9',
+                    cursor: 'pointer',
+                    width: '100%',
+                    borderRadius: '6px',
+                    padding: '0 10px',
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="">-- Select Time --</option>
+                  {CLOCK_TIME_OPTIONS.map(time => (
+                    <option key={time} value={time}>{time}</option>
+                  ))}
+                  {activeHourObj.clockTime && !CLOCK_TIME_OPTIONS.includes(activeHourObj.clockTime) && (
+                    <option value={activeHourObj.clockTime}>{activeHourObj.clockTime}</option>
+                  )}
+                </select>
               </div>
-              <div className="entry-field-group">
-                <label className="entry-label" style={{ color: '#0284c7', fontWeight: '800' }}>Cervical Dilat. (cm) [✕]</label>
+              <div className="entry-field-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                <label className="entry-label" style={{ color: '#0284c7', fontWeight: '800', marginBottom: '6px', minHeight: '24px', display: 'flex', alignItems: 'flex-end' }}>Cervical Dilat. (cm) [✕]</label>
                 <input
                   type="number"
                   step="0.5"
@@ -539,145 +636,129 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                   placeholder="4 - 10"
                   value={activeHourObj.cervicalDilatation || ''}
                   onChange={(e) => handleHourlyCellChange(selectedHour - 1, 'cervicalDilatation', e.target.value)}
+                  onBlur={(e) => handleDilatationBlur(selectedHour - 1, e.target.value)}
                   className="entry-input"
-                  style={{ borderColor: '#0284c7', backgroundColor: '#f0f9ff', fontWeight: '700' }}
+                  style={{
+                    height: '38px',
+                    borderColor: '#0284c7',
+                    backgroundColor: '#e0f2fe',
+                    fontWeight: '700',
+                    color: '#0369a1',
+                    width: '100%',
+                    borderRadius: '6px',
+                    padding: '0 10px',
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
+                  }}
                 />
               </div>
-              <div className="entry-field-group">
-                <label className="entry-label" style={{ color: '#0f172a', fontWeight: '800' }}>Descent of Head (0-5)</label>
+              <div className="entry-field-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                <label className="entry-label" style={{ color: '#059669', fontWeight: '800', marginBottom: '6px', minHeight: '24px', display: 'flex', alignItems: 'flex-end' }}>Descent of Head (-2 to +2) [◯]</label>
                 <input
                   type="number"
-                  step="0.5"
-                  min="0"
-                  max="5"
-                  placeholder="0 - 5"
+                  step="1"
+                  min="-2"
+                  max="2"
+                  placeholder="-2 to +2"
                   value={activeHourObj.descentOfHead || ''}
                   onChange={(e) => handleHourlyCellChange(selectedHour - 1, 'descentOfHead', e.target.value)}
+                  onBlur={(e) => handleDescentBlur(selectedHour - 1, e.target.value)}
                   className="entry-input"
-                  style={{ fontWeight: '700' }}
-                />
-              </div>
-              <div className="entry-field-group">
-                <label className="entry-label">Fetal Heart Rate (bpm)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 140"
-                  value={activeHourObj.fetalHeartRate || ''}
-                  onChange={(e) => handleHourlyCellChange(selectedHour - 1, 'fetalHeartRate', e.target.value)}
-                  className="entry-input"
-                />
-              </div>
-              <div className="entry-field-group">
-                <label className="entry-label">Amniotic Fluid (C/I/M/B)</label>
-                <input
-                  type="text"
-                  placeholder="C=Clear, M=Meconium"
-                  value={activeHourObj.amnioticFluid || ''}
-                  onChange={(e) => handleHourlyCellChange(selectedHour - 1, 'amnioticFluid', e.target.value)}
-                  className="entry-input"
-                />
-              </div>
-              <div className="entry-field-group">
-                <label className="entry-label">Contractions / 10 min</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 3 / 35s"
-                  value={activeHourObj.contractions10min || ''}
-                  onChange={(e) => handleHourlyCellChange(selectedHour - 1, 'contractions10min', e.target.value)}
-                  className="entry-input"
-                />
-              </div>
-              <div className="entry-field-group">
-                <label className="entry-label">BP (mmHg)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 120/80"
-                  value={activeHourObj.bp || ''}
-                  onChange={(e) => handleHourlyCellChange(selectedHour - 1, 'bp', e.target.value)}
-                  className="entry-input"
-                />
-              </div>
-              <div className="entry-field-group">
-                <label className="entry-label">Pulse (bpm)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 80"
-                  value={activeHourObj.pulse || ''}
-                  onChange={(e) => handleHourlyCellChange(selectedHour - 1, 'pulse', e.target.value)}
-                  className="entry-input"
-                />
-              </div>
-              <div className="entry-field-group">
-                <label className="entry-label">Temp (°C)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 36.8"
-                  value={activeHourObj.temperature || ''}
-                  onChange={(e) => handleHourlyCellChange(selectedHour - 1, 'temperature', e.target.value)}
-                  className="entry-input"
+                  style={{
+                    height: '38px',
+                    borderColor: '#059669',
+                    backgroundColor: '#ecfdf5',
+                    fontWeight: '700',
+                    color: '#047857',
+                    width: '100%',
+                    borderRadius: '6px',
+                    padding: '0 10px',
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
+                  }}
                 />
               </div>
             </div>
           </div>
 
-          {/* DYNAMIC PARTOGRAPH GRAPH (COMPACT SLIM SVG) */}
-          <div className="partograph-graph-card" style={{ border: '1.5px solid #0f172a', borderRadius: '4px', padding: '10px 14px', backgroundColor: '#ffffff', marginBottom: '16px', maxWidth: '100%' }}>
-            <div className="graph-header-legend" style={{ marginBottom: '8px', padding: '6px 10px' }}>
-              <div className="legend-item">
-                <span className="legend-color-box green-zone"></span>
-                <span>Normal Progress (Green)</span>
+          {/* UNIFIED FINDINGS CONTAINER CARD (Graph + Matrix Table with matching width) */}
+          <div className="partograph-table-redesign-card" style={{ border: '2px solid #0f172a', borderRadius: '4px', padding: '14px', backgroundColor: '#ffffff', marginTop: '16px', width: '100%' }}>
+            
+            {/* Legend Bar with Colored Badges for Time, Dilatation, and Descent */}
+            <div className="graph-header-legend" style={{ marginBottom: '12px', padding: '6px 12px', display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center', fontSize: '11px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px' }}>
+              <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#f5f3ff', padding: '3px 8px', borderRadius: '4px', border: '1px solid #ddd6fe' }}>
+                <span style={{ width: '9px', height: '9px', backgroundColor: '#7c3aed', borderRadius: '50%', display: 'inline-block' }}></span>
+                <span style={{ fontWeight: '800', color: '#6d28d9' }}>Time / Hours</span>
               </div>
-              <div className="legend-item">
-                <span className="legend-color-box yellow-zone"></span>
-                <span>Caution Zone (Yellow)</span>
+              <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#e0f2fe', padding: '3px 8px', borderRadius: '4px', border: '1px solid #bae6fd' }}>
+                <span style={{ color: '#0284c7', fontWeight: '900', fontSize: '13px' }}>✕</span>
+                <span style={{ fontWeight: '800', color: '#0369a1' }}>Cervical Dilat. (cm)</span>
               </div>
-              <div className="legend-item">
-                <span className="legend-color-box pink-zone"></span>
-                <span>Action Zone (Pink)</span>
+              <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#ecfdf5', padding: '3px 8px', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+                <span style={{ color: '#059669', fontWeight: '900', fontSize: '13px' }}>◯</span>
+                <span style={{ fontWeight: '800', color: '#047857' }}>Descent of Head</span>
               </div>
-              <div className="legend-item">
-                <span className="legend-line alert-line-legend"></span>
-                <span>Alert Line</span>
+              <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '12px', height: '12px', backgroundColor: '#86efac', display: 'inline-block', border: '1px solid #16a34a', borderRadius: '2px' }}></span>
+                <span style={{ fontWeight: '700' }}>Normal Progress</span>
               </div>
-              <div className="legend-item">
-                <span className="legend-line action-line-legend"></span>
-                <span>Action Line</span>
+              <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '12px', height: '12px', backgroundColor: '#fef08a', display: 'inline-block', border: '1px solid #ca8a04', borderRadius: '2px' }}></span>
+                <span style={{ fontWeight: '700' }}>Caution Zone</span>
               </div>
-              <div className="legend-item">
-                <span className="legend-marker marker-x">✕</span>
-                <span>Cervical Dilatation (cm)</span>
+              <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '12px', height: '12px', backgroundColor: '#fbcfe8', display: 'inline-block', border: '1px solid #db2777', borderRadius: '2px' }}></span>
+                <span style={{ fontWeight: '700' }}>Action Zone</span>
               </div>
-              <div className="legend-item">
-                <span className="legend-marker marker-o">◯</span>
-                <span>Descent of Head</span>
+              <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '18px', height: '1.5px', backgroundColor: '#059669', display: 'inline-block' }}></span>
+                <span style={{ fontWeight: '700', color: '#047857' }}>Alert Line</span>
+              </div>
+              <div className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '18px', height: '1.5px', backgroundColor: '#dc2626', display: 'inline-block' }}></span>
+                <span style={{ fontWeight: '700', color: '#b91c1c' }}>Action Line</span>
               </div>
             </div>
 
-            <div className="svg-container-wrapper" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-              <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="partograph-svg-compact" style={{ width: '100%', maxHeight: '270px', display: 'block' }}>
-                {/* COLOR ZONES */}
-                {/* Green Zone (Left of Alert Line) */}
+            {/* EXPANDED SVG PARTOGRAPH GRAPH CONTAINER WITH TIME AXIS */}
+            <div style={{ width: '100%', overflowX: 'auto', border: '1.5px solid #0f172a', borderRadius: '4px', backgroundColor: '#ffffff', marginBottom: '14px' }}>
+              <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} preserveAspectRatio="none" className="partograph-svg-compact" style={{ width: '100%', height: 'auto', display: 'block', minWidth: '850px' }}>
+                {/* COLOR ZONES MATCHING IMAGE 1 & 2 */}
+                {/* 1. Green Zone (Top Left above Alert Line) */}
                 <polygon
-                  points={`${alertStart.x},${alertStart.y} ${alertEnd.x},${alertEnd.y} ${MARGIN_LEFT},${MARGIN_TOP} ${MARGIN_LEFT},${MARGIN_BOTTOM}`}
-                  fill="rgba(34, 197, 94, 0.18)"
+                  points={`${alertStart.x},${alertStart.y} ${MARGIN_LEFT},${MARGIN_TOP} ${alertEnd.x},${MARGIN_TOP}`}
+                  fill="#86efac"
+                  fillOpacity="0.45"
                 />
 
-                {/* Yellow Zone (Between Alert Line and Action Line) */}
+                {/* 2. Yellow Zone (Caution Zone between Alert Line and Action Line) */}
                 <polygon
-                  points={`${alertStart.x},${alertStart.y} ${alertEnd.x},${alertEnd.y} ${actionEnd.x},${actionEnd.y} ${actionStart.x},${actionStart.y}`}
-                  fill="rgba(234, 179, 8, 0.22)"
+                  points={`${alertStart.x},${alertStart.y} ${alertEnd.x},${MARGIN_TOP} ${actionEnd.x},${MARGIN_TOP} ${actionStart.x},${actionStart.y}`}
+                  fill="#fef08a"
+                  fillOpacity="0.55"
                 />
 
-                {/* Pink/Red Zone (Right of Action Line) */}
+                {/* 3. Pink Zone (Action Zone right of Action Line) */}
                 <polygon
-                  points={`${actionStart.x},${actionStart.y} ${actionEnd.x},${actionEnd.y} ${MARGIN_RIGHT},${MARGIN_TOP} ${MARGIN_RIGHT},${MARGIN_BOTTOM}`}
-                  fill="rgba(244, 63, 94, 0.20)"
+                  points={`${actionStart.x},${actionStart.y} ${actionEnd.x},${MARGIN_TOP} ${MARGIN_RIGHT},${MARGIN_TOP} ${MARGIN_RIGHT},${MARGIN_BOTTOM} ${actionStart.x},${MARGIN_BOTTOM}`}
+                  fill="#fbcfe8"
+                  fillOpacity="0.45"
                 />
 
-                {/* GRID LINES & Y-AXIS LABELS */}
+                {/* SELECTED HOUR COLUMN HIGHLIGHT */}
+                <rect
+                  x={MARGIN_LEFT + (selectedHour - 1) * (GRAPH_WIDTH / 12)}
+                  y={MARGIN_TOP}
+                  width={GRAPH_WIDTH / 12}
+                  height={GRAPH_HEIGHT}
+                  fill="#0284c7"
+                  fillOpacity="0.12"
+                />
+
+                {/* Y-AXIS HORIZONTAL GRID LINES & LABELS */}
                 {Array.from({ length: 7 }, (_, i) => 4 + i).map(cm => {
                   const y = getYDilatation(cm);
-                  const stationLabel = cm === 10 ? '-2' : cm === 9 ? '-1' : cm === 8 ? '0' : cm === 7 ? '+1' : cm === 6 ? '+2' : '';
+                  const stationLabel = cm === 9 ? '-2' : cm === 8 ? '-1' : cm === 7 ? '0' : cm === 6 ? '+1' : cm === 5 ? '+2' : '';
                   return (
                     <g key={`y-grid-${cm}`}>
                       <line
@@ -685,16 +766,16 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                         y1={y}
                         x2={MARGIN_RIGHT}
                         y2={y}
-                        stroke="#CBD5E1"
+                        stroke="#64748b"
                         strokeWidth={cm === 4 || cm === 10 ? "1.8" : "0.9"}
                       />
                       {/* Left Label: Cervical Dilatation (cm) */}
-                      <text x={MARGIN_LEFT - 8} y={y + 4} textAnchor="end" className="svg-label y-label" style={{ fontSize: '10.5px', fontWeight: '700' }}>
+                      <text x={MARGIN_LEFT - 12} y={y + 4} textAnchor="end" className="svg-label y-label" style={{ fontSize: '11px', fontWeight: '800', fill: '#0369a1' }}>
                         {cm} cm
                       </text>
-                      {/* Right Label: Descent / Station */}
+                      {/* Station / Head Descent numbers next to Y axis */}
                       {stationLabel && (
-                        <text x={MARGIN_RIGHT + 8} y={y + 4} textAnchor="start" className="svg-label station-label" style={{ fontSize: '10.5px', fontWeight: '700' }}>
+                        <text x={MARGIN_LEFT - 65} y={y + 4} textAnchor="end" className="svg-label station-label" style={{ fontSize: '11px', fontWeight: '800', fill: '#047857' }}>
                           {stationLabel}
                         </text>
                       )}
@@ -702,50 +783,50 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                   );
                 })}
 
-                {/* X-AXIS GRID LINES & HOUR LABELS */}
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(h => {
-                  const x = getX(h);
+                {/* X-AXIS VERTICAL COLUMN BORDER LINES (Column 0 to 12) */}
+                {Array.from({ length: 13 }, (_, i) => i).map(i => {
+                  const x = MARGIN_LEFT + (i * (GRAPH_WIDTH / 12));
+                  const isSelectedBorder = (selectedHour - 1 === i) || (selectedHour === i);
                   return (
-                    <g key={`x-grid-${h}`}>
-                      <line
-                        x1={x}
-                        y1={MARGIN_TOP}
-                        x2={x}
-                        y2={MARGIN_BOTTOM}
-                        stroke={selectedHour === h ? "#0284c7" : "#CBD5E1"}
-                        strokeWidth={selectedHour === h ? "2" : "0.9"}
-                        strokeDasharray={selectedHour === h ? "none" : "2,2"}
-                      />
-                      {/* Bottom Hour Label */}
-                      <text x={x} y={MARGIN_BOTTOM + 18} textAnchor="middle" className="svg-label x-label" style={{ fontSize: '11px', fontWeight: selectedHour === h ? '900' : '700', fill: selectedHour === h ? '#0284c7' : '#475569' }}>
-                        {h}
-                      </text>
-                    </g>
+                    <line
+                      key={`x-border-${i}`}
+                      x1={x}
+                      y1={MARGIN_TOP}
+                      x2={x}
+                      y2={MARGIN_BOTTOM}
+                      stroke={isSelectedBorder ? "#0284c7" : "#64748b"}
+                      strokeWidth={isSelectedBorder ? "1.8" : "0.9"}
+                    />
                   );
                 })}
 
                 {/* Y Axis Left Title */}
                 <text
-                  x={20}
+                  x={30}
                   y={(MARGIN_TOP + MARGIN_BOTTOM) / 2}
-                  transform={`rotate(-90, 20, ${(MARGIN_TOP + MARGIN_BOTTOM) / 2})`}
+                  transform={`rotate(-90, 30, ${(MARGIN_TOP + MARGIN_BOTTOM) / 2})`}
                   textAnchor="middle"
                   className="svg-axis-title"
-                  style={{ fontSize: '11px', fontWeight: '800' }}
+                  style={{ fontSize: '11px', fontWeight: '900', fill: '#0f172a' }}
                 >
-                  CERVICAL DILATATION (cm)
+                  CERVICAL DILATATION & DESCENT
                 </text>
 
-                {/* X Axis Bottom Title */}
-                <text
-                  x={(MARGIN_LEFT + MARGIN_RIGHT) / 2}
-                  y={MARGIN_BOTTOM + 36}
-                  textAnchor="middle"
-                  className="svg-axis-title"
-                  style={{ fontSize: '11px', fontWeight: '800' }}
-                >
-                  HOURS IN ACTIVE LABOUR
+                {/* TIME / HOUR ROW BOTTOM BORDER LINE (4 cm line) */}
+                <line x1={MARGIN_LEFT} y1={MARGIN_BOTTOM} x2={MARGIN_RIGHT} y2={MARGIN_BOTTOM} stroke="#0f172a" strokeWidth="1.2" />
+                <text x={MARGIN_LEFT - 12} y={MARGIN_BOTTOM + 22} textAnchor="end" style={{ fontSize: '11px', fontWeight: '900', fill: '#7c3aed' }}>
+                  TIME
                 </text>
+
+                {/* Time / Hour numbers along x-axis */}
+                {hourlyData.map(d => {
+                  const x = getX(d.hour);
+                  return (
+                    <text key={`time-val-${d.hour}`} x={x} y={MARGIN_BOTTOM + 22} textAnchor="middle" style={{ fontSize: '10px', fontWeight: '800', fill: selectedHour === d.hour ? '#7c3aed' : '#0f172a' }}>
+                      {d.clockTime || ''}
+                    </text>
+                  );
+                })}
 
                 {/* ALERT LINE */}
                 <line
@@ -757,12 +838,12 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                   strokeWidth="1.5"
                 />
                 <text
-                  x={(alertStart.x + alertEnd.x) / 2 - 20}
+                  x={(alertStart.x + alertEnd.x) / 2 - 25}
                   y={(alertStart.y + alertEnd.y) / 2 - 8}
                   fill="#047857"
-                  fontWeight="bold"
+                  fontWeight="900"
                   fontSize="11"
-                  transform={`rotate(-18, ${(alertStart.x + alertEnd.x) / 2}, ${(alertStart.y + alertEnd.y) / 2})`}
+                  transform={`rotate(-22, ${(alertStart.x + alertEnd.x) / 2}, ${(alertStart.y + alertEnd.y) / 2})`}
                 >
                   ALERT LINE
                 </text>
@@ -773,16 +854,16 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                   y1={actionStart.y}
                   x2={actionEnd.x}
                   y2={actionEnd.y}
-                  stroke="#DC2626"
+                  stroke="#dc2626"
                   strokeWidth="1.5"
                 />
                 <text
-                  x={(actionStart.x + actionEnd.x) / 2 - 20}
+                  x={(actionStart.x + actionEnd.x) / 2 - 25}
                   y={(actionStart.y + actionEnd.y) / 2 - 8}
-                  fill="#B91C1C"
-                  fontWeight="bold"
+                  fill="#b91c1c"
+                  fontWeight="900"
                   fontSize="11"
-                  transform={`rotate(-18, ${(actionStart.x + actionEnd.x) / 2}, ${(actionStart.y + actionEnd.y) / 2})`}
+                  transform={`rotate(-22, ${(actionStart.x + actionEnd.x) / 2}, ${(actionStart.y + actionEnd.y) / 2})`}
                 >
                   ACTION LINE
                 </text>
@@ -793,26 +874,26 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     d={dilatationPath}
                     fill="none"
                     stroke="#0284c7"
-                    strokeWidth="2.5"
+                    strokeWidth="1.8"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 )}
 
-                {/* PLOTTED LINE: Descent of Head (Dark Slate Line + O markers) */}
+                {/* PLOTTED LINE: Descent of Head (Emerald Line + O markers) */}
                 {descentPath && (
                   <path
                     d={descentPath}
                     fill="none"
-                    stroke="#0f172a"
-                    strokeWidth="2"
+                    stroke="#059669"
+                    strokeWidth="1.3"
                     strokeDasharray="4,3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 )}
 
-                {/* CERVICAL DILATATION MARKERS (X) */}
+                {/* CERVICAL DILATATION MARKERS (✕) */}
                 {dilatationPoints.map((pt) => (
                   <g
                     key={`dilat-pt-${pt.hour}`}
@@ -820,14 +901,15 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     onMouseEnter={() => setActiveTooltip({ ...pt, type: 'Dilatation' })}
                     onMouseLeave={() => setActiveTooltip(null)}
                     onClick={() => setSelectedHour(pt.hour)}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <circle cx={pt.x} cy={pt.y} r="10" fill="rgba(2, 132, 199, 0.15)" />
-                    <line x1={pt.x - 6} y1={pt.y - 6} x2={pt.x + 6} y2={pt.y + 6} stroke="#0284c7" strokeWidth="2.5" />
-                    <line x1={pt.x + 6} y1={pt.y - 6} x2={pt.x - 6} y2={pt.y + 6} stroke="#0284c7" strokeWidth="2.5" />
+                    <circle cx={pt.x} cy={pt.y} r="8" fill="rgba(2, 132, 199, 0.15)" />
+                    <line x1={pt.x - 5} y1={pt.y - 5} x2={pt.x + 5} y2={pt.y + 5} stroke="#0284c7" strokeWidth="1.8" />
+                    <line x1={pt.x + 5} y1={pt.y - 5} x2={pt.x - 5} y2={pt.y + 5} stroke="#0284c7" strokeWidth="1.8" />
                   </g>
                 ))}
 
-                {/* DESCENT OF HEAD MARKERS (O) */}
+                {/* DESCENT OF HEAD MARKERS (◯) */}
                 {descentPoints.map((pt) => (
                   <g
                     key={`descent-pt-${pt.hour}`}
@@ -835,9 +917,10 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     onMouseEnter={() => setActiveTooltip({ ...pt, type: 'Descent' })}
                     onMouseLeave={() => setActiveTooltip(null)}
                     onClick={() => setSelectedHour(pt.hour)}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <circle cx={pt.x} cy={pt.y} r="7" fill="#FFFFFF" stroke="#0F172A" strokeWidth="2.5" />
-                    <circle cx={pt.x} cy={pt.y} r="2.5" fill="#0F172A" />
+                    <circle cx={pt.x} cy={pt.y} r="6" fill="#FFFFFF" stroke="#059669" strokeWidth="1.6" />
+                    <circle cx={pt.x} cy={pt.y} r="2" fill="#059669" />
                   </g>
                 ))}
 
@@ -852,55 +935,42 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                 )}
               </svg>
             </div>
-          </div>
 
-          {/* REDESIGNED COMPACT FINDINGS MATRIX TABLE */}
-          <div className="partograph-table-redesign-card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Clock size={16} color="#0284c7" />
-                <span>FINDINGS & VITAL SIGNS MATRIX (HOURS 1 to 12)</span>
-              </div>
-            </div>
-
-            <div className="table-responsive-scroll" style={{ borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-              <table className="partograph-compact-matrix-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f1f5f9' }}>
-                    <th className="sticky-col-redesign" style={{ width: '190px', textTransform: 'uppercase', fontSize: '10.5px', color: '#334155' }}>
-                      FINDINGS / PARAMETERS
-                    </th>
+            {/* MATRIX TABLE WITH WIDER FIRST COLUMN (28%) & NARROWER HOUR CELLS (6.0%) */}
+            <div style={{ width: '100%', overflowX: 'auto', border: '1.5px solid #0f172a', borderRadius: '4px', backgroundColor: '#ffffff' }}>
+              <table className="partograph-compact-matrix-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '850px', margin: 0 }}>
+                <colgroup>
+                  <col style={{ width: '28%' }} />
+                  {hourlyData.map(d => (
+                    <col key={`col-${d.hour}`} style={{ width: '6.0%' }} />
+                  ))}
+                </colgroup>
+                <tbody>
+                  {/* Row 1: Hours in active labour / Time */}
+                  <tr style={{ backgroundColor: '#f5f3ff', borderBottom: '1.5px solid #0f172a' }}>
+                    <td className="sticky-col-redesign param-name-td" style={{ fontWeight: '900', color: '#7c3aed', backgroundColor: '#f5f3ff' }}>
+                      Hours in active labour / Time
+                    </td>
                     {hourlyData.map(d => (
-                      <th
+                      <td
                         key={d.hour}
                         className={`hour-col-header ${selectedHour === d.hour ? 'selected-hour-header' : ''}`}
                         onClick={() => setSelectedHour(d.hour)}
+                        style={{ fontWeight: '900', fontSize: '11px', textAlign: 'center', cursor: 'pointer', color: selectedHour === d.hour ? '#ffffff' : '#7c3aed', padding: '4px 1px' }}
                       >
-                        H{d.hour}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Row 1: Time */}
-                  <tr>
-                    <td className="sticky-col-redesign param-name-td">Time (Clock)</td>
-                    {hourlyData.map((d, i) => (
-                      <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
-                        <input
-                          type="text"
-                          value={d.clockTime}
-                          onChange={(e) => handleHourlyCellChange(i, 'clockTime', e.target.value)}
-                          placeholder="04:00"
-                          className="table-cell-input"
-                        />
+                        <div style={{ fontSize: '11px', lineHeight: '1.1' }}>{d.hour}</div>
+                        {d.clockTime && (
+                          <div style={{ fontSize: '9px', fontWeight: '700', lineHeight: '1.1', opacity: selectedHour === d.hour ? 0.95 : 0.85, marginTop: '2px' }}>
+                            {d.clockTime}
+                          </div>
+                        )}
                       </td>
                     ))}
                   </tr>
 
                   {/* Row 2: Hours since ruptured membranes */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Hrs Ruptured Memb.</td>
+                    <td className="sticky-col-redesign param-name-td">Hours since ruptured membranes</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -913,51 +983,11 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 3: Cervical Dilatation (cm) */}
-                  <tr className="highlight-dilat-row">
-                    <td className="sticky-col-redesign param-name-td dilat-label">
-                      Cervical Dilatation (cm) [✕]
-                    </td>
-                    {hourlyData.map((d, i) => (
-                      <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="4"
-                          max="10"
-                          value={d.cervicalDilatation}
-                          onChange={(e) => handleHourlyCellChange(i, 'cervicalDilatation', e.target.value)}
-                          placeholder="4-10"
-                          className="table-cell-input dilat-input"
-                        />
-                      </td>
-                    ))}
-                  </tr>
-
-                  {/* Row 4: Descent of Head */}
-                  <tr className="highlight-descent-row">
-                    <td className="sticky-col-redesign param-name-td descent-label">
-                      Descent of Head (0-5)
-                    </td>
-                    {hourlyData.map((d, i) => (
-                      <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="0"
-                          max="5"
-                          value={d.descentOfHead}
-                          onChange={(e) => handleHourlyCellChange(i, 'descentOfHead', e.target.value)}
-                          placeholder="0-5"
-                          className="table-cell-input descent-input"
-                        />
-                      </td>
-                    ))}
-                  </tr>
-
-                  {/* Row 5: Rapid Assessment B3-B7 */}
+                  {/* Row 3: Rapid assessment B3-B7 */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Rapid Assess B3-B7</td>
+                    <td className="sticky-col-redesign param-name-td">
+                      Rapid assessment <span style={{ fontSize: '9px', backgroundColor: '#e2e8f0', padding: '1px 4px', borderRadius: '3px', marginLeft: '4px' }}>B3-B7</span>
+                    </td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -970,25 +1000,25 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 6: Vaginal Bleeding */}
+                  {/* Row 4: Vaginal bleeding (0 +++) */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Vaginal Bleeding</td>
+                    <td className="sticky-col-redesign param-name-td">Vaginal bleeding (0 +++)</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
                           type="text"
                           value={d.vaginalBleeding}
                           onChange={(e) => handleHourlyCellChange(i, 'vaginalBleeding', e.target.value)}
-                          placeholder="0/+/++"
+                          placeholder="0/+"
                           className="table-cell-input"
                         />
                       </td>
                     ))}
                   </tr>
 
-                  {/* Row 7: Amniotic Fluid */}
+                  {/* Row 5: Amniotic fluid (meconium stained) */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Amniotic Fluid</td>
+                    <td className="sticky-col-redesign param-name-td">Amniotic fluid (meconium stained)</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -1002,9 +1032,9 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 8: Contractions in 10 minutes */}
+                  {/* Row 6: Contractions in 10 minutes */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Contractions / 10m</td>
+                    <td className="sticky-col-redesign param-name-td">Contractions in 10 minutes</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -1017,9 +1047,9 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 9: Fetal Heart Rate */}
+                  {/* Row 7: Fetal heart rate (beats/minute) */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Fetal Heart Rate</td>
+                    <td className="sticky-col-redesign param-name-td">Fetal heart rate (beats/minute)</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -1032,9 +1062,9 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 10: Urine Voided */}
+                  {/* Row 8: Urine voided */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Urine Voided</td>
+                    <td className="sticky-col-redesign param-name-td">Urine voided</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -1047,9 +1077,9 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 11: Temp (axillary) */}
+                  {/* Row 9: T (axillary) */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Temp (°C)</td>
+                    <td className="sticky-col-redesign param-name-td">T (axillary)</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -1062,9 +1092,9 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 12: Pulse */}
+                  {/* Row 10: Pulse (beats/minute) */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Pulse (bpm)</td>
+                    <td className="sticky-col-redesign param-name-td">Pulse (beats/minute)</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -1077,9 +1107,9 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 13: Blood Pressure */}
+                  {/* Row 11: Blood pressure (systolic/diastolic) */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Blood Pressure</td>
+                    <td className="sticky-col-redesign param-name-td">Blood pressure (systolic/diastolic)</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -1093,9 +1123,55 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 14: Placenta Delivery */}
+                  {/* Row 12: Cervical dilatation (cm) */}
+                  <tr className="highlight-dilat-row" style={{ backgroundColor: '#e0f2fe' }}>
+                    <td className="sticky-col-redesign param-name-td dilat-label" style={{ fontWeight: '900', color: '#0369a1', backgroundColor: '#e0f2fe' }}>
+                      Cervical dilatation (cm) [✕]
+                    </td>
+                    {hourlyData.map((d, i) => (
+                      <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="4"
+                          max="10"
+                          value={d.cervicalDilatation}
+                          onChange={(e) => handleHourlyCellChange(i, 'cervicalDilatation', e.target.value)}
+                          onBlur={(e) => handleDilatationBlur(i, e.target.value)}
+                          placeholder="4-10"
+                          className="table-cell-input dilat-input"
+                          style={{ color: '#0284c7', fontWeight: '800' }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+
+                  {/* Row 13: Descent of head (-2 to +2) */}
+                  <tr style={{ backgroundColor: '#ecfdf5' }}>
+                    <td className="sticky-col-redesign param-name-td" style={{ fontWeight: '900', color: '#047857', backgroundColor: '#ecfdf5' }}>
+                      Descent of head (-2 to +2) [◯]
+                    </td>
+                    {hourlyData.map((d, i) => (
+                      <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
+                        <input
+                          type="number"
+                          step="1"
+                          min="-2"
+                          max="2"
+                          value={d.descentOfHead}
+                          onChange={(e) => handleHourlyCellChange(i, 'descentOfHead', e.target.value)}
+                          onBlur={(e) => handleDescentBlur(i, e.target.value)}
+                          placeholder="-2 to +2"
+                          className="table-cell-input"
+                          style={{ color: '#059669', fontWeight: '800', textAlign: 'center' }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+
+                  {/* Row 13: Delivery of placenta (time) */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Placenta Delivery</td>
+                    <td className="sticky-col-redesign param-name-td">Delivery of placenta (time)</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -1108,9 +1184,9 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 15: Oxytocin */}
+                  {/* Row 14: Oxytocin (time/given) */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Oxytocin (given)</td>
+                    <td className="sticky-col-redesign param-name-td">Oxytocin (time/given)</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input
@@ -1123,9 +1199,9 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     ))}
                   </tr>
 
-                  {/* Row 16: Problem note */}
+                  {/* Row 15: Problem-note onset/describe below */}
                   <tr>
-                    <td className="sticky-col-redesign param-name-td">Problem / Remarks</td>
+                    <td className="sticky-col-redesign param-name-td">Problem-note onset/describe below</td>
                     {hourlyData.map((d, i) => (
                       <td key={d.hour} className={selectedHour === d.hour ? 'selected-cell-col' : ''}>
                         <input

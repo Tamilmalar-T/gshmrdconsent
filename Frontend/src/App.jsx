@@ -36,6 +36,7 @@ import InitialAssessmentFormPage from './components/InitialAssessmentFormPage';
 import InitialAssessmentByDoctorPage from './components/InitialAssessmentByDoctorPage';
 import EmergencyDoctorInitialAssessmentPage from './components/EmergencyDoctorInitialAssessmentPage';
 import AntenatalCaseRecordPage from './components/AntenatalCaseRecordPage';
+import AntenatalCaserecordOp from './components/AntenatalCaserecordOp';
 import LabourRecordPage from './components/LabourRecordPage';
 import PartographPage from './components/PartographPage';
 import OperationNotesCaesareanSectionPage from './components/OperationNotesCaesareanSectionPage';
@@ -44,10 +45,12 @@ import MedicoLegalRegisterPage from './components/MedicoLegalRegisterPage';
 import IncidentReportPage from './components/IncidentReportPage';
 import AdverseDrugReactionReportPage from './components/AdverseDrugReactionReportPage';
 import PhysiotherapyAssessmentPage from './components/PhysiotherapyAssessmentPage';
+import NeonatalInpatientMedicalRecordPage from './components/NeonatalInpatientMedicalRecordPage';
 import NursingInitialAssessmentObstetricsPage from './components/NursingInitialAssessmentObstetricsPage';
 import ConsentHospitalizationConditionsOfServicePage from './components/ConsentHospitalizationConditionsOfServicePage';
 import AdmissionRecordPage from './components/AdmissionRecordPage';
 import RoomTariffPage from './components/RoomTariffPage';
+import FormHeaderMasterPage from './components/FormHeaderMasterPage';
 import ConsentHospitalizationConductProceduresPage from './components/ConsentHospitalizationConductProceduresPage';
 import ConsentHivAntibodiesTestPage from './components/ConsentHivAntibodiesTestPage';
 import PreOperativeChecklistPage from './components/PreOperativeChecklistPage';
@@ -373,6 +376,8 @@ function App() {
         return <GeneralMasterPage />;
       case 'patient-register-master':
         return <PatientRegisterMasterPage />;
+      case 'form-header-master':
+        return <FormHeaderMasterPage />;
       case 'consultant-master':
         return <ConsultantMasterPage setSidebarOpen={setSidebarOpen} />;
       case 'control-master':
@@ -409,6 +414,8 @@ function App() {
         return <EmergencyDoctorInitialAssessmentPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'antenatal-case-record':
         return <AntenatalCaseRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'antenatal-case-record-op':
+        return <AntenatalCaserecordOp onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'labour-record':
         return <LabourRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'partograph':
@@ -425,6 +432,8 @@ function App() {
         return <AdverseDrugReactionReportPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'physiotherapy-assessment':
         return <PhysiotherapyAssessmentPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'neonatal-inpatient-medical-record':
+        return <NeonatalInpatientMedicalRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'nursing-initial-assessment-obstetrics':
         return <NursingInitialAssessmentObstetricsPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       default:

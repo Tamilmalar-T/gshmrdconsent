@@ -584,7 +584,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                     <div className="date-cell-flex">
                       <span>Date :</span>
                       <input
-                        type="date" max={getCurrentDate()}
+                        type="date"
                         value={dateLeft || ''}
                         onChange={(e) => setDateLeft(e.target.value)}
                         className="daily-date-in"
@@ -835,7 +835,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                     <div className="date-cell-flex">
                       <span>Date :</span>
                       <input
-                        type="date" max={getCurrentDate()}
+                        type="date"
                         value={dateRight || ''}
                         onChange={(e) => setDateRight(e.target.value)}
                         className="daily-date-in"
@@ -1137,7 +1137,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                     <td>
                       <div className="datetime-flex-col">
                         <input
-                          type="date" max={getCurrentDate()}
+                          type="date"
                           value={row.date || ''}
                           onChange={(e) => handlePainRowChange(row.id, 'date', e.target.value)}
                           className="mint-date-picker"

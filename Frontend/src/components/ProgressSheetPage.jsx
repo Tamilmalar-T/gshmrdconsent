@@ -393,7 +393,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
                   {/* Date Cell */}
                   <td className="td-progress-date" style={{ verticalAlign: 'top' }}>
                     <input 
-                      type="date" max={getCurrentDate()} 
+                      type="date" 
                       value={row.date || ''} 
                       onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                       className="mint-date-picker"

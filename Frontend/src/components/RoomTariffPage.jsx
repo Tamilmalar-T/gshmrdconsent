@@ -4,6 +4,7 @@ import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersi
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import HospitalPaperHeader from './HospitalPaperHeader';
+import { getActiveRoomTariffs } from './PatientRegisterMasterPage';
 
 const PERSIST_KEY = 'room_tariff_form';
 
@@ -17,6 +18,30 @@ const DEFAULT_ROOM_TARIFFS = [
   { slNo: 7, roomType: 'NICU charge - ಎನ್‌ಐಸಿಯು ಶುಲ್ಕ', tariff: '5600' },
   { slNo: 8, roomType: 'NICU Ventilator charge - ಎನ್‌ಐಸಿಯು ವೆಂಟಿಲೇಟರ್ ಶುಲ್ಕ', tariff: '6000' }
 ];
+
+const loadMasterTariffs = async () => {
+  try {
+    const res = await fetch('http://localhost:5000/api/patient-register-master');
+    if (res.ok) {
+      const result = await res.json();
+      if (result.success && Array.isArray(result.data)) {
+        const masterTariffs = result.data.filter(
+          opt => (opt.category === 'Room Tariff' || opt.field_name === 'Room Tariff') && opt.status === 'Active'
+        );
+        if (masterTariffs.length > 0) {
+          return masterTariffs.map((t, idx) => ({
+            slNo: idx + 1,
+            roomType: t.label || t.suggestion_value,
+            tariff: t.tariff || '0'
+          }));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch room tariffs from API:', err);
+  }
+  return getActiveRoomTariffs();
+};
 
 export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,17 +83,61 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
     return sanitized;
   };
 
+  const syncWithMasterTariffs = (currentTariffs, masterTariffs) => {
+    if (!masterTariffs || masterTariffs.length === 0) return currentTariffs;
+    return masterTariffs.map((mItem, idx) => ({
+      slNo: idx + 1,
+      roomType: mItem.roomType,
+      tariff: mItem.tariff || '0'
+    }));
+  };
+
   useEffect(() => {
-    if (editData) {
-      setForm(prev => ({ ...prev, ...sanitizeFormData(editData) }));
-      if (editRecordId) setRecordId(editRecordId);
-    } else {
-      const saved = restoreForm(PERSIST_KEY);
-      if (saved) {
-        if (saved.recordId) setRecordId(saved.recordId);
-        if (saved.form) setForm(f => ({ ...f, ...sanitizeFormData(saved.form) }));
+    const initForm = async () => {
+      const masterTariffs = await loadMasterTariffs();
+      if (editData) {
+        setForm(prev => ({
+          ...prev,
+          ...sanitizeFormData(editData),
+          tariffs: editData.tariffs ? syncWithMasterTariffs(editData.tariffs, masterTariffs) : masterTariffs
+        }));
+        if (editRecordId) setRecordId(editRecordId);
+      } else {
+        const saved = restoreForm(PERSIST_KEY);
+        if (saved) {
+          if (saved.recordId) setRecordId(saved.recordId);
+          if (saved.form) {
+            setForm(f => ({
+              ...f,
+              ...sanitizeFormData(saved.form),
+              tariffs: syncWithMasterTariffs(saved.form.tariffs, masterTariffs)
+            }));
+          } else {
+            setForm(f => ({ ...f, tariffs: masterTariffs }));
+          }
+        } else {
+          setForm(f => ({ ...f, tariffs: masterTariffs }));
+        }
       }
-    }
+    };
+
+    initForm();
+
+    const handleMasterUpdate = async () => {
+      const masterTariffs = await loadMasterTariffs();
+      setForm(prev => ({
+        ...prev,
+        tariffs: syncWithMasterTariffs(prev.tariffs, masterTariffs)
+      }));
+    };
+
+    window.addEventListener('patient_register_master_updated', handleMasterUpdate);
+    window.addEventListener('storage', handleMasterUpdate);
+
+    return () => {
+      window.removeEventListener('patient_register_master_updated', handleMasterUpdate);
+      window.removeEventListener('storage', handleMasterUpdate);
+    };
   }, [editData, editRecordId]);
 
   useEffect(() => {
@@ -157,12 +226,13 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (window.confirm('Are you sure you want to clear this form?')) {
       clearPersistedForm(PERSIST_KEY);
       setRecordId(null);
+      const masterTariffs = await loadMasterTariffs();
       setForm({
-        patientName: '', age: '', sex: '', uhidNo: '', ipNo: '', ward: '', bedNo: '', dateTime: new Date().toISOString().slice(0, 16), tariffs: DEFAULT_ROOM_TARIFFS, patientSignatureName: '', patientContactNo: '', attendantSignatureName: '', attendantContactNo: ''
+        patientName: '', age: '', sex: '', uhidNo: '', ipNo: '', ward: '', bedNo: '', dateTime: new Date().toISOString().slice(0, 16), tariffs: masterTariffs, patientSignatureName: '', patientContactNo: '', attendantSignatureName: '', attendantContactNo: ''
       });
     }
   };

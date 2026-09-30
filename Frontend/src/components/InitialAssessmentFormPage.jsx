@@ -1425,7 +1425,7 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                   <div style={{ display: 'flex', gap: '12px', fontSize: '11px' }}>
                     <div className="info-field-inline">
                       <span className="info-lbl-bold">Date :</span>
-                      <input type="date" max={getCurrentDate()} name="assessmentDate" value={form.assessmentDate} onChange={handleFormChange} className="info-input-plain" />
+                      <input type="date" name="assessmentDate" value={form.assessmentDate} onChange={handleFormChange} className="info-input-plain" />
                     </div>
                     <div className="info-field-inline">
                       <span className="info-lbl-bold">Time :</span>

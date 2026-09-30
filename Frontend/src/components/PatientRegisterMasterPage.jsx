@@ -31,7 +31,8 @@ export const CATEGORIES = [
   'Area',
   'City',
   'Country',
-  'Branch'
+  'Branch',
+  'Room Tariff'
 ];
 
 export const INITIAL_HOSPITAL_OPTIONS = [
@@ -79,7 +80,17 @@ export const INITIAL_HOSPITAL_OPTIONS = [
   { id: 9050, category: 'Branch', field_name: 'Branch', label: 'NANDHU MEDICAL CENTRE', status: 'Active' },
   { id: 9051, category: 'Branch', field_name: 'Branch', label: 'SRI RAMA MEDICAL CARE', status: 'Active' },
   { id: 9052, category: 'Branch', field_name: 'Branch', label: 'GURUSHREE MAIN BRANCH', status: 'Active' },
-  { id: 9053, category: 'Branch', field_name: 'Branch', label: 'GURUSHREE CITY CENTRE', status: 'Active' }
+  { id: 9053, category: 'Branch', field_name: 'Branch', label: 'GURUSHREE CITY CENTRE', status: 'Active' },
+
+  // Room Tariff
+  { id: 9101, category: 'Room Tariff', field_name: 'Room Tariff', label: 'General Ward - ಜನರಲ್ ವಾರ್ಡ್', tariff: '2000', status: 'Active' },
+  { id: 9102, category: 'Room Tariff', field_name: 'Room Tariff', label: 'Semi Private - ಸೆಮಿ ಪ್ರೈವೇಟ್', tariff: '2500', status: 'Active' },
+  { id: 9103, category: 'Room Tariff', field_name: 'Room Tariff', label: 'Private - ಪ್ರೈವೇಟ್', tariff: '3500', status: 'Active' },
+  { id: 9104, category: 'Room Tariff', field_name: 'Room Tariff', label: 'Deluxe Suite - ಡಿಲಕ್ಸ್ ಸೂಟ್', tariff: '5500', status: 'Active' },
+  { id: 9105, category: 'Room Tariff', field_name: 'Room Tariff', label: 'ICU - ಐಸಿಯು', tariff: '5500', status: 'Active' },
+  { id: 9106, category: 'Room Tariff', field_name: 'Room Tariff', label: 'Ventilator Charge - ವೆಂಟಿಲೇಟರ್ ಶುಲ್ಕ', tariff: '6000', status: 'Active' },
+  { id: 9107, category: 'Room Tariff', field_name: 'Room Tariff', label: 'NICU charge - ಎನ್‌ಐಸಿಯು ಶುಲ್ಕ', tariff: '5600', status: 'Active' },
+  { id: 9108, category: 'Room Tariff', field_name: 'Room Tariff', label: 'NICU Ventilator charge - ಎನ್‌ಐಸಿಯು ವೆಂಟಿಲೇಟರ್ ಶುಲ್ಕ', tariff: '6000', status: 'Active' }
 ];
 
 export function getActiveRegisterMasterValues(category) {
@@ -103,10 +114,39 @@ export function getActiveRegisterMasterValues(category) {
     .map(r => r.label);
 }
 
+export function getActiveRoomTariffs() {
+  try {
+    const saved = localStorage.getItem('patient_register_master_options');
+    let allRecords = [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) allRecords = parsed;
+    }
+    const filtered = allRecords
+      .filter(r => (r.category === 'Room Tariff' || r.field_name === 'Room Tariff') && r.status === 'Active')
+      .map((r, idx) => ({
+        slNo: idx + 1,
+        roomType: r.label || r.suggestion_value,
+        tariff: r.tariff || '0'
+      }));
+    
+    if (filtered.length > 0) return filtered;
+  } catch (e) {
+    console.error('Failed to get room tariffs:', e);
+  }
+  return INITIAL_HOSPITAL_OPTIONS
+    .filter(r => r.category === 'Room Tariff' && r.status === 'Active')
+    .map((r, idx) => ({
+      slNo: idx + 1,
+      roomType: r.label,
+      tariff: r.tariff || '0'
+    }));
+}
+
 export default function PatientRegisterMasterPage() {
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
   const [options, setOptions] = useState([]);
-  const [form, setForm] = useState({ id: null, label: '', status: 'Active', color: '#38bdf8' });
+  const [form, setForm] = useState({ id: null, label: '', status: 'Active', color: '#38bdf8', tariff: '' });
   const [isEditing, setIsEditing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -163,7 +203,7 @@ export default function PatientRegisterMasterPage() {
   }, []);
 
   const handleClear = () => {
-    setForm({ id: null, label: '', status: 'Active', color: '#38bdf8' });
+    setForm({ id: null, label: '', status: 'Active', color: '#38bdf8', tariff: '' });
     setIsEditing(false);
     setErrorMsg('');
   };
@@ -182,7 +222,8 @@ export default function PatientRegisterMasterPage() {
       category: activeCategory,
       label: form.label.trim(),
       status: form.status,
-      color: activeCategory === 'Reg Type' ? form.color : null
+      color: activeCategory === 'Reg Type' ? form.color : null,
+      tariff: activeCategory === 'Room Tariff' ? form.tariff : null
     };
 
     let apiDataId = form.id;
@@ -226,6 +267,7 @@ export default function PatientRegisterMasterPage() {
     setOptions(updated);
     try {
       localStorage.setItem('patient_register_master_options', JSON.stringify(updated));
+      window.dispatchEvent(new Event('patient_register_master_updated'));
     } catch (e) {}
 
     setSuccessMsg(`Option ${isEditing ? 'updated' : 'added'} successfully!`);
@@ -234,7 +276,7 @@ export default function PatientRegisterMasterPage() {
   };
 
   const handleEdit = (item) => {
-    setForm({ id: item.id, label: item.label, status: item.status, color: item.color || '#38bdf8' });
+    setForm({ id: item.id, label: item.label, status: item.status, color: item.color || '#38bdf8', tariff: item.tariff || '' });
     setIsEditing(true);
     setErrorMsg('');
   };
@@ -256,6 +298,7 @@ export default function PatientRegisterMasterPage() {
         if (!deletedIds.includes(id)) deletedIds.push(id);
         if (labelToDelete && !deletedIds.includes(labelToDelete)) deletedIds.push(labelToDelete);
         localStorage.setItem('deleted_patient_register_master_option_ids', JSON.stringify(deletedIds));
+        window.dispatchEvent(new Event('patient_register_master_updated'));
       } catch (e) {}
 
       // 3. Send API DELETE request to database table
@@ -293,6 +336,7 @@ export default function PatientRegisterMasterPage() {
     (opt) =>
       opt.category === activeCategory &&
       (opt.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+       (opt.tariff && opt.tariff.toLowerCase().includes(searchQuery.toLowerCase())) ||
        opt.status.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -310,7 +354,7 @@ export default function PatientRegisterMasterPage() {
         <div className="pr-header-titles">
           <h1 className="pr-main-title">Patient Register Master</h1>
           <p className="pr-sub-title">
-            Configure dropdown options used in the Patient Registration form.
+            Configure dropdown options and room tariff values used across the system.
           </p>
         </div>
       </div>
@@ -364,14 +408,14 @@ export default function PatientRegisterMasterPage() {
                   <span>{errorMsg}</span>
                 </div>
               )}
-              <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: activeCategory === 'Reg Type' ? '1fr 1fr 1fr auto' : '1fr 1fr auto', gap: '16px', alignItems: 'end' }}>
+              <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: (activeCategory === 'Reg Type' || activeCategory === 'Room Tariff') ? '1fr 1fr 1fr auto' : '1fr 1fr auto', gap: '16px', alignItems: 'end' }}>
                 <div className="pr-field" style={{ margin: 0 }}>
-                  <label className="pr-label">Label Name <span className="req-star">*</span></label>
+                  <label className="pr-label">{activeCategory === 'Room Tariff' ? 'Room Type / Service Name' : 'Label Name'} <span className="req-star">*</span></label>
                   <input 
                     type="text" 
                     value={form.label} 
                     onChange={(e) => { setForm({ ...form, label: e.target.value }); setErrorMsg(''); }} 
-                    placeholder="e.g. Normal" 
+                    placeholder={activeCategory === 'Room Tariff' ? 'e.g. General Ward - ಜನರಲ್ ವಾರ್ಡ್' : 'e.g. Normal'} 
                     className="pr-input" 
                   />
                 </div>
@@ -389,6 +433,19 @@ export default function PatientRegisterMasterPage() {
                       />
                       <span style={{ fontSize: '13px', color: '#475569' }}>{form.color}</span>
                     </div>
+                  </div>
+                )}
+
+                {activeCategory === 'Room Tariff' && (
+                  <div className="pr-field" style={{ margin: 0 }}>
+                    <label className="pr-label">Tariff Amount (₹)</label>
+                    <input 
+                      type="text" 
+                      value={form.tariff} 
+                      onChange={(e) => setForm({ ...form, tariff: e.target.value })} 
+                      placeholder="e.g. 2000" 
+                      className="pr-input" 
+                    />
                   </div>
                 )}
 
@@ -437,8 +494,9 @@ export default function PatientRegisterMasterPage() {
                 <thead>
                   <tr>
                     <th style={{ width: '60px' }}>S.NO</th>
-                    <th>LABEL NAME</th>
+                    <th>{activeCategory === 'Room Tariff' ? 'ROOM TYPE / SERVICE' : 'LABEL NAME'}</th>
                     {activeCategory === 'Reg Type' && <th>COLOUR</th>}
+                    {activeCategory === 'Room Tariff' && <th>TARIFF (₹)</th>}
                     <th>STATUS</th>
                     <th className="text-center">ACTIONS</th>
                   </tr>
@@ -446,7 +504,7 @@ export default function PatientRegisterMasterPage() {
                 <tbody>
                   {filteredOptions.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="pr-empty-cell">
+                      <td colSpan={5} className="pr-empty-cell">
                         No options found for {activeCategory}.
                       </td>
                     </tr>
@@ -465,6 +523,13 @@ export default function PatientRegisterMasterPage() {
                             ) : (
                               <span style={{ color: '#94a3b8' }}>-</span>
                             )}
+                          </td>
+                        )}
+                        {activeCategory === 'Room Tariff' && (
+                          <td>
+                            <span style={{ fontWeight: '700', color: '#0f766e' }}>
+                              {opt.tariff ? `₹${opt.tariff}` : '-'}
+                            </span>
                           </td>
                         )}
                         <td>

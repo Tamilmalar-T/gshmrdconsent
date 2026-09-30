@@ -38,6 +38,7 @@ const emergencyDoctorInitialAssessmentRoutes = require('./routes/emergencyDoctor
 const initialAssessmentFormRoutes = require('./routes/initialAssessmentFormRoutes');
 const patientRegisterMasterRoutes = require('./routes/patientRegisterMasterRoutes');
 const generalMasterRoutes = require('./routes/generalMasterRoutes');
+const formHeaderMasterRoutes = require('./routes/formHeaderMasterRoutes');
 
 const recordsRoutes = require('./routes/recordsRoutes');
 
@@ -66,6 +67,7 @@ app.use('/api/emergency-doctor-initial-assessment', emergencyDoctorInitialAssess
 app.use('/api/initial-assessment-form', initialAssessmentFormRoutes);
 app.use('/api/patient-register-master', patientRegisterMasterRoutes);
 app.use('/api/general-master', generalMasterRoutes);
+app.use('/api/form-header-master', formHeaderMasterRoutes);
 
 // Generic fallback POST handler for form syncing without dedicated DB endpoints
 app.post('/api/:formEndpoint', (req, res) => {

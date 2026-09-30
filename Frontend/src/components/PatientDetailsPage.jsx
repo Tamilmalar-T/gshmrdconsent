@@ -43,6 +43,7 @@ import InitialAssessmentByDoctorPage from './InitialAssessmentByDoctorPage';
 import EmergencyDoctorInitialAssessmentPage from './EmergencyDoctorInitialAssessmentPage';
 import CultureChartPage from './CultureChartPage';
 import AntenatalCaseRecordPage from './AntenatalCaseRecordPage';
+import AntenatalCaserecordOp from './AntenatalCaserecordOp';
 import OperationNotesCaesareanSectionPage from './OperationNotesCaesareanSectionPage';
 import OperationNotesPage from './OperationNotesPage';
 import ConsentHospitalizationConditionsOfServicePage from './ConsentHospitalizationConditionsOfServicePage';
@@ -59,6 +60,7 @@ import PostOperativeChecklistPage from './PostOperativeChecklistPage';
 import SurgicalSafetyChecklistPage from './SurgicalSafetyChecklistPage';
 import PartographPage from './PartographPage';
 import LabourRecordPage from './LabourRecordPage';
+import NeonatalInpatientMedicalRecordPage from './NeonatalInpatientMedicalRecordPage';
 
 const COMPONENT_MAP = {
   'Consent for General Admission': ConsentGeneralAdmissionPage,
@@ -104,10 +106,12 @@ const COMPONENT_MAP = {
   'Emergency Doctor Initial Assessment': EmergencyDoctorInitialAssessmentPage,
   'Culture Chart': CultureChartPage,
   'Antenatal Case Record': AntenatalCaseRecordPage,
+  'Antenatal Case Record (OP)': AntenatalCaserecordOp,
   'Partograph': PartographPage,
   'Labour Record': LabourRecordPage,
   'Operation Notes for Caesarean Section': OperationNotesCaesareanSectionPage,
   'Operation Notes': OperationNotesPage,
+  'Neonatal In-Patient Medical Record': NeonatalInpatientMedicalRecordPage,
 };
 
 // Maps formType string → route tab id
@@ -155,10 +159,12 @@ const FORM_TYPE_TO_TAB = {
   'Emergency Doctor Initial Assessment': 'emergency-doctor-initial-assessment',
   'Culture Chart': 'culture-chart',
   'Antenatal Case Record': 'antenatal-case-record',
+  'Antenatal Case Record (OP)': 'antenatal-case-record-op',
   'Partograph': 'partograph',
   'Labour Record': 'labour-record',
   'Operation Notes for Caesarean Section': 'operation-notes-caesarean-section',
   'Operation Notes': 'operation-notes',
+  'Neonatal In-Patient Medical Record': 'neonatal-inpatient-medical-record',
 };
 
 // Formats key names (e.g. CamelCase/snake_case to Title Case)
