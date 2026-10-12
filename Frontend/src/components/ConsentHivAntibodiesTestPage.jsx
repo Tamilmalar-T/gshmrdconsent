@@ -79,7 +79,11 @@ export default function ConsentHivAntibodiesTestPage({ onNavigate, editData, edi
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    let finalVal = value;
+    if (name === 'doctorName' && typeof value === 'string') {
+      finalVal = value.toUpperCase();
+    }
+    setForm(prev => ({ ...prev, [name]: finalVal }));
   };
 
   const triggerAutofill = (value) => {
@@ -371,6 +375,7 @@ export default function ConsentHivAntibodiesTestPage({ onNavigate, editData, edi
                     onChange={handleChange}
                     placeholder="Doctor Name"
                     className="tbl-in"
+                    style={{ textTransform: 'uppercase' }}
                   />
                 </div>
 
@@ -384,7 +389,7 @@ export default function ConsentHivAntibodiesTestPage({ onNavigate, editData, edi
                       name="doctorSignDate"
                       value={form.doctorSignDate}
                       onChange={handleChange}
-                      style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '4px 8px', outline: 'none', fontSize: '12px' }}
+                      style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '4px 8px', outline: 'none', fontSize: '12px' }} min={new Date().toISOString().split('T')[0]}
                     />
                     <input
                       type="time"
@@ -427,7 +432,7 @@ export default function ConsentHivAntibodiesTestPage({ onNavigate, editData, edi
                       name="patientRelativeSignDate"
                       value={form.patientRelativeSignDate}
                       onChange={handleChange}
-                      style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '4px 8px', outline: 'none', fontSize: '12px' }}
+                      style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '4px 8px', outline: 'none', fontSize: '12px' }} min={new Date().toISOString().split('T')[0]}
                     />
                     <input
                       type="time"

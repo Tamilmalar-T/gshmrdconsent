@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
   Save,
   Printer,
@@ -288,7 +288,7 @@ export default function MedicoLegalRegisterPage({ onNavigate, editData, editReco
                     name="date"
                     value={patient.date}
                     onChange={handlePatientChange}
-                    className="info-input-plain"
+                    className="info-input-plain" min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
               </td>

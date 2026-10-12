@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, Trash2, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, Trash2, FileText, ChevronLeft, ChevronRight, PenTool, Upload, X } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
@@ -7,8 +7,101 @@ import HospitalPaperHeader from './HospitalPaperHeader';
 
 const PERSIST_KEY = 'consent_hospitalization_conditions_of_service';
 
+export const getLoggedInDoctorName = () => {
+  try {
+    const raw = localStorage.getItem('logged_in_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      const name = (u.userName || u.name || u.fullName || u.displayName || u.employeeName || '').trim();
+      if (name) {
+        return name.toUpperCase().startsWith('DR.') ? name.toUpperCase() : `DR. ${name.toUpperCase()}`;
+      }
+    }
+  } catch (e) {}
+  return 'DR. SADHANA ADMIN';
+};
+
+export const getLoggedInDoctorSignature = () => {
+  try {
+    const raw = localStorage.getItem('logged_in_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u.signature || u.signatureImage) {
+        return u.signature || u.signatureImage;
+      }
+    }
+  } catch (e) {}
+  return '';
+};
+
+export const getDoctorListWithSignatures = () => {
+  const map = new Map();
+
+  // 1. masters_consultants
+  try {
+    const raw = localStorage.getItem('masters_consultants');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        list.forEach(c => {
+          const rawName = c.name ? (c.prefix ? `${c.prefix.trim()} ${c.name.trim()}` : c.name.trim()) : '';
+          if (rawName) {
+            const formatted = rawName.toUpperCase().startsWith('DR.') ? rawName.toUpperCase() : `DR. ${rawName.toUpperCase()}`;
+            map.set(formatted, {
+              name: formatted,
+              signature: c.signature || c.signatureImage || ''
+            });
+          }
+        });
+      }
+    }
+  } catch (e) {}
+
+  // 2. masters_users
+  try {
+    const raw = localStorage.getItem('masters_users');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        list.forEach(u => {
+          const rawName = (u.userName || u.name || u.fullName || u.employeeName || '').trim();
+          if (rawName) {
+            const formatted = rawName.toUpperCase().startsWith('DR.') ? rawName.toUpperCase() : `DR. ${rawName.toUpperCase()}`;
+            if (!map.has(formatted)) {
+              map.set(formatted, {
+                name: formatted,
+                signature: u.signature || u.signatureImage || ''
+              });
+            } else if (u.signature || u.signatureImage) {
+              const existing = map.get(formatted);
+              if (existing && !existing.signature) {
+                existing.signature = u.signature || u.signatureImage;
+              }
+            }
+          }
+        });
+      }
+    }
+  } catch (e) {}
+
+  if (map.size === 0) {
+    [
+      'DR. SADHANA ADMIN',
+      'DR. RAJESH KUMAR',
+      'DR. NANI'
+    ].forEach(d => map.set(d, { name: d, signature: '' }));
+  }
+
+  return Array.from(map.values());
+};
+
 export default function ConsentHospitalizationConditionsOfServicePage({ onNavigate, editData, editRecordId }) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [sigModalTarget, setSigModalTarget] = useState(null); // 'patient' | 'witness' | 'doctor' | null
+  const [doctorsList, setDoctorsList] = useState([]);
+
+  const canvasRef = useRef(null);
+  const isDrawingRef = useRef(false);
 
   const [form, setForm] = useState({
     // Patient Signatures & Info
@@ -34,7 +127,8 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
     uhidNo: '',
     ipNo: '',
     admitToWard: '',
-    attendingDoctorName: ''
+    attendingDoctorName: '',
+    attendingDoctorSignature: ''
   });
 
   const [recordId, setRecordId] = useState(null);
@@ -50,14 +144,54 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
   };
 
   useEffect(() => {
+    const docs = getDoctorListWithSignatures();
+    setDoctorsList(docs);
+
+    const defaultDoctorName = getLoggedInDoctorName();
+    const defaultDoctorSig = getLoggedInDoctorSignature() || (docs.find(d => d.name === defaultDoctorName)?.signature || '');
+
     if (editData) {
-      setForm(prev => ({ ...prev, ...sanitizeFormData(editData) }));
+      const sanitized = sanitizeFormData(editData);
+      setForm(prev => {
+        const docName = sanitized.attendingDoctorName || prev.attendingDoctorName || defaultDoctorName;
+        const docSig = sanitized.attendingDoctorSignature || prev.attendingDoctorSignature || (docs.find(d => d.name === docName)?.signature || defaultDoctorSig);
+        return {
+          ...prev,
+          ...sanitized,
+          attendingDoctorName: docName,
+          attendingDoctorSignature: docSig
+        };
+      });
       if (editRecordId) setRecordId(editRecordId);
     } else {
       const saved = restoreForm(PERSIST_KEY);
       if (saved) {
         if (saved.recordId) setRecordId(saved.recordId);
-        if (saved.form) setForm(f => ({ ...f, ...sanitizeFormData(saved.form) }));
+        if (saved.form) {
+          const sanitized = sanitizeFormData(saved.form);
+          setForm(prev => {
+            const docName = sanitized.attendingDoctorName || prev.attendingDoctorName || defaultDoctorName;
+            const docSig = sanitized.attendingDoctorSignature || prev.attendingDoctorSignature || (docs.find(d => d.name === docName)?.signature || defaultDoctorSig);
+            return {
+              ...prev,
+              ...sanitized,
+              attendingDoctorName: docName,
+              attendingDoctorSignature: docSig
+            };
+          });
+        } else {
+          setForm(prev => ({
+            ...prev,
+            attendingDoctorName: defaultDoctorName,
+            attendingDoctorSignature: defaultDoctorSig
+          }));
+        }
+      } else {
+        setForm(prev => ({
+          ...prev,
+          attendingDoctorName: defaultDoctorName,
+          attendingDoctorSignature: defaultDoctorSig
+        }));
       }
     }
   }, [editData, editRecordId]);
@@ -87,13 +221,23 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    let finalVal = value;
+    if (name === 'attendingDoctorName' && typeof value === 'string') {
+      finalVal = value.toUpperCase();
+    }
+    setForm(prev => ({ ...prev, [name]: finalVal }));
   };
 
   const triggerAutofill = (value) => {
     if (!value || !value.trim()) return;
     const found = findPatientByIpNo(value);
     if (found) {
+      const docName = (found.doctorName || found.consultantName || '').trim();
+      let docSig = '';
+      if (docName) {
+        const foundDoc = doctorsList.find(d => d.name.toUpperCase() === docName.toUpperCase() || d.name.toUpperCase().includes(docName.toUpperCase()));
+        if (foundDoc && foundDoc.signature) docSig = foundDoc.signature;
+      }
       setForm(prev => ({
         ...prev,
         patientName: found.patientName || prev.patientName,
@@ -101,9 +245,19 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
         uhidNo: found.uhidNo || prev.uhidNo,
         ipNo: found.ipNo || prev.ipNo,
         admitToWard: found.ward || prev.admitToWard,
-        attendingDoctorName: found.doctorName || found.consultantName || prev.attendingDoctorName
+        attendingDoctorName: docName ? docName.toUpperCase() : prev.attendingDoctorName,
+        attendingDoctorSignature: docSig || prev.attendingDoctorSignature
       }));
     }
+  };
+
+  const handleDoctorSelect = (docName) => {
+    const foundDoc = doctorsList.find(d => d.name === docName);
+    setForm(prev => ({
+      ...prev,
+      attendingDoctorName: docName,
+      attendingDoctorSignature: (foundDoc && foundDoc.signature) ? foundDoc.signature : prev.attendingDoctorSignature
+    }));
   };
 
   const handleIpKeyDown = (e) => {
@@ -114,6 +268,102 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
   };
 
   const handleIpBlur = (e) => triggerAutofill(e.target.value);
+
+  // --- Signature Canvas & Upload Handlers ---
+  const openSignatureCanvas = (target) => {
+    setSigModalTarget(target);
+    setTimeout(() => {
+      if (canvasRef.current) {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }, 100);
+  };
+
+  const startDrawing = (e) => {
+    isDrawingRef.current = true;
+    draw(e);
+  };
+
+  const stopDrawing = () => {
+    isDrawingRef.current = false;
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.beginPath();
+    }
+  };
+
+  const draw = (e) => {
+    if (!isDrawingRef.current || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const clearSignatureCanvas = () => {
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+  };
+
+  const saveSignatureCanvas = () => {
+    if (canvasRef.current && sigModalTarget) {
+      const dataUrl = canvasRef.current.toDataURL('image/png');
+      if (sigModalTarget === 'patient') {
+        setForm(prev => ({ ...prev, patientSignature: dataUrl }));
+      } else if (sigModalTarget === 'witness') {
+        setForm(prev => ({ ...prev, witnessSignature: dataUrl }));
+      } else if (sigModalTarget === 'doctor') {
+        setForm(prev => ({ ...prev, attendingDoctorSignature: dataUrl }));
+      }
+      setSigModalTarget(null);
+    }
+  };
+
+  const handleSignatureUpload = (e, target) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const dataUrl = evt.target?.result;
+      if (dataUrl) {
+        if (target === 'patient') {
+          setForm(prev => ({ ...prev, patientSignature: dataUrl }));
+        } else if (target === 'witness') {
+          setForm(prev => ({ ...prev, witnessSignature: dataUrl }));
+        } else if (target === 'doctor') {
+          setForm(prev => ({ ...prev, attendingDoctorSignature: dataUrl }));
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const clearSignature = (target) => {
+    if (target === 'patient') {
+      setForm(prev => ({ ...prev, patientSignature: '' }));
+    } else if (target === 'witness') {
+      setForm(prev => ({ ...prev, witnessSignature: '' }));
+    } else if (target === 'doctor') {
+      setForm(prev => ({ ...prev, attendingDoctorSignature: '' }));
+    }
+  };
 
   const handlePrint = () => window.print();
 
@@ -142,6 +392,8 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
 
   const handleClear = () => {
     if (!window.confirm("Are you sure you want to clear the entire form?")) return;
+    const defaultDoctorName = getLoggedInDoctorName();
+    const defaultDoctorSig = getLoggedInDoctorSignature();
     setForm({
       patientName: '',
       patientSignature: '',
@@ -159,7 +411,8 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
       uhidNo: '',
       ipNo: '',
       admitToWard: '',
-      attendingDoctorName: ''
+      attendingDoctorName: defaultDoctorName,
+      attendingDoctorSignature: defaultDoctorSig
     });
     setRecordId(null);
     clearPersistedForm(PERSIST_KEY);
@@ -372,7 +625,7 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
                   </div>
                 </td>
                 <td colSpan={2} style={{ border: '1px solid #334155', padding: '4px 8px', width: '50%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontWeight: '700', fontSize: '11px', color: '#0f172a', width: '150px', flexShrink: 0 }}>Attending Doctor / ವೈದ್ಯರ ಹೆಸರು :</span>
                     <input
                       type="text"
@@ -381,8 +634,19 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
                       onChange={handleChange}
                       placeholder="Doctor Name"
                       className="legal-input-line"
-                      style={{ flex: 1, fontSize: '11px', padding: '2px 4px' }}
+                      style={{ flex: 1, fontSize: '11px', padding: '2px 4px', textTransform: 'uppercase', fontWeight: '600', color: '#0f766e' }}
                     />
+                    <select
+                      value={form.attendingDoctorName}
+                      onChange={(e) => handleDoctorSelect(e.target.value)}
+                      className="no-print"
+                      style={{ padding: '2px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1', outline: 'none', background: '#f8fafc', cursor: 'pointer', maxWidth: '140px', fontWeight: '600', color: '#0f766e' }}
+                    >
+                      <option value="">-- Select Doctor --</option>
+                      {doctorsList.map((doc, idx) => (
+                        <option key={idx} value={doc.name}>{doc.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </td>
               </tr>
@@ -670,17 +934,48 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
                       style={{ flex: 1, fontWeight: '600', fontSize: '11px', padding: '2px 4px' }}
                     />
                   </div>
-                  <div style={{ marginBottom: '6px', display: 'flex', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '600', width: '90px', fontSize: '11px', flexShrink: 0 }}>Signature / ಸಹಿ :</span>
-                    <input
-                      type="text"
-                      name="patientSignature"
-                      value={form.patientSignature}
-                      onChange={handleChange}
-                      placeholder="Signature"
-                      className="legal-input-line"
-                      style={{ flex: 1, fontSize: '11px', padding: '2px 4px' }}
-                    />
+                  <div style={{ marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '600', fontSize: '11px', color: '#334155' }}>Signature / ಸಹಿ :</span>
+                      <div className="no-print" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', color: '#334155' }}>
+                          <Upload size={11} color="#0284c7" /> Upload
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleSignatureUpload(e, 'patient')} />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openSignatureCanvas('patient')}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 6px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
+                        >
+                          <PenTool size={11} /> Draw
+                        </button>
+                        {form.patientSignature && (
+                          <button
+                            type="button"
+                            onClick={() => clearSignature('patient')}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '2px 5px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
+                          >
+                            <X size={11} /> Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {form.patientSignature && form.patientSignature.startsWith('data:image') ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}>
+                        <img src={form.patientSignature} alt="Patient Signature" style={{ maxHeight: '35px', maxWidth: '160px', objectFit: 'contain' }} />
+                        <span style={{ fontSize: '10px', color: '#16a34a', fontWeight: '600' }} className="no-print">✓ Signed</span>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        name="patientSignature"
+                        value={form.patientSignature}
+                        onChange={handleChange}
+                        placeholder="Signature"
+                        className="legal-input-line"
+                        style={{ width: '100%', fontSize: '11px', padding: '2px 4px' }}
+                      />
+                    )}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', gap: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -691,7 +986,7 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
                         value={form.patientSignDate}
                         onChange={handleChange}
                         className="legal-input-line"
-                        style={{ flex: 1, fontSize: '10.5px', padding: '1px 3px' }}
+                        style={{ flex: 1, fontSize: '10.5px', padding: '1px 3px' }} min={new Date().toISOString().split('T')[0]}
                       />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -721,17 +1016,48 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
                       style={{ flex: 1, fontSize: '11px', padding: '2px 4px' }}
                     />
                   </div>
-                  <div style={{ marginBottom: '6px', display: 'flex', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '600', width: '90px', fontSize: '11px', flexShrink: 0 }}>Signature / ಸಹಿ :</span>
-                    <input
-                      type="text"
-                      name="witnessSignature"
-                      value={form.witnessSignature}
-                      onChange={handleChange}
-                      placeholder="Signature"
-                      className="legal-input-line"
-                      style={{ flex: 1, fontSize: '11px', padding: '2px 4px' }}
-                    />
+                  <div style={{ marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '600', fontSize: '11px', color: '#334155' }}>Signature / ಸಹಿ :</span>
+                      <div className="no-print" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 6px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', color: '#334155' }}>
+                          <Upload size={11} color="#0284c7" /> Upload
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleSignatureUpload(e, 'witness')} />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openSignatureCanvas('witness')}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 6px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
+                        >
+                          <PenTool size={11} /> Draw
+                        </button>
+                        {form.witnessSignature && (
+                          <button
+                            type="button"
+                            onClick={() => clearSignature('witness')}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '2px 5px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
+                          >
+                            <X size={11} /> Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {form.witnessSignature && form.witnessSignature.startsWith('data:image') ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}>
+                        <img src={form.witnessSignature} alt="Witness Signature" style={{ maxHeight: '35px', maxWidth: '160px', objectFit: 'contain' }} />
+                        <span style={{ fontSize: '10px', color: '#16a34a', fontWeight: '600' }} className="no-print">✓ Signed</span>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        name="witnessSignature"
+                        value={form.witnessSignature}
+                        onChange={handleChange}
+                        placeholder="Signature"
+                        className="legal-input-line"
+                        style={{ width: '100%', fontSize: '11px', padding: '2px 4px' }}
+                      />
+                    )}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', gap: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -742,7 +1068,7 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
                         value={form.witnessSignDate}
                         onChange={handleChange}
                         className="legal-input-line"
-                        style={{ flex: 1, fontSize: '10.5px', padding: '1px 3px' }}
+                        style={{ flex: 1, fontSize: '10.5px', padding: '1px 3px' }} min={new Date().toISOString().split('T')[0]}
                       />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -899,8 +1225,29 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
                   onChange={handleChange}
                   placeholder="Doctor Name"
                   className="legal-input-line"
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, textTransform: 'uppercase', fontWeight: '600', color: '#0f766e' }}
                 />
+              </div>
+            </div>
+
+            {/* Attending Doctor Signature Block */}
+            <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '14px', marginTop: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                <span style={{ fontWeight: '700', fontSize: '13px', color: '#0f172a', width: '260px', flexShrink: 0 }}>
+                  Attending Doctor Signature / ನೋಡಿಕೊಳ್ಳುತ್ತಿರುವ ವೈದ್ಯರ ಸಹಿ :
+                </span>
+                <div style={{ flex: 1, minHeight: '42px', display: 'flex', alignItems: 'center' }}>
+                  {form.attendingDoctorSignature ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <img src={form.attendingDoctorSignature} alt="Doctor Signature" style={{ maxHeight: '48px', maxWidth: '200px', objectFit: 'contain' }} />
+                      <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }} className="no-print">✓ Doctor Signature Attached</span>
+                    </div>
+                  ) : (
+                    <div style={{ height: '30px', width: '100%', maxWidth: '280px', borderBottom: '1.5px solid #000', display: 'flex', alignItems: 'flex-end' }}>
+                      <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', paddingBottom: '2px' }}>Doctor Signature Line</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -943,9 +1290,23 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
           <ChevronLeft size={18} /> Previous
         </button>
 
-        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>
-          Page {currentPage} of 4
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {[1, 2, 3, 4].map(p => (
+              <button
+                key={p}
+                type="button"
+                className={`page-number-btn ${currentPage === p ? 'active' : ''}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155', marginLeft: '4px' }}>
+            Page {currentPage} of 4
+          </span>
+        </div>
 
         <button
           type="button"
@@ -1022,6 +1383,40 @@ export default function ConsentHospitalizationConditionsOfServicePage({ onNaviga
           <Save size={16} /> {recordId ? 'Update Record' : 'Save Record'}
         </button>
       </div>
+
+      {/* SIGNATURE DRAWING CANVAS MODAL */}
+      {sigModalTarget && (
+        <div className="no-print" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 11000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '520px', padding: '20px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <PenTool size={18} color="#0f766e" /> Draw {sigModalTarget === 'patient' ? 'Patient' : sigModalTarget === 'witness' ? 'Witness' : 'Attending Doctor'} Digital Signature
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginTop: 0, marginBottom: '12px' }}>Use mouse or touch screen to draw the signature in the box below.</p>
+            <div style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', background: '#f8fafc', marginBottom: '16px' }}>
+              <canvas 
+                ref={canvasRef} 
+                width={476} 
+                height={180} 
+                onMouseDown={startDrawing} 
+                onMouseUp={stopDrawing} 
+                onMouseLeave={stopDrawing} 
+                onMouseMove={draw} 
+                onTouchStart={startDrawing}
+                onTouchEnd={stopDrawing}
+                onTouchMove={draw}
+                style={{ cursor: 'crosshair', width: '100%', display: 'block' }} 
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button type="button" onClick={clearSignatureCanvas} style={{ padding: '6px 14px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Clear Canvas</button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => setSigModalTarget(null)} style={{ padding: '6px 14px', background: '#f1f5f9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Cancel</button>
+                <button type="button" onClick={saveSignatureCanvas} style={{ padding: '6px 18px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Apply Signature</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

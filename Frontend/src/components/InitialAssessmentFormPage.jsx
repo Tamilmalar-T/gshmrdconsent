@@ -256,28 +256,45 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
     return () => clearTimeout(t);
   }, [patient, chiefComplaints, form, recordId]);
 
+  const triggerPatientAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      setPatient(prev => ({
+        ...prev,
+        name: found.patientName || prev.name,
+        age: found.age || prev.age,
+        sex: found.sex || prev.sex,
+        uhidNo: found.uhidNo || prev.uhidNo,
+        ipNo: found.ipNo || prev.ipNo,
+        ward: found.ward || prev.ward,
+        bedNo: found.bedNo || prev.bedNo,
+        consultantDoctor: found.consultant || prev.consultantDoctor,
+        mlcType: (found.isMlc === 'yes' || found.mlc === 'Yes') ? 'MLC' : (prev.mlcType || 'NMLC'),
+        isMlc: found.isMlc || prev.isMlc,
+        mlc: found.mlc || prev.mlc
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (patient.ipNo) {
+      triggerPatientAutofill(patient.ipNo);
+    }
+  }, []);
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
+    if (name === 'ipNo') {
+      triggerPatientAutofill(value);
+    }
   };
 
   const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const found = findPatientByIpNo(e.target.value);
-      if (found) {
-        setPatient(prev => ({
-          ...prev,
-          name: found.patientName || prev.name,
-          age: found.age || prev.age,
-          sex: found.sex || prev.sex,
-          uhidNo: found.uhidNo || prev.uhidNo,
-          ipNo: found.ipNo || prev.ipNo,
-          ward: found.ward || prev.ward,
-          bedNo: found.bedNo || prev.bedNo,
-          consultantDoctor: found.consultant || prev.consultantDoctor
-        }));
-      }
+      triggerPatientAutofill(e.target.value);
     }
   };
 
@@ -299,7 +316,11 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    let finalVal = value;
+    if (name === 'inchargeConsultant' && typeof value === 'string') {
+      finalVal = value.toUpperCase();
+    }
+    setForm((prev) => ({ ...prev, [name]: finalVal }));
   };
 
   const handleNestedFormChange = (section, field, value) => {
@@ -323,9 +344,13 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
   };
 
   const handleCrossConsultChange = (index, field, value) => {
+    let finalVal = value;
+    if (field === 'doctorName' && typeof value === 'string') {
+      finalVal = value.toUpperCase();
+    }
     setForm((prev) => {
       const updated = [...prev.crossConsultations];
-      updated[index] = { ...updated[index], [field]: value };
+      updated[index] = { ...updated[index], [field]: finalVal };
       return { ...prev, crossConsultations: updated };
     });
   };
@@ -431,7 +456,7 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
             padding: '12px'
           }}
         >
-          <HospitalPaperHeader />
+          <HospitalPaperHeader patient={patient} isMlc={patient.mlcType === 'MLC' || patient.isMlc === 'yes' || patient.mlc === 'Yes'} />
           <div
             className="care-plan-form-title"
             style={{
@@ -457,8 +482,9 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                     type="text"
                     name="name"
                     value={patient.name}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -469,8 +495,9 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                     type="text"
                     name="age"
                     value={patient.age}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -480,8 +507,9 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                   <select
                     name="sex"
                     value={patient.sex}
-                    onChange={handlePatientChange}
+                    disabled
                     className="info-select-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   >
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -500,9 +528,9 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                     type="text"
                     name="uhidNo"
                     value={patient.uhidNo}
-                    onChange={handlePatientChange}
-                    onKeyDown={handleIpKeyDown}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -515,7 +543,9 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                     value={patient.ipNo}
                     onChange={handlePatientChange}
                     onKeyDown={handleIpKeyDown}
+                    onBlur={(e) => triggerPatientAutofill(e.target.value)}
                     className="info-input-plain"
+                    placeholder="Enter IP No..."
                   />
                 </div>
               </td>
@@ -526,8 +556,9 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                     type="text"
                     name="ward"
                     value={patient.ward}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -538,8 +569,9 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                     type="text"
                     name="bedNo"
                     value={patient.bedNo}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -551,7 +583,7 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                     name="date"
                     value={patient.date}
                     onChange={handlePatientChange}
-                    className="info-input-plain"
+                    className="info-input-plain" min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
               </td>
@@ -908,7 +940,7 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                   </div>
                   <div className="info-field-inline" style={{ width: 'auto' }}>
                     <span className="info-lbl-bold">LMP :</span>
-                    <input type="date" value={form.femaleHistory.lmp} onChange={(e) => handleNestedFormChange('femaleHistory', 'lmp', e.target.value)} className="info-input-plain" style={{ width: '110px' }} />
+                    <input type="date" value={form.femaleHistory.lmp} onChange={(e) => handleNestedFormChange('femaleHistory', 'lmp', e.target.value)} className="info-input-plain" style={{ width: '110px' }}  min={new Date().toISOString().split('T')[0]} />
                   </div>
                   <div className="info-field-inline" style={{ width: 'auto', alignItems: 'flex-start' }}>
                     <span className="info-lbl-bold" style={{ marginTop: '4px' }}>ML :</span>
@@ -916,7 +948,7 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                   </div>
                   <div className="info-field-inline" style={{ width: 'auto' }}>
                     <span className="info-lbl-bold">EDD :</span>
-                    <input type="date" value={form.femaleHistory.edd} onChange={(e) => handleNestedFormChange('femaleHistory', 'edd', e.target.value)} className="info-input-plain" style={{ width: '110px' }} />
+                    <input type="date" value={form.femaleHistory.edd} onChange={(e) => handleNestedFormChange('femaleHistory', 'edd', e.target.value)} className="info-input-plain" style={{ width: '110px' }}  min={new Date().toISOString().split('T')[0]} />
                   </div>
                 </div>
               </td>
@@ -1388,6 +1420,7 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                             onChange={(e) => handleCrossConsultChange(idx, 'doctorName', e.target.value)}
                             placeholder="Doctor name..."
                             className="info-input-plain"
+                            style={{ textTransform: 'uppercase' }}
                           />
                         </td>
                         <td style={{ borderBottom: '1px solid #0f172a', padding: '2px 4px', backgroundColor: '#ffffff' }}>
@@ -1425,7 +1458,7 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                   <div style={{ display: 'flex', gap: '12px', fontSize: '11px' }}>
                     <div className="info-field-inline">
                       <span className="info-lbl-bold">Date :</span>
-                      <input type="date" name="assessmentDate" value={form.assessmentDate} onChange={handleFormChange} className="info-input-plain" />
+                      <input type="date" name="assessmentDate" value={form.assessmentDate} onChange={handleFormChange} className="info-input-plain" min={new Date().toISOString().split('T')[0]} />
                     </div>
                     <div className="info-field-inline">
                       <span className="info-lbl-bold">Time :</span>
@@ -1449,7 +1482,7 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
                       onChange={handleFormChange}
                       placeholder="Doctor Name..."
                       className="info-input-plain"
-                      style={{ fontSize: '12.5px', fontWeight: '700' }}
+                      style={{ fontSize: '12.5px', fontWeight: '700', textTransform: 'uppercase' }}
                     />
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1495,7 +1528,23 @@ export default function InitialAssessmentFormPage({ onNavigate, editData, editRe
         >
           Previous
         </button>
-        <span style={{ fontWeight: 'bold', alignSelf: 'center' }}>Page {currentPage} of 4</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {[1, 2, 3, 4].map(p => (
+              <button
+                key={p}
+                type="button"
+                className={`page-number-btn ${currentPage === p ? 'active' : ''}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155', marginLeft: '4px' }}>
+            Page {currentPage} of 4
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => setCurrentPage(prev => Math.min(prev + 1, 4))}

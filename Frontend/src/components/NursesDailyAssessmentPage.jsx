@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
   Printer,
   Save,
@@ -588,7 +588,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                         value={dateLeft || ''}
                         onChange={(e) => setDateLeft(e.target.value)}
                         className="daily-date-in"
-                      />
+                       min={new Date().toISOString().split('T')[0]} />
                     </div>
                   </th>
                   <th className="th-shift">8 am to 2 pm</th>
@@ -839,7 +839,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                         value={dateRight || ''}
                         onChange={(e) => setDateRight(e.target.value)}
                         className="daily-date-in"
-                      />
+                       min={new Date().toISOString().split('T')[0]} />
                     </div>
                   </th>
                   <th className="th-shift">8 am to 2 pm</th>
@@ -1141,7 +1141,7 @@ export default function NursesDailyAssessmentPage({ onNavigate, editData, editRe
                           value={row.date || ''}
                           onChange={(e) => handlePainRowChange(row.id, 'date', e.target.value)}
                           className="mint-date-picker"
-                        />
+                         min={new Date().toISOString().split('T')[0]} />
                         <input
                           type="time"
                           value={row.time || ''}

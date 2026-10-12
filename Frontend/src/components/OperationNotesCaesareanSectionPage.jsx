@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, Trash2, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -549,7 +549,7 @@ export default function OperationNotesCaesareanSectionPage({ onNavigate, editDat
                   value={patient.date}
                   onChange={handlePatientChange}
                   className="op-input-line"
-                  style={{ flex: 1 }}
+                  style={{ flex: 1 }} min={new Date().toISOString().split('T')[0]}
                 />
               </div>
             </div>
@@ -1629,7 +1629,7 @@ export default function OperationNotesCaesareanSectionPage({ onNavigate, editDat
                   value={closureDetails.date || ''}
                   onChange={handleClosureDetailsChange}
                   className="op-input-line"
-                  style={{ flex: 1, fontWeight: '600' }}
+                  style={{ flex: 1, fontWeight: '600' }} min={new Date().toISOString().split('T')[0]}
                 />
               </div>
               <div style={{ display: 'flex', alignItems: 'center' }}>

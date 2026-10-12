@@ -193,6 +193,7 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
       consultantName: '',
       doa: '',
       ward: '',
+      bedNo: '',
       bed: ''
     });
     setRows([
@@ -241,250 +242,269 @@ export default function ProgressSheetPage({ onNavigate, editData, editRecordId }
         </div>
       </div>
 
-      {/* Pink Paper Sheet Container */}
-      <div className="pink-card-container">
+      {/* Pink Paper Form Container */}
+      <div className="pink-paper-container">
         
-        {/* Inner Pink Form Box */}
-        <div className="inner-pink-form-box">
-          
-          {/* Hospital Header */}
-          <HospitalPaperHeader />
+        {/* Hospital Header */}
+        <HospitalPaperHeader />
 
-          {/* Form Title Banner */}
-          <div className="care-plan-form-title">
-            PROGRESS SHEET - CONSULTANT
-          </div>
-          
-          {/* Patient Info Table */}
-          <table className="mint-patient-info-table">
-            <tbody>
-              <tr>
-                <td className="cell-progress-name">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Name of the Patient :</span>
-                    <input 
-                      type="text" 
-                      name="name" 
-                      value={patient.name} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain"
-                    />
-                  </div>
+        {/* Form Title Banner */}
+        <div className="care-plan-form-title pink-form-title">
+          PROGRESS SHEET - CONSULTANT
+        </div>
+
+        {/* Patient Metadata Table */}
+        <table className="yellow-patient-table pink-patient-table">
+          <colgroup>
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+          </colgroup>
+          <tbody>
+            <tr>
+              <td colSpan={3}>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Name of the Patient :</span>
+                  <input 
+                    type="text" 
+                    name="name" 
+                    value={patient.name} 
+                    onChange={handlePatientChange} 
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Age :</span>
+                  <input 
+                    type="text" 
+                    name="age" 
+                    value={patient.age} 
+                    onChange={handlePatientChange} 
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Sex :</span>
+                  <select 
+                    name="sex" 
+                    value={patient.sex} 
+                    onChange={handlePatientChange} 
+                    className="info-select-plain"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td colSpan={2}>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">UHID No. :</span>
+                  <input 
+                    type="text" 
+                    name="uhidNo" 
+                    value={patient.uhidNo} 
+                    onChange={handlePatientChange} 
+                    onKeyDown={handleIpKeyDown}
+                    onBlur={handleIpBlur}
+                    className="info-input-plain"
+                    placeholder="Enter UHID number"
+                  />
+                </div>
+              </td>
+              <td colSpan={1}>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">IP No.:</span>
+                  <input 
+                    type="text" 
+                    name="ipNo" 
+                    value={patient.ipNo} 
+                    onChange={handlePatientChange} 
+                    onKeyDown={handleIpKeyDown}
+                    onBlur={handleIpBlur}
+                    className="info-input-plain"
+                    placeholder="Enter IP number"
+                  />
+                </div>
+              </td>
+              <td colSpan={2}>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Consultant Name :</span>
+                  <input 
+                    type="text" 
+                    name="consultantName" 
+                    value={patient.consultantName} 
+                    onChange={handlePatientChange} 
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td colSpan={2}>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">DOA :</span>
+                  <input 
+                    type="text" 
+                    name="doa" 
+                    value={patient.doa} 
+                    onChange={handlePatientChange} 
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td colSpan={1}>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Ward :</span>
+                  <input 
+                    type="text" 
+                    name="ward" 
+                    value={patient.ward} 
+                    onChange={handlePatientChange} 
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+              <td colSpan={2}>
+                <div className="info-field-inline">
+                  <span className="info-lbl-bold">Bed No. :</span>
+                  <input 
+                    type="text" 
+                    name="bedNo" 
+                    value={patient.bedNo || patient.bed || ''} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPatient(prev => ({ ...prev, bedNo: val, bed: val }));
+                    }} 
+                    className="info-input-plain"
+                  />
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Notes Grid Table */}
+        <table className="pink-notes-table">
+          <thead>
+            <tr>
+              <th style={{ width: '13%' }}>DATE</th>
+              <th style={{ width: '10%' }}>TIME</th>
+              <th style={{ width: '61%' }}>NOTES</th>
+              <th style={{ width: '16%' }}>SIGNATURE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                {/* Date Cell */}
+                <td style={{ verticalAlign: 'top', padding: '6px', textAlign: 'center' }}>
+                  <input 
+                    type="date" 
+                    value={row.date || ''} 
+                    onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
+                    className="mint-date-picker"
+                    min={new Date().toISOString().split('T')[0]} 
+                  />
+                  <button 
+                    type="button" 
+                    className="btn-pill-delete"
+                    onClick={() => handleDeleteRow(row.id)}
+                    style={{ marginTop: '4px' }}
+                  >
+                    <Trash2 size={11} />
+                    <span>Delete</span>
+                  </button>
                 </td>
-                <td className="cell-progress-age">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Age :</span>
-                    <input 
-                      type="text" 
-                      name="age" 
-                      value={patient.age} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain"
-                    />
-                  </div>
+
+                {/* Time Cell */}
+                <td style={{ verticalAlign: 'top', padding: '6px', textAlign: 'center' }}>
+                  <input 
+                    type="time" 
+                    value={row.time || ''} 
+                    onChange={(e) => handleRowChange(row.id, 'time', e.target.value)} 
+                    className="mint-time-picker"
+                  />
                 </td>
-                <td className="cell-progress-sex">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Sex :</span>
+
+                {/* Notes Cell */}
+                <td style={{ verticalAlign: 'top', padding: '6px' }}>
+                  <textarea 
+                    value={row.notes || ''} 
+                    onChange={(e) => handleRowChange(row.id, 'notes', e.target.value)} 
+                    onInput={(e) => {
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${e.target.scrollHeight}px`;
+                    }}
+                    placeholder="Consultant clinical notes & observations..." 
+                    rows={2} 
+                    className="soap-textarea"
+                    style={{ minHeight: '60px', padding: '4px' }}
+                  />
+                </td>
+
+                {/* Signature Cell */}
+                <td style={{ verticalAlign: 'top', padding: '6px', textAlign: 'center' }}>
+                  <div className="sign-select-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
                     <select 
-                      name="sex" 
-                      value={patient.sex} 
-                      onChange={handlePatientChange} 
+                      value={row.signature || 'Sadhana'} 
+                      onChange={(e) => handleRowChange(row.id, 'signature', e.target.value)} 
                       className="info-select-plain"
+                      style={{ width: '100%', fontSize: '11px', padding: '3px 4px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
                     >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
+                      {getDoctorOptions().map(name => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
                     </select>
-                  </div>
-                </td>
-                <td className="cell-progress-uhid">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">UHID No. :</span>
-                    <input 
-                      type="text" 
-                      name="uhidNo" 
-                      value={patient.uhidNo} 
-                      onChange={handlePatientChange} 
-                      onKeyDown={handleIpKeyDown}
-                      onBlur={handleIpBlur}
-                      className="info-input-plain"
-                    />
+                    
+                    {renderSignatureStamp(row.signature || 'Sadhana')}
                   </div>
                 </td>
               </tr>
+            ))}
+          </tbody>
+        </table>
 
-              <tr>
-                <td className="cell-progress-ip">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">IP No. :</span>
-                    <input 
-                      type="text" 
-                      name="ipNo" 
-                      value={patient.ipNo} 
-                      onChange={handlePatientChange} 
-                      onKeyDown={handleIpKeyDown}
-                      onBlur={handleIpBlur}
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td className="cell-progress-consultant">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Consultant Name :</span>
-                    <input 
-                      type="text" 
-                      name="consultantName" 
-                      value={patient.consultantName} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td className="cell-progress-doa">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">DOA :</span>
-                    <input 
-                      type="text" 
-                      name="doa" 
-                      value={patient.doa} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain"
-                    />
-                  </div>
-                </td>
-                <td className="cell-progress-wardbed">
-                  <div className="info-field-inline">
-                    <span className="info-lbl-bold">Ward :</span>
-                    <input 
-                      type="text" 
-                      name="ward" 
-                      value={patient.ward} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain cell-short"
-                    />
-                    <span className="info-lbl-bold">Bed No. :</span>
-                    <input 
-                      type="text" 
-                      name="bed" 
-                      value={patient.bed} 
-                      onChange={handlePatientChange} 
-                      className="info-input-plain cell-short"
-                    />
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        {/* Action Controls */}
+        <div className="mint-action-controls no-print" style={{ marginTop: '20px' }}>
+          <button 
+            type="button" 
+            className="btn-add-notes-row"
+            onClick={handleAddRow}
+          >
+            <Plus size={14} />
+            <span>Add Progress Row</span>
+          </button>
 
-          {/* Notes Grid Table */}
-          <table className="mint-notes-table">
-            <thead>
-              <tr>
-                <th style={{ width: '12%' }}>DATE</th>
-                <th style={{ width: '10%' }}>TIME</th>
-                <th style={{ width: '64%' }}>NOTES</th>
-                <th style={{ width: '14%' }}>SIGNATURE</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  {/* Date Cell */}
-                  <td className="td-progress-date" style={{ verticalAlign: 'top' }}>
-                    <input 
-                      type="date" 
-                      value={row.date || ''} 
-                      onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
-                      className="mint-date-picker"
-                    />
-                    <button 
-                      type="button" 
-                      className="btn-pill-delete"
-                      onClick={() => handleDeleteRow(row.id)}
-                    >
-                      <Trash2 size={11} />
-                      <span>Delete</span>
-                    </button>
-                  </td>
-
-                  {/* Time Cell */}
-                  <td className="td-progress-time" style={{ verticalAlign: 'top' }}>
-                    <input 
-                      type="time" 
-                      value={row.time || ''} 
-                      onChange={(e) => handleRowChange(row.id, 'time', e.target.value)} 
-                      className="mint-time-picker"
-                    />
-                  </td>
-
-                  {/* Notes Cell */}
-                  <td className="td-progress-notes" style={{ verticalAlign: 'top' }}>
-                    <textarea 
-                      value={row.notes || ''} 
-                      onChange={(e) => handleRowChange(row.id, 'notes', e.target.value)} 
-                      onInput={(e) => {
-                        e.target.style.height = 'auto';
-                        e.target.style.height = `${e.target.scrollHeight}px`;
-                      }}
-                      placeholder="Consultant clinical notes & observations..." 
-                      rows={1} 
-                      className="mint-notes-textarea"
-                    />
-                  </td>
-
-                  {/* Signature Cell */}
-                  <td className="td-progress-sign" style={{ verticalAlign: 'top', textAlign: 'center' }}>
-                    <div className="sign-select-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
-                      <select 
-                        value={row.signature || 'Sadhana'} 
-                        onChange={(e) => handleRowChange(row.id, 'signature', e.target.value)} 
-                        className="sign-select-dropdown"
-                        style={{ width: '100%', fontSize: '11px', padding: '2px 4px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                      >
-                        {getDoctorOptions().map(name => (
-                          <option key={name} value={name}>{name}</option>
-                        ))}
-                      </select>
-                      
-                      {renderSignatureStamp(row.signature || 'Sadhana')}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="mint-action-controls">
+          <div className="bottom-btn-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
             <button 
               type="button" 
-              className="btn-add-notes-row"
-              onClick={handleAddRow}
+              className="btn-form-clear-action"
+              onClick={handleClearForm}
+              style={{ padding: '9px 16px', background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: '600', color: '#1e293b' }}
             >
-              <Plus size={14} />
-              <span>Add Progress Row</span>
+              <span>Clear Form</span>
             </button>
 
-            <div className="bottom-btn-row">
-              <button 
-                type="button" 
-                className="btn-mint-clear"
-                onClick={handleClearForm}
-              >
-                Clear Form
-              </button>
-
-              <button 
-                type="button" 
-                className="btn-mint-save btn-pink-save"
-                onClick={handleSavePlan}
-              >
-                <Save size={14} />
-                <span>Save Progress Sheet</span>
-              </button>
-            </div>
+            <button 
+              type="button" 
+              className="btn-mint-save btn-pink-save"
+              onClick={handleSavePlan}
+            >
+              <Save size={14} />
+              <span>Save Progress Sheet</span>
+            </button>
           </div>
-
         </div>
 
       </div>

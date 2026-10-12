@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, Trash2 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -758,7 +758,7 @@ export default function SurgicalSafetyChecklistPage({ onNavigate, editData, edit
                   value={form.dateOfProcedure}
                   onChange={handleChange}
                   className="ssc-line-input"
-                  style={{ flex: 1 }}
+                  style={{ flex: 1 }} min={new Date().toISOString().split('T')[0]}
                 />
               </div>
               <div className="ssc-field-row">

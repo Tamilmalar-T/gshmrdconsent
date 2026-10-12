@@ -587,7 +587,7 @@ export default function AntenatalCaseRecordPage({ onNavigate, editData, editReco
                     name="date"
                     value={patient.date}
                     onChange={handlePatientChange}
-                    className="info-input-plain"
+                    className="info-input-plain" min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
               </td>
@@ -698,15 +698,16 @@ export default function AntenatalCaseRecordPage({ onNavigate, editData, editReco
         <div style={{ border: '1.5px solid #0f172a', padding: '8px 12px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
           <span className="info-lbl-bold" style={{ fontSize: '12px' }}>OBSTETRIC HISTORY :</span>
           {['g', 'p', 'a', 'l', 'e', 'd'].map(key => (
-            <label key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={!!form.obstetricHistory[key]}
-                onChange={(e) => handleNestedFormChange('obstetricHistory', key, e.target.checked)}
-                style={{ width: '16px', height: '16px', accentColor: '#2563eb', cursor: 'pointer' }}
-              />
+            <div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               <span className="info-lbl-bold" style={{ fontSize: '13px', textTransform: 'uppercase' }}>{key}</span>
-            </label>
+              <input
+                type="number"
+                min="0"
+                value={form.obstetricHistory[key]}
+                onChange={(e) => handleNestedFormChange('obstetricHistory', key, e.target.value)}
+                style={{ width: '42px', textAlign: 'center', border: 'none', borderBottom: '1.5px solid #0f172a', outline: 'none', fontSize: '13px', fontWeight: '600', background: 'transparent', padding: '1px 2px' }}
+              />
+            </div>
           ))}
         </div>
 
@@ -1123,7 +1124,7 @@ export default function AntenatalCaseRecordPage({ onNavigate, editData, editReco
                       value={row.date}
                       onChange={(e) => handleInvestigationChange(idx, 'date', e.target.value)}
                       className="info-input-plain"
-                    />
+                     min={new Date().toISOString().split('T')[0]} />
                   </td>
                   <td style={{ border: '1.5px solid #0f172a', padding: '4px 6px', verticalAlign: 'top' }}>
                     <input
@@ -1181,7 +1182,7 @@ export default function AntenatalCaseRecordPage({ onNavigate, editData, editReco
                       value={row.date}
                       onChange={(e) => handleUltrasoundChange(idx, 'date', e.target.value)}
                       className="info-input-plain"
-                    />
+                     min={new Date().toISOString().split('T')[0]} />
                   </td>
                   <td style={{ border: '1.5px solid #0f172a', padding: '4px 6px', verticalAlign: 'top' }}>
                     <input
@@ -1282,7 +1283,7 @@ export default function AntenatalCaseRecordPage({ onNavigate, editData, editReco
                 name="signDate"
                 value={form.signDate}
                 onChange={handleFormChange}
-                className="info-input-plain"
+                className="info-input-plain" min={new Date().toISOString().split('T')[0]}
               />
             </div>
             <div className="info-field-inline" style={{ width: 'auto' }}>
@@ -1348,7 +1349,23 @@ export default function AntenatalCaseRecordPage({ onNavigate, editData, editReco
         >
           Previous
         </button>
-        <span style={{ fontWeight: 'bold', alignSelf: 'center' }}>Page {currentPage} of 4</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {[1, 2, 3, 4].map(p => (
+              <button
+                key={p}
+                type="button"
+                className={`page-number-btn ${currentPage === p ? 'active' : ''}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155', marginLeft: '4px' }}>
+            Page {currentPage} of 4
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => setCurrentPage(prev => Math.min(prev + 1, 4))}

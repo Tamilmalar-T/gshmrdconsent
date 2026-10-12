@@ -10,7 +10,8 @@ import {
   FolderCheck,
   X,
   ArrowLeft,
-  Pencil
+  Pencil,
+  User
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { getRegisteredPatients, findPatientByIpNo } from '../utils/patientRegistry';
@@ -428,18 +429,17 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
 
   const getDisplayPatient = (rec) => {
     const currentIp = rec.rawIpNo || (rec.patientIpNo === 'Draft (No IP)' ? '' : rec.patientIpNo) || rec.data?.ipNo || rec.data?.patient?.ipNo;
+    let found = null;
     if (currentIp) {
        const searchIp = (currentIp || '').trim().toUpperCase();
-       const found = patients.find(p => (p.ipNo || '').trim().toUpperCase() === searchIp || 
-                                        (p.uhidNo || '').trim().toUpperCase() === searchIp);
-       if (found) {
-           return { ipNo: found.ipNo, name: found.patientName };
-       }
+       found = patients.find(p => (p.ipNo || '').trim().toUpperCase() === searchIp || 
+                                  (p.uhidNo || '').trim().toUpperCase() === searchIp);
     }
-    return {
-        ipNo: rec.patientIpNo === 'Draft (No IP)' ? 'No IP' : (rec.patientIpNo || rec.rawIpNo || 'No IP'),
-        name: rec.patientName || rec.data?.patientName || rec.data?.name || rec.data?.patName || rec.data?.patient?.name || rec.data?.patient?.patientName || '—'
-    };
+    const name = found?.patientName || rec.patientName || rec.data?.patientName || rec.data?.name || rec.data?.patName || rec.data?.patient?.name || rec.data?.patient?.patientName || '—';
+    const gender = found?.sex || found?.gender || rec.gender || rec.sex || rec.data?.sex || rec.data?.gender || rec.data?.patient?.sex || rec.data?.patient?.gender || rec.data?.form?.sex || rec.data?.form?.gender || '—';
+    const ipNo = rec.patientIpNo === 'Draft (No IP)' ? 'No IP' : (found?.ipNo || rec.patientIpNo || rec.rawIpNo || 'No IP');
+
+    return { ipNo, name, gender };
   };
 
   return (
@@ -521,53 +521,94 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
           <table className="pd-clean-table">
             <thead>
               <tr>
-                <th style={{ width: '5%' }}>#</th>
-                <th style={{ width: '18%' }}>IP No.</th>
-                <th style={{ width: '24%' }}>Patient Name</th>
-                <th style={{ width: '21%' }}>Date & Time</th>
-                <th style={{ width: '13%' }}>User</th>
-                <th style={{ width: '19%' }} className="text-center no-print">Actions</th>
+                <th style={{ width: '4%' }}>#</th>
+                <th style={{ width: '13%' }}>IP No.</th>
+                <th style={{ width: '19%' }}>Patient Name</th>
+                <th style={{ width: '10%' }}>Gender</th>
+                <th style={{ width: '18%' }}>Created On / By</th>
+                <th style={{ width: '18%' }}>Updated On / By</th>
+                <th style={{ width: '18%' }} className="text-center no-print">Actions</th>
               </tr>
             </thead>
             <tbody>
               {displayedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="pd-empty-cell">
+                  <td colSpan={7} className="pd-empty-cell">
                     {viewMode === 'records' ? 'No completed records with IP No. found.'
                       : 'No draft records without IP No. found. Saved drafts will appear here.'}
                   </td>
                 </tr>
               ) : (
-                displayedRecords.map((rec, idx) => (
-                  <tr key={rec.id}>
-                    <td className="pd-cell-center pd-cell-muted">{idx + 1}</td>
-                    <td>
-                      {rec.isDraft && <span className="badge-draft-tag" style={{marginRight: '8px'}}>Draft</span>}
-                      <span className="pd-ip-text">{getDisplayPatient(rec).ipNo}</span>
-                    </td>
-                    <td className="pd-cell-name">
-                      {getDisplayPatient(rec).name}
-                    </td>
-                    <td className="pd-cell-muted">
-                      <Clock size={12} className="inline-icon" />
-                      <span>{rec.savedAt}</span>
-                    </td>
-                    <td className="pd-cell-user">{rec.createdBy || 'Sadhana Admin'}</td>
-                    <td className="text-center no-print">
-                      <div className="pd-action-row">
-                        <button type="button" className="btn-pd-view" onClick={() => { window.isPrintViewMode = true; setActiveRecordModal(rec); }} title="View Details">
-                          <Eye size={12} /><span>View</span>
-                        </button>
-                        <button type="button" className="btn-pd-edit" onClick={() => { window.isPrintViewMode = false; handleEditRecord(rec); }} title="Edit Record">
-                          <Pencil size={12} /><span>Edit</span>
-                        </button>
-                        <button type="button" className="btn-tbl-action-delete" onClick={() => handleDeleteRecord(rec.id)} title="Delete">
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                displayedRecords.map((rec, idx) => {
+                  const disp = getDisplayPatient(rec);
+                  const createdOn = rec.createdOn || rec.createdAt || rec.savedAt || '—';
+                  const createdBy = rec.createdBy || 'Sadhana Admin';
+                  const updatedOn = rec.updatedOn || rec.updatedAt || rec.savedAt || rec.createdOn || '—';
+                  const updatedBy = rec.updatedBy || rec.createdBy || 'Sadhana Admin';
+
+                  return (
+                    <tr key={rec.id}>
+                      <td className="pd-cell-center pd-cell-muted">{idx + 1}</td>
+                      <td>
+                        {rec.isDraft && <span className="badge-draft-tag" style={{marginRight: '6px'}}>Draft</span>}
+                        <span className="pd-ip-text">{disp.ipNo}</span>
+                      </td>
+                      <td className="pd-cell-name">
+                        {disp.name}
+                      </td>
+                      <td className="pd-cell-muted">
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11.5px',
+                          fontWeight: '600',
+                          backgroundColor: disp.gender === 'Female' ? '#fce7f3' : (disp.gender === 'Male' ? '#e0f2fe' : '#f1f5f9'),
+                          color: disp.gender === 'Female' ? '#be185d' : (disp.gender === 'Male' ? '#0369a1' : '#475569')
+                        }}>
+                          {disp.gender}
+                        </span>
+                      </td>
+                      <td className="pd-cell-muted">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: '500', color: '#1e293b' }}>
+                            <Clock size={11} className="inline-icon" style={{ marginRight: '4px', color: '#64748b' }} />
+                            {createdOn}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>
+                            <User size={11} className="inline-icon" style={{ marginRight: '4px', color: '#94a3b8' }} />
+                            {createdBy}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="pd-cell-muted">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: '500', color: '#1e293b' }}>
+                            <Clock size={11} className="inline-icon" style={{ marginRight: '4px', color: '#64748b' }} />
+                            {updatedOn}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>
+                            <User size={11} className="inline-icon" style={{ marginRight: '4px', color: '#94a3b8' }} />
+                            {updatedBy}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="text-center no-print">
+                        <div className="pd-action-row" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
+                          <button type="button" className="btn-pd-view" onClick={() => { window.isPrintViewMode = true; setActiveRecordModal(rec); }} title="View Record" style={{ padding: '6px 8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Eye size={14} />
+                          </button>
+                          <button type="button" className="btn-pd-edit" onClick={() => { window.isPrintViewMode = false; handleEditRecord(rec); }} title="Edit Record" style={{ padding: '6px 8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Pencil size={14} />
+                          </button>
+                          <button type="button" className="btn-tbl-action-delete" onClick={() => handleDeleteRecord(rec.id)} title="Delete Record" style={{ padding: '6px 8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -598,15 +639,19 @@ export default function PatientDetailsPage({ selectedIpNo, initialMode = 'record
               </div>
               <div className="modal-meta-item">
                 <span className="modal-meta-label">Patient Name</span>
-                <span className="modal-meta-value">{activeRecordModal.patientName || '—'}</span>
+                <span className="modal-meta-value">{getDisplayPatient(activeRecordModal).name}</span>
               </div>
               <div className="modal-meta-item">
-                <span className="modal-meta-label">Saved At</span>
-                <span className="modal-meta-value">{activeRecordModal.savedAt}</span>
+                <span className="modal-meta-label">Gender</span>
+                <span className="modal-meta-value">{getDisplayPatient(activeRecordModal).gender}</span>
               </div>
               <div className="modal-meta-item">
-                <span className="modal-meta-label">User</span>
-                <span className="modal-meta-value">{activeRecordModal.createdBy || 'Sadhana Admin'}</span>
+                <span className="modal-meta-label">Created On / By</span>
+                <span className="modal-meta-value">{activeRecordModal.createdOn || activeRecordModal.savedAt} ({activeRecordModal.createdBy || 'Sadhana Admin'})</span>
+              </div>
+              <div className="modal-meta-item">
+                <span className="modal-meta-label">Updated On / By</span>
+                <span className="modal-meta-value">{activeRecordModal.updatedOn || activeRecordModal.savedAt} ({activeRecordModal.updatedBy || activeRecordModal.createdBy || 'Sadhana Admin'})</span>
               </div>
             </div>
 

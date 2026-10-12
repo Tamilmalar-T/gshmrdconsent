@@ -63,6 +63,14 @@ import ConsultantMasterPage from './components/ConsultantMasterPage';
 import ControlMasterPage from './components/ControlMasterPage';
 import PackageMappingPage from './components/PackageMappingPage';
 import HospitalBranchMasterPage from './components/HospitalBranchMasterPage';
+import AntenatalCaseRecordOpMasterPage from './components/AntenatalCaseRecordOpMasterPage';
+import MrdChecklistPage from './components/MrdChecklistPage';
+import GeneralMedicineOpdCaseSheetPage from './components/GeneralMedicineOpdCaseSheetPage';
+import PaediatricOpdAssessmentPage from './components/PaediatricOpdAssessmentPage';
+import ConsentHaemodialysisPage from './components/ConsentHaemodialysisPage';
+import HaemodialysisRecordPage from './components/HaemodialysisRecordPage';
+import DialysisSummaryPage from './components/DialysisSummaryPage';
+import AllMastersPage from './components/AllMastersPage';
 import { Undo2 } from 'lucide-react';
 import { hasUndoHistory, performGlobalUndo } from './utils/formPersist';
 import { initKeyboardNavigation } from './utils/keyboardNavigation';
@@ -170,6 +178,9 @@ function App() {
 
     if (user.landingPage) {
       const pageTabMap = {
+        'OP Register': 'new-patient-registration',
+        'IP Register': 'patient-registration',
+        'Admission Record': 'admission-record',
         'Patient Registration': 'patient-registration',
         'New Patient Registration': 'new-patient-registration',
         'Ward Master': 'ward-master',
@@ -310,6 +321,7 @@ function App() {
       case 'ip-list':
         return <IPListPage onNavigate={handleNavigate} onEditRecord={handleEditRecord} />;
       case 'new-patient-registration':
+      case 'op-register':
         return <NewPatientRegistrationPage setSidebarOpen={setSidebarOpen} />;
       case 'ward-master':
         return <WardMasterPage />;
@@ -356,14 +368,21 @@ function App() {
       case 'lab-requisition':
         return <LabRequisitionPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'mrd-checklist':
-        return (
-          <div className="placeholder-page">
-            <h2>Medical Record Checklist</h2>
-            <p>Verification checklist for medical record documentation.</p>
-          </div>
-        );
+        return <MrdChecklistPage onNavigate={handleNavigate} />;
+      case 'general-medicine-opd-case-sheet':
+        return <GeneralMedicineOpdCaseSheetPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'paediatric-opd-assessment':
+        return <PaediatricOpdAssessmentPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'consent-haemodialysis':
+        return <ConsentHaemodialysisPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'haemodialysis-record':
+        return <HaemodialysisRecordPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'dialysis-summary':
+        return <DialysisSummaryPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
       case 'diabetic-chart':
         return <DiabeticChartPage onNavigate={handleNavigate} editData={editData} editRecordId={editRecordId} />;
+      case 'all-masters':
+        return <AllMastersPage onNavigate={handleNavigate} loggedInUser={loggedInUser} />;
       case 'user-master':
         return <UserMasterPage />;
       case 'type-master':
@@ -382,6 +401,8 @@ function App() {
         return <ConsultantMasterPage setSidebarOpen={setSidebarOpen} />;
       case 'control-master':
         return <ControlMasterPage />;
+      case 'antenatal-op-master':
+        return <AntenatalCaseRecordOpMasterPage />;
       case 'package-mapping':
         return <PackageMappingPage />;
       case 'product-master':

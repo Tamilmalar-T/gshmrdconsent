@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, Trash2, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -978,7 +978,7 @@ export default function PostOperativeChecklistPage({ onNavigate, editData, editR
                   value={form.page1Date}
                   onChange={handleChange}
                   className="post-op-input-line"
-                  style={{ width: '120px' }}
+                  style={{ width: '120px' }} min={new Date().toISOString().split('T')[0]}
                 />
               </div>
               <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -1125,7 +1125,7 @@ export default function PostOperativeChecklistPage({ onNavigate, editData, editR
                     value={form.page2Date}
                     onChange={handleChange}
                     className="post-op-input-line"
-                    style={{ width: '120px' }}
+                    style={{ width: '120px' }} min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>

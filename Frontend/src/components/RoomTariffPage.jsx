@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, Trash2, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, Trash2, FileText, ChevronLeft, ChevronRight, PenTool, Upload, X } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
@@ -45,6 +45,10 @@ const loadMasterTariffs = async () => {
 
 export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [sigModalTarget, setSigModalTarget] = useState(null); // 'patient' | 'attendant' | null
+
+  const canvasRef = useRef(null);
+  const isDrawingRef = useRef(false);
 
   const [form, setForm] = useState({
     // Header Details
@@ -61,8 +65,10 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
     tariffs: DEFAULT_ROOM_TARIFFS,
 
     // Page 2 Signatures & Details
+    patientSignature: '',
     patientSignatureName: '',
     patientContactNo: '',
+    attendantSignature: '',
     attendantSignatureName: '',
     attendantContactNo: ''
   });
@@ -92,16 +98,45 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
     }));
   };
 
+  const triggerAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      const primaryAttenderName = found.attenderName || found.relationName || found.attendantSignatureName || found.primaryAttender || (Array.isArray(found.attenders) && (found.attenders.find(a => a.isPrimary)?.attenderName || found.attenders[0]?.attenderName)) || '';
+      const primaryAttenderContact = found.attenderMobileNo || found.alternateContact || found.attendantContactNo || found.attenderPhone || (Array.isArray(found.attenders) && (found.attenders.find(a => a.isPrimary)?.attenderMobileNo || found.attenders[0]?.attenderMobileNo)) || '';
+
+      setForm(prev => ({
+        ...prev,
+        patientName: found.patientName || prev.patientName,
+        uhidNo: found.uhidNo || prev.uhidNo,
+        ipNo: found.ipNo || prev.ipNo,
+        age: found.age ? String(found.age) : prev.age,
+        sex: found.sex || found.gender || prev.sex,
+        ward: found.ward || prev.ward,
+        bedNo: found.bedNo || prev.bedNo,
+        patientSignatureName: prev.patientSignatureName || found.patientName || prev.patientName,
+        patientContactNo: prev.patientContactNo || found.mobileNo || found.phone || '',
+        attendantSignatureName: prev.attendantSignatureName || primaryAttenderName,
+        attendantContactNo: prev.attendantContactNo || primaryAttenderContact
+      }));
+    }
+  };
+
   useEffect(() => {
     const initForm = async () => {
       const masterTariffs = await loadMasterTariffs();
       if (editData) {
-        setForm(prev => ({
-          ...prev,
-          ...sanitizeFormData(editData),
-          tariffs: editData.tariffs ? syncWithMasterTariffs(editData.tariffs, masterTariffs) : masterTariffs
-        }));
+        setForm(prev => {
+          const nextState = {
+            ...prev,
+            ...sanitizeFormData(editData),
+            tariffs: editData.tariffs ? syncWithMasterTariffs(editData.tariffs, masterTariffs) : masterTariffs
+          };
+          return nextState;
+        });
         if (editRecordId) setRecordId(editRecordId);
+        const searchVal = editData.ipNo || editData.uhidNo;
+        if (searchVal) triggerAutofill(searchVal);
       } else {
         const saved = restoreForm(PERSIST_KEY);
         if (saved) {
@@ -112,6 +147,8 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
               ...sanitizeFormData(saved.form),
               tariffs: syncWithMasterTariffs(saved.form.tariffs, masterTariffs)
             }));
+            const searchVal = saved.form.ipNo || saved.form.uhidNo;
+            if (searchVal) triggerAutofill(searchVal);
           } else {
             setForm(f => ({ ...f, tariffs: masterTariffs }));
           }
@@ -174,25 +211,6 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
     });
   };
 
-  const triggerAutofill = (value) => {
-    if (!value || !value.trim()) return;
-    const found = findPatientByIpNo(value);
-    if (found) {
-      setForm(prev => ({
-        ...prev,
-        patientName: found.patientName || prev.patientName,
-        uhidNo: found.uhidNo || prev.uhidNo,
-        ipNo: found.ipNo || prev.ipNo,
-        age: found.age ? String(found.age) : prev.age,
-        sex: found.gender || prev.sex,
-        ward: found.ward || prev.ward,
-        bedNo: found.bedNo || prev.bedNo,
-        patientSignatureName: prev.patientSignatureName || found.patientName,
-        patientContactNo: prev.patientContactNo || found.mobileNo || found.phone || ''
-      }));
-    }
-  };
-
   const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -201,6 +219,96 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
   };
 
   const handleIpBlur = (e) => triggerAutofill(e.target.value);
+
+  // --- Signature Canvas & Upload Handlers ---
+  const openSignatureCanvas = (target) => {
+    setSigModalTarget(target);
+    setTimeout(() => {
+      if (canvasRef.current) {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }, 100);
+  };
+
+  const startDrawing = (e) => {
+    isDrawingRef.current = true;
+    draw(e);
+  };
+
+  const stopDrawing = () => {
+    isDrawingRef.current = false;
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.beginPath();
+    }
+  };
+
+  const draw = (e) => {
+    if (!isDrawingRef.current || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const clearSignatureCanvas = () => {
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+  };
+
+  const saveSignatureCanvas = () => {
+    if (canvasRef.current && sigModalTarget) {
+      const dataUrl = canvasRef.current.toDataURL('image/png');
+      if (sigModalTarget === 'patient') {
+        setForm(prev => ({ ...prev, patientSignature: dataUrl }));
+      } else if (sigModalTarget === 'attendant') {
+        setForm(prev => ({ ...prev, attendantSignature: dataUrl }));
+      }
+      setSigModalTarget(null);
+    }
+  };
+
+  const handleSignatureUpload = (e, target) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const dataUrl = evt.target?.result;
+      if (dataUrl) {
+        if (target === 'patient') {
+          setForm(prev => ({ ...prev, patientSignature: dataUrl }));
+        } else if (target === 'attendant') {
+          setForm(prev => ({ ...prev, attendantSignature: dataUrl }));
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const clearSignature = (target) => {
+    if (target === 'patient') {
+      setForm(prev => ({ ...prev, patientSignature: '' }));
+    } else if (target === 'attendant') {
+      setForm(prev => ({ ...prev, attendantSignature: '' }));
+    }
+  };
 
   const handlePrint = () => window.print();
 
@@ -232,7 +340,7 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
       setRecordId(null);
       const masterTariffs = await loadMasterTariffs();
       setForm({
-        patientName: '', age: '', sex: '', uhidNo: '', ipNo: '', ward: '', bedNo: '', dateTime: new Date().toISOString().slice(0, 16), tariffs: masterTariffs, patientSignatureName: '', patientContactNo: '', attendantSignatureName: '', attendantContactNo: ''
+        patientName: '', age: '', sex: '', uhidNo: '', ipNo: '', ward: '', bedNo: '', dateTime: new Date().toISOString().slice(0, 16), tariffs: masterTariffs, patientSignature: '', patientSignatureName: '', patientContactNo: '', attendantSignature: '', attendantSignatureName: '', attendantContactNo: ''
       });
     }
   };
@@ -452,20 +560,64 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
           <div style={{ border: '1px solid #000', marginTop: '20px' }}>
             {/* Upper Box: Patient Name & Signature */}
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #000' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '20px' }}>
-                Patient Name & Signature / ರೋಗಿಯ ಹೆಸರು ಮತ್ತು ಸಹಿ
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '13px' }}>
+                  Patient Name & Signature / ರೋಗಿಯ ಹೆಸರು ಮತ್ತು ಸಹಿ
+                </div>
+                <div className="no-print" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', color: '#334155' }}>
+                    <Upload size={12} color="#0284c7" /> Upload Signature
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleSignatureUpload(e, 'patient')} />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => openSignatureCanvas('patient')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    <PenTool size={12} /> Draw Signature
+                  </button>
+                  {form.patientSignature && (
+                    <button
+                      type="button"
+                      onClick={() => clearSignature('patient')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '4px 8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      <X size={12} /> Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <input
-                  type="text"
-                  name="patientSignatureName"
-                  value={form.patientSignatureName}
-                  onChange={handleChange}
-                  placeholder=""
-                  style={{ width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: '1px solid #000', outline: 'none', fontSize: '13px', background: 'transparent' }}
-                />
+              {/* Signature Display Area */}
+              <div style={{ minHeight: '45px', display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                {form.patientSignature ? (
+                  <img src={form.patientSignature} alt="Patient Signature" style={{ maxHeight: '60px', maxWidth: '220px', objectFit: 'contain' }} />
+                ) : (
+                  <div style={{ height: '35px', width: '100%', borderBottom: '1px solid #000' }}>
+                    <input
+                      type="text"
+                      name="patientSignatureName"
+                      value={form.patientSignatureName}
+                      onChange={handleChange}
+                      placeholder="Patient Name / ಸಹಿ"
+                      style={{ width: '100%', height: '100%', border: 'none', outline: 'none', fontSize: '13px', background: 'transparent' }}
+                    />
+                  </div>
+                )}
               </div>
+
+              {form.patientSignature && (
+                <div style={{ marginBottom: '12px' }}>
+                  <input
+                    type="text"
+                    name="patientSignatureName"
+                    value={form.patientSignatureName}
+                    onChange={handleChange}
+                    placeholder="Patient Name"
+                    style={{ width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: '1px solid #000', outline: 'none', fontSize: '13px', background: 'transparent' }}
+                  />
+                </div>
+              )}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
                 <span><strong>Contact No./ ಮೊಬೈಲ್ ನಂ.</strong></span>
@@ -481,20 +633,64 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
 
             {/* Lower Box: Attendant Name & Signature */}
             <div style={{ padding: '16px 20px' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '20px' }}>
-                Attendant Name & Signature / ರೋಗಿಯ ಸಂಬಂಧಿಯ ಹೆಸರು ಮತ್ತು ಸಹಿ
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '13px' }}>
+                  Attendant Name & Signature / ರೋಗಿಯ ಸಂಬಂಧಿಯ ಹೆಸರು ಮತ್ತು ಸಹಿ
+                </div>
+                <div className="no-print" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', color: '#334155' }}>
+                    <Upload size={12} color="#0284c7" /> Upload Signature
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleSignatureUpload(e, 'attendant')} />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => openSignatureCanvas('attendant')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    <PenTool size={12} /> Draw Signature
+                  </button>
+                  {form.attendantSignature && (
+                    <button
+                      type="button"
+                      onClick={() => clearSignature('attendant')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '4px 8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      <X size={12} /> Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <input
-                  type="text"
-                  name="attendantSignatureName"
-                  value={form.attendantSignatureName}
-                  onChange={handleChange}
-                  placeholder=""
-                  style={{ width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: '1px solid #000', outline: 'none', fontSize: '13px', background: 'transparent' }}
-                />
+              {/* Signature Display Area */}
+              <div style={{ minHeight: '45px', display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                {form.attendantSignature ? (
+                  <img src={form.attendantSignature} alt="Attendant Signature" style={{ maxHeight: '60px', maxWidth: '220px', objectFit: 'contain' }} />
+                ) : (
+                  <div style={{ height: '35px', width: '100%', borderBottom: '1px solid #000' }}>
+                    <input
+                      type="text"
+                      name="attendantSignatureName"
+                      value={form.attendantSignatureName}
+                      onChange={handleChange}
+                      placeholder="Attendant Name / ಸಹಿ"
+                      style={{ width: '100%', height: '100%', border: 'none', outline: 'none', fontSize: '13px', background: 'transparent' }}
+                    />
+                  </div>
+                )}
               </div>
+
+              {form.attendantSignature && (
+                <div style={{ marginBottom: '12px' }}>
+                  <input
+                    type="text"
+                    name="attendantSignatureName"
+                    value={form.attendantSignatureName}
+                    onChange={handleChange}
+                    placeholder="Attendant Name"
+                    style={{ width: '100%', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: '1px solid #000', outline: 'none', fontSize: '13px', background: 'transparent' }}
+                  />
+                </div>
+              )}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
                 <span><strong>Contact No./ ಮೊಬೈಲ್ ನಂ.</strong></span>
@@ -510,6 +706,7 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
           </div>
         </div>
       </div>
+
       {/* PAGINATION CONTROLS BAR (SCREEN ONLY) */}
       <div className="no-print pagination-controls" style={{
         display: 'flex',
@@ -624,6 +821,40 @@ export default function RoomTariffPage({ onNavigate, editData, editRecordId }) {
           <Save size={16} /> {recordId ? 'Update Record' : 'Save Record'}
         </button>
       </div>
+
+      {/* SIGNATURE DRAWING CANVAS MODAL */}
+      {sigModalTarget && (
+        <div className="no-print" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 11000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '520px', padding: '20px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <PenTool size={18} color="#0f766e" /> Draw {sigModalTarget === 'patient' ? 'Patient' : 'Attendant'} Digital Signature
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginTop: 0, marginBottom: '12px' }}>Use mouse or touch screen to draw the signature in the box below.</p>
+            <div style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', background: '#f8fafc', marginBottom: '16px' }}>
+              <canvas 
+                ref={canvasRef} 
+                width={476} 
+                height={180} 
+                onMouseDown={startDrawing} 
+                onMouseUp={stopDrawing} 
+                onMouseLeave={stopDrawing} 
+                onMouseMove={draw} 
+                onTouchStart={startDrawing}
+                onTouchEnd={stopDrawing}
+                onTouchMove={draw}
+                style={{ cursor: 'crosshair', width: '100%', display: 'block' }} 
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button type="button" onClick={clearSignatureCanvas} style={{ padding: '6px 14px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Clear Canvas</button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => setSigModalTarget(null)} style={{ padding: '6px 14px', background: '#f1f5f9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Cancel</button>
+                <button type="button" onClick={saveSignatureCanvas} style={{ padding: '6px 18px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Apply Signature</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

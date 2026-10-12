@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
+﻿import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
   Printer,
   Save,
@@ -898,7 +898,7 @@ export default function BPChartPage({ onNavigate, editData, editRecordId }) {
                     name="date"
                     value={entry.date}
                     onChange={handleEntryChange}
-                    className="entry-input"
+                    className="entry-input" min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
                 <div className="entry-field-group">

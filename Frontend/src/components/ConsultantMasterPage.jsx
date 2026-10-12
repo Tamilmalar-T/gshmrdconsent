@@ -16,7 +16,18 @@ import {
   Eye,
   Plus, 
   ChevronDown, 
-  ChevronUp 
+  ChevronUp,
+  Send,
+  MessageSquare,
+  Phone,
+  Smartphone,
+  X,
+  Share2,
+  MessageCircle,
+  Camera,
+  Upload,
+  PenTool,
+  ShieldCheck
 } from 'lucide-react';
 
 const STORAGE_KEY = 'masters_consultants';
@@ -68,6 +79,14 @@ const DEFAULT_DESIGNATIONS = [
 ];
 
 const DEFAULT_TITLES = ['Dr.', 'Prof.', 'Mr.', 'Mrs.', 'Ms.', 'Miss'];
+const DEFAULT_GENDERS = ['Male', 'Female', 'Other'];
+
+const DEFAULT_BRANCHES = [
+  'Main Branch - Central',
+  'NANDHU MEDICAL CENTRE',
+  'City Branch - North',
+  'Gurushree Specialty Annex'
+];
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -173,9 +192,11 @@ const createDefaultSlotSettings = () => ({
 const INITIAL_CONSULTANTS = [
   {
     id: '1',
+    empId: 'DOC001',
     category: 'Consultant',
     prefix: 'Dr.',
-    name: 'Sadhana Admin',
+    name: 'SADHANA ADMIN',
+    gender: 'Female',
     qualification: 'MD, MBBS',
     designation: 'Senior Consultant',
     contactNo: '9876543210',
@@ -185,6 +206,11 @@ const INITIAL_CONSULTANTS = [
     expensesCategory: 'Expenses',
     tokenNoApplicable: true,
     opPlace: true,
+    photo: '',
+    signature: '',
+    signatureImage: '',
+    hospitalSeal: '',
+    registrationSeal: '',
     // Fee Setting - OP Section
     opAmount: '200',
     opReview: '100',
@@ -228,9 +254,10 @@ const INITIAL_CONSULTANTS = [
   },
   {
     id: '2',
+    empId: 'DOC002',
     category: 'Consultant',
     prefix: 'Dr.',
-    name: 'Rajesh Kumar',
+    name: 'RAJESH KUMAR',
     qualification: 'MS (Ortho), DNB',
     designation: 'HOD Orthopedics',
     contactNo: '9845123456',
@@ -240,6 +267,11 @@ const INITIAL_CONSULTANTS = [
     expensesCategory: 'Expenses',
     tokenNoApplicable: true,
     opPlace: true,
+    photo: '',
+    signature: '',
+    signatureImage: '',
+    hospitalSeal: '',
+    registrationSeal: '',
     opAmount: '300',
     opReview: '150',
     opFollowUp: '100',
@@ -384,6 +416,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
   const [consultants, setConsultants] = useState([]);
   const [registerMasterOptions, setRegisterMasterOptions] = useState([]);
   const [availableDepartments, setAvailableDepartments] = useState(DEFAULT_DEPARTMENTS);
+  const [availableBranches, setAvailableBranches] = useState(DEFAULT_BRANCHES);
   const [editingId, setEditingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
@@ -392,15 +425,332 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [viewRecord, setViewRecord] = useState(null);
 
+  // SMS & WhatsApp Notification Modal state
+  const [notifyModalData, setNotifyModalData] = useState({ isOpen: false, consultant: null });
+  const [registeredPatients, setRegisteredPatients] = useState([]);
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [targetMobileNo, setTargetMobileNo] = useState('');
+  const [targetPatientName, setTargetPatientName] = useState('');
+  const [isSendingNotification, setIsSendingNotification] = useState(null); // null, 'sms', 'whatsapp', 'both'
+  const [notificationToast, setNotificationToast] = useState('');
+
+  // Webcam Camera Modal State
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const videoRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+
+  // Signature Draw Canvas Modal State
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const canvasRef = useRef(null);
+  const isDrawingRef = useRef(false);
+
+  // File upload helper for Photo, Signature, Hospital Seal, Registration Seal
+  const handleFileUpload = (e, fieldName) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setErrorMsg('File size should be less than 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm(prev => ({
+          ...prev,
+          [fieldName]: reader.result,
+          ...(fieldName === 'signature' ? { signatureImage: reader.result } : {})
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Camera capture logic
+  const startCamera = async () => {
+    setShowCameraModal(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      alert('Unable to access webcam. Please check camera permissions or upload an image file.');
+      setShowCameraModal(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    setShowCameraModal(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth || 320;
+      canvas.height = videoRef.current.videoHeight || 240;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/png');
+      setForm(prev => ({ ...prev, photo: dataUrl }));
+      stopCamera();
+    }
+  };
+
+  // Signature drawing canvas logic
+  const openSignatureCanvas = () => {
+    setShowSignatureModal(true);
+    setTimeout(() => {
+      if (canvasRef.current) {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }, 100);
+  };
+
+  const startDrawing = (e) => {
+    isDrawingRef.current = true;
+    draw(e);
+  };
+
+  const stopDrawing = () => {
+    isDrawingRef.current = false;
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.beginPath();
+    }
+  };
+
+  const draw = (e) => {
+    if (!isDrawingRef.current || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const clearSignatureCanvas = () => {
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+  };
+
+  const saveSignatureCanvas = () => {
+    if (canvasRef.current) {
+      const dataUrl = canvasRef.current.toDataURL('image/png');
+      setForm(prev => ({ ...prev, signature: dataUrl, signatureImage: dataUrl }));
+      setShowSignatureModal(false);
+    }
+  };
+
+  const fetchRegisteredPatients = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/patients');
+      const data = await response.json();
+      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        setRegisteredPatients(data.data);
+        const first = data.data[0];
+        setSelectedPatientId(first.id || first.patientId || '');
+        setTargetMobileNo(first.mobileNo || first.phone || '');
+        setTargetPatientName(first.patientName || first.name || '');
+      } else {
+        const demoPatients = [
+          { id: 'p1', patientName: 'Rajesh Kumar', mobileNo: '9845123456', uhidNo: 'GSH-2026-001' },
+          { id: 'p2', patientName: 'Anitha Sharma', mobileNo: '9876543210', uhidNo: 'GSH-2026-002' },
+          { id: 'p3', patientName: 'Suresh Menon', mobileNo: '9443098765', uhidNo: 'GSH-2026-003' }
+        ];
+        setRegisteredPatients(demoPatients);
+        setSelectedPatientId(demoPatients[0].id);
+        setTargetMobileNo(demoPatients[0].mobileNo);
+        setTargetPatientName(demoPatients[0].patientName);
+      }
+    } catch (err) {
+      console.error('Error fetching registered patients:', err);
+      const demoPatients = [
+        { id: 'p1', patientName: 'Rajesh Kumar', mobileNo: '9845123456', uhidNo: 'GSH-2026-001' },
+        { id: 'p2', patientName: 'Anitha Sharma', mobileNo: '9876543210', uhidNo: 'GSH-2026-002' },
+        { id: 'p3', patientName: 'Suresh Menon', mobileNo: '9443098765', uhidNo: 'GSH-2026-003' }
+      ];
+      setRegisteredPatients(demoPatients);
+      setSelectedPatientId(demoPatients[0].id);
+      setTargetMobileNo(demoPatients[0].mobileNo);
+      setTargetPatientName(demoPatients[0].patientName);
+    }
+  };
+
+  const handleSelectPatientForNotify = (patientId) => {
+    setSelectedPatientId(patientId);
+    if (!patientId) {
+      setTargetMobileNo('');
+      setTargetPatientName('');
+      return;
+    }
+    const found = registeredPatients.find(p => String(p.id || p.patientId) === String(patientId));
+    if (found) {
+      setTargetMobileNo(found.mobileNo || found.phone || '');
+      setTargetPatientName(found.patientName || found.name || '');
+    }
+  };
+
+  const generateNotificationText = (consultant, pName = targetPatientName) => {
+    if (!consultant) return '';
+    const prefix = consultant.prefix || 'Dr.';
+    const name = consultant.name || '';
+    const qual = consultant.qualification ? ` (${consultant.qualification})` : '';
+    const desig = consultant.designation || 'Consultant';
+    const dept = consultant.department || 'General Medicine';
+    const hosp = consultant.hospitalName || consultant.referralHospital || 'Gurushree Hospital';
+    const opFee = consultant.opAmount || consultant.opDrAmount || '0';
+    const ipFee = consultant.ipAmount || consultant.ipDrAmount || '0';
+
+    let slotsSummary = 'Monday to Saturday: 09:00 AM - 01:00 PM';
+    if (consultant.slotSettings) {
+      const activeDays = Object.entries(consultant.slotSettings)
+        .filter(([day, s]) => s && s.available)
+        .map(([day, s]) => {
+          const s1 = s.slot1?.fromTime && s.slot1?.toTime 
+            ? `${formatMinutesTo12Hour(parseTimeToMinutes(s.slot1.fromTime))} - ${formatMinutesTo12Hour(parseTimeToMinutes(s.slot1.toTime))}`
+            : 'Available';
+          return `${day.slice(0, 3)}: ${s1}`;
+        });
+      if (activeDays.length > 0) {
+        slotsSummary = activeDays.join(', ');
+      }
+    }
+
+    const greeting = pName ? `Dear ${pName},` : `Dear Patient,`;
+
+    return `🏥 ${hosp} - Consultant Information
+${greeting}
+
+${prefix} ${name}${qual}
+Specialization: ${desig} (${dept})
+
+📅 Schedule & Timings:
+${slotsSummary}
+
+💰 Consultation Fee Structure:
+• OP Consultation: ₹${opFee}
+• IP Consultation: ₹${ipFee}
+
+Thank you for choosing ${hosp}.
+For Appointments & Inquiries, Contact Gurushree Hospital.`;
+  };
+
+  const handleSendWhatsApp = async (mobile, message, consultant) => {
+    if (!mobile || !mobile.trim()) {
+      alert('Please enter a valid mobile number.');
+      return;
+    }
+    try {
+      setIsSendingNotification('whatsapp');
+      const cleanMobile = mobile.replace(/[^0-9]/g, '');
+      const waMobile = cleanMobile.length === 10 ? `91${cleanMobile}` : cleanMobile;
+
+      await fetch('http://localhost:5000/api/send-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobileNo: cleanMobile,
+          patientName: targetPatientName,
+          message,
+          consultantName: `${consultant.prefix || ''} ${consultant.name || ''}`
+        })
+      });
+
+      // Launch WhatsApp directly with recipient number and prefilled message
+      const waUrl = `https://api.whatsapp.com/send?phone=${waMobile}&text=${encodeURIComponent(message)}`;
+      window.open(waUrl, '_blank');
+
+      setNotificationToast(`WhatsApp opened for +91-${cleanMobile.slice(-10)}!`);
+      setIsSendingNotification(null);
+      setTimeout(() => {
+        setNotificationToast('');
+        setNotifyModalData({ isOpen: false, consultant: null });
+        handleClear();
+        setViewMode('list');
+      }, 2000);
+    } catch (err) {
+      console.error(err);
+      setIsSendingNotification(null);
+    }
+  };
+
+  const handleSendSMS = async (mobile, message, consultant) => {
+    if (!mobile || !mobile.trim()) {
+      alert('Please enter a valid mobile number.');
+      return;
+    }
+    try {
+      setIsSendingNotification('sms');
+      const cleanMobile = mobile.replace(/[^0-9]/g, '');
+      const targetNumber = cleanMobile.length === 10 ? `+91${cleanMobile}` : `+${cleanMobile}`;
+
+      await fetch('http://localhost:5000/api/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobileNo: cleanMobile,
+          patientName: targetPatientName,
+          message,
+          consultantName: `${consultant.prefix || ''} ${consultant.name || ''}`
+        })
+      });
+
+      setNotificationToast(`SMS dispatched to ${targetNumber}!`);
+      window.location.href = `sms:${targetNumber}?body=${encodeURIComponent(message)}`;
+
+      setIsSendingNotification(null);
+      setTimeout(() => {
+        setNotificationToast('');
+        setNotifyModalData({ isOpen: false, consultant: null });
+        handleClear();
+        setViewMode('list');
+      }, 2500);
+    } catch (err) {
+      console.error(err);
+      setIsSendingNotification(null);
+    }
+  };
+
+  const handleSendBoth = async (mobile, message, consultant) => {
+    if (!mobile || !mobile.trim()) {
+      alert('Please enter a valid mobile number.');
+      return;
+    }
+    setIsSendingNotification('both');
+    await handleSendSMS(mobile, message, consultant);
+    await handleSendWhatsApp(mobile, message, consultant);
+  };
+
   // Form State
   const [form, setForm] = useState({
+    empId: '',
     category: 'Consultant',
     prefix: 'Dr.',
     name: '',
+    gender: 'Male',
     qualification: '',
     designation: '',
     department: 'General Medicine',
-    hospitalName: '',
+    hospitalName: 'Main Branch - Central',
     contactNo: '',
     tokenNoApplicable: true,
     opPlace: false,
@@ -410,6 +760,11 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
     discountIP: true,
     sendSMS: false,
     expensesCategory: 'Expenses',
+    photo: '',
+    signature: '',
+    signatureImage: '',
+    hospitalSeal: '',
+    registrationSeal: '',
     // Fee Setting - OP Section
     opAmount: '200',
     opReview: '100',
@@ -453,12 +808,31 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
         }
       }
 
+      const savedBranches = localStorage.getItem('masters_hospital_branch_records');
+      if (savedBranches) {
+        const parsedBranches = JSON.parse(savedBranches);
+        if (Array.isArray(parsedBranches) && parsedBranches.length > 0) {
+          const bNames = parsedBranches.map(b => b.branchName || b.hospitalName).filter(Boolean);
+          const combinedBranches = Array.from(new Set([...bNames, ...DEFAULT_BRANCHES]));
+          setAvailableBranches(combinedBranches);
+        }
+      }
+
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (saved && saved.length > 0) {
-        const migrated = saved.map(item => ({
+        const migrated = saved.map((item, idx) => ({
           ...item,
+          empId: item.empId || `DOC00${idx + 1}`,
+          gender: item.gender || (['Mrs.', 'Ms.', 'Miss', 'Mrs', 'Ms'].includes(item.prefix) ? 'Female' : 'Male'),
+          photo: item.photo || '',
+          signature: item.signature || item.signatureImage || '',
+          signatureImage: item.signatureImage || item.signature || '',
+          hospitalSeal: item.hospitalSeal || '',
+          registrationSeal: item.registrationSeal || item.regSeal || '',
+          active: item.active !== false && item.status !== 'Inactive',
           designation: item.designation || '',
-          hospitalName: item.hospitalName || item.referralHospital || '',
+          hospitalName: item.hospitalName || item.referralHospital || DEFAULT_BRANCHES[0],
+          contactNo: item.contactNo || item.mobileNumber || '',
           tokenNoApplicable: item.tokenNoApplicable !== undefined ? item.tokenNoApplicable : true,
           opPlace: item.opPlace !== undefined ? item.opPlace : false,
           opAmount: item.opAmount || item.opDrAmount || '200',
@@ -473,7 +847,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
           ipFollowUp: item.ipFollowUp || '50',
           ipHospitalShare: item.ipHospitalShare || item.ipExpenseShare || '50',
           ipHospitalShareAmt: item.ipHospitalShareAmt || '100',
-          ipDoctorShare: item.ipDoctorShare || item.ipPercent || '50',
+          ipDoctorShare: item.ipDoctorShare || item.opPercent || '50',
           ipDoctorShareAmt: item.ipDoctorShareAmt || item.ipShare || '100',
           opDrAmount: item.opDrAmount || item.opAmount || '200',
           ipDrAmount: item.ipDrAmount || item.ipAmount || '200',
@@ -482,7 +856,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
           opPercent: item.opPercent || item.opDoctorShare || '50',
           ipPercent: item.ipPercent || item.ipDoctorShare || '50',
           opExpenseShare: item.opExpenseShare || item.opHospitalShareAmt || '100',
-          ipExpenseShare: item.ipExpenseShare || item.ipHospitalShareAmt || '100',
+          ipExpenseShare: item.ipExpenseShare || item.opHospitalShareAmt || '100',
           slotDuration: item.slotDuration || '15 Mins',
           slotSettings: item.slotSettings || createDefaultSlotSettings()
         }));
@@ -525,6 +899,11 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
     ...(form.prefix ? [form.prefix] : [])
   ]));
 
+  const genderOptions = Array.from(new Set([
+    ...getRegisterOptions('Gender', DEFAULT_GENDERS),
+    ...(form.gender ? [form.gender] : [])
+  ]));
+
   const qualificationOptions = Array.from(new Set([
     ...getRegisterOptions('Qualification', DEFAULT_QUALIFICATIONS),
     ...(form.qualification ? [form.qualification] : [])
@@ -539,6 +918,11 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
     ...getRegisterOptions('Department', DEFAULT_DEPARTMENTS),
     ...availableDepartments,
     ...(form.department ? [form.department] : [])
+  ]));
+
+  const branchOptions = Array.from(new Set([
+    ...availableBranches,
+    ...(form.hospitalName ? [form.hospitalName] : [])
   ]));
 
   // Keyboard Shortcuts: F1 to Save, F2 to Clear
@@ -711,15 +1095,39 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
     ].includes(name)) {
       handleFeeFieldChange(name, value);
     } else {
+      let finalVal = type === 'checkbox' ? checked : value;
+      if (name === 'name' && typeof finalVal === 'string') {
+        finalVal = finalVal.toUpperCase();
+      }
+
+      if (name === 'prefix') {
+        const normalizedTitle = value.replace(/\./g, '').trim().toLowerCase();
+        let autoGender = '';
+        if (normalizedTitle === 'mr') {
+          autoGender = 'Male';
+        } else if (['ms', 'mrs', 'miss'].includes(normalizedTitle)) {
+          autoGender = 'Female';
+        }
+
+        setForm(prev => ({
+          ...prev,
+          prefix: value,
+          ...(autoGender ? { gender: autoGender } : {})
+        }));
+        setErrorMsg('');
+        return;
+      }
+
       setForm(prev => ({
         ...prev,
-        [name]: type === 'checkbox' ? checked : value
+        [name]: finalVal,
+        ...(name === 'contactNo' && value.trim() ? { sendSMS: true } : {})
       }));
       setErrorMsg('');
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async (notify = false) => {
     setErrorMsg('');
     if (!form.name.trim()) {
       setErrorMsg('Consultant Name is required.');
@@ -729,6 +1137,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
 
     const payload = {
       ...form,
+      name: (form.name || '').trim().toUpperCase(),
       opDrAmount: form.opAmount,
       ipDrAmount: form.ipAmount,
       opShare: form.opDoctorShareAmt,
@@ -740,24 +1149,25 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
       referralHospital: form.hospitalName
     };
 
+    let savedItem = payload;
     if (editingId) {
-      const updated = consultants.map(c => c.id === editingId ? { ...payload, id: editingId } : c);
+      savedItem = { ...payload, id: editingId };
+      const updated = consultants.map(c => c.id === editingId ? savedItem : c);
       saveToStorage(updated);
-      setSuccessMsg('Consultant updated successfully!');
       setEditingId(null);
     } else {
-      const newConsultant = {
+      savedItem = {
         ...payload,
         id: Date.now().toString()
       };
-      const updated = [...consultants, newConsultant];
+      const updated = [...consultants, savedItem];
       saveToStorage(updated);
-      setSuccessMsg('Consultant saved successfully!');
     }
 
+    setSuccessMsg(editingId ? 'Consultant updated successfully!' : 'Consultant saved successfully!');
     handleClear();
     setViewMode('list');
-    setTimeout(() => setSuccessMsg(''), 3000);
+    setTimeout(() => setSuccessMsg(''), 4500);
   };
 
   const handleClear = () => {
@@ -766,9 +1176,11 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
     setEditingId(null);
     setErrorMsg('');
     setForm({
+      empId: '',
       category: 'Consultant',
       prefix: titleOptions[0] || 'Dr.',
       name: '',
+      gender: 'Male',
       qualification: '',
       designation: '',
       department: departmentOptions[0] || 'General Medicine',
@@ -782,6 +1194,11 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
       discountIP: true,
       sendSMS: false,
       expensesCategory: 'Expenses',
+      photo: '',
+      signature: '',
+      signatureImage: '',
+      hospitalSeal: '',
+      registrationSeal: '',
       // Fee Setting - OP Section (all cleared to blank)
       opAmount: '',
       opReview: '',
@@ -824,9 +1241,11 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
   const handleClearConsultantInfo = () => {
     setForm((prev) => ({
       ...prev,
+      empId: '',
       category: 'Consultant',
       prefix: titleOptions[0] || 'Dr.',
       name: '',
+      gender: 'Male',
       qualification: '',
       designation: '',
       department: departmentOptions[0] || 'General Medicine',
@@ -839,7 +1258,12 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
       discountOP: true,
       discountIP: true,
       sendSMS: false,
-      expensesCategory: 'Expenses'
+      expensesCategory: 'Expenses',
+      photo: '',
+      signature: '',
+      signatureImage: '',
+      hospitalSeal: '',
+      registrationSeal: ''
     }));
   };
 
@@ -949,9 +1373,11 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
     const ipFupVal = parseFloat(consultant.ipFollowUp || '50') || 0;
 
     setForm({
+      empId: consultant.empId || '',
       category: consultant.category || 'Consultant',
       prefix: consultant.prefix || 'Dr.',
       name: consultant.name || '',
+      gender: consultant.gender || (['Mrs.', 'Ms.', 'Miss', 'Mrs', 'Ms'].includes(consultant.prefix) ? 'Female' : 'Male'),
       qualification: consultant.qualification || '',
       designation: consultant.designation || '',
       department: consultant.department || availableDepartments[0] || 'General Medicine',
@@ -965,6 +1391,11 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
       discountIP: consultant.discountIP !== undefined ? consultant.discountIP : true,
       sendSMS: consultant.sendSMS !== undefined ? consultant.sendSMS : false,
       expensesCategory: consultant.expensesCategory || 'Expenses',
+      photo: consultant.photo || '',
+      signature: consultant.signature || consultant.signatureImage || '',
+      signatureImage: consultant.signatureImage || consultant.signature || '',
+      hospitalSeal: consultant.hospitalSeal || '',
+      registrationSeal: consultant.registrationSeal || consultant.regSeal || '',
       opAmount: consultant.opAmount || consultant.opDrAmount || '200',
       opReview: consultant.opReview || '100',
       opFollowUp: consultant.opFollowUp || '50',
@@ -1021,11 +1452,12 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
       'Category',
       'Prefix',
       'Name',
+      'Gender',
       'Qualification',
       'Designation',
       'Department',
-      'Hospital Name',
-      'Contact No',
+      'Hospital Branch',
+      'Mobile Number',
       'Token No Applicable',
       'OP Place',
       'Active',
@@ -1053,6 +1485,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
       c.category,
       c.prefix,
       `"${c.name}"`,
+      `"${c.gender || ''}"`,
       `"${c.qualification || ''}"`,
       `"${c.designation || ''}"`,
       `"${c.department || ''}"`,
@@ -1096,6 +1529,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
     const q = searchQuery.toLowerCase();
     const matchesSearch = !searchQuery || (
       (c.name && c.name.toLowerCase().includes(q)) ||
+      (c.gender && c.gender.toLowerCase().includes(q)) ||
       (c.qualification && c.qualification.toLowerCase().includes(q)) ||
       (c.designation && c.designation.toLowerCase().includes(q)) ||
       (c.hospitalName && c.hospitalName.toLowerCase().includes(q)) ||
@@ -1224,6 +1658,22 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
                     </div>
                   </div>
 
+                  {/* EMP ID */}
+                  <div className="pr-field">
+                    <label className="pr-label">
+                      EMP ID <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="empId" 
+                      value={form.empId} 
+                      onChange={handleChange} 
+                      placeholder="e.g. DOC001" 
+                      className="pr-input" 
+                      style={{ fontWeight: '600' }}
+                    />
+                  </div>
+
                   {/* Consultant Name with Prefix (Title from Register Master) */}
                   <div className="pr-field" style={{ gridColumn: 'span 2' }}>
                     <label className="pr-label">
@@ -1249,14 +1699,32 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
                         onChange={handleChange} 
                         placeholder="Consultant Name" 
                         className="pr-input" 
-                        style={{ borderColor: errorMsg && !form.name.trim() ? '#ef4444' : undefined }}
+                        style={{ 
+                          textTransform: 'uppercase',
+                          borderColor: errorMsg && !form.name.trim() ? '#ef4444' : undefined 
+                        }}
                       />
                     </div>
                   </div>
 
+                  {/* GENDER */}
+                  <div className="pr-field">
+                    <label className="pr-label">GENDER <span style={{ color: '#ef4444' }}>*</span></label>
+                    <select 
+                      name="gender" 
+                      value={form.gender} 
+                      onChange={handleChange} 
+                      className="pr-select"
+                    >
+                      {genderOptions.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Qualification (Dropdown from Register Master) */}
                   <div className="pr-field">
-                    <label className="pr-label">Qualification</label>
+                    <label className="pr-label">QUALIFICATION (Master)</label>
                     <select 
                       name="qualification" 
                       value={form.qualification} 
@@ -1272,7 +1740,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
 
                   {/* Designation (Dropdown from Register Master) */}
                   <div className="pr-field">
-                    <label className="pr-label">Designation</label>
+                    <label className="pr-label">DESIGNATION (Master)</label>
                     <select 
                       name="designation" 
                       value={form.designation} 
@@ -1288,7 +1756,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
 
                   {/* Department (Dropdown from Register Master) */}
                   <div className="pr-field">
-                    <label className="pr-label">Department</label>
+                    <label className="pr-label">DEPARTMENT (Master)</label>
                     <select 
                       name="department" 
                       value={form.department} 
@@ -1304,30 +1772,189 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
                     </select>
                   </div>
 
-                  {/* Hospital Name */}
-                  <div className="pr-field" style={{ gridColumn: 'span 2' }}>
-                    <label className="pr-label">Hospital Name</label>
-                    <input 
-                      type="text" 
+                  {/* STATUS */}
+                  <div className="pr-field">
+                    <label className="pr-label">STATUS <span style={{ color: '#ef4444' }}>*</span></label>
+                    <select 
+                      name="status" 
+                      value={form.active ? 'Active' : 'Inactive'} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setForm(prev => ({ ...prev, active: val === 'Active' }));
+                      }} 
+                      className="pr-select"
+                      style={{ fontWeight: '600' }}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+
+                  {/* Hospital Branch */}
+                  <div className="pr-field">
+                    <label className="pr-label">HOSPITAL BRANCH <span style={{ color: '#ef4444' }}>*</span></label>
+                    <select 
                       name="hospitalName" 
                       value={form.hospitalName} 
                       onChange={handleChange} 
-                      placeholder="Hospital Name (e.g. Gurushree Hospital)" 
-                      className="pr-input" 
-                    />
+                      className="pr-select"
+                    >
+                      <option value="">--Select Hospital Branch--</option>
+                      {branchOptions.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* Contact No */}
+                  {/* Mobile Number */}
                   <div className="pr-field">
-                    <label className="pr-label">Contact No</label>
+                    <label className="pr-label">MOBILE NUMBER</label>
                     <input 
                       type="text" 
                       name="contactNo" 
                       value={form.contactNo} 
                       onChange={handleChange} 
-                      placeholder="Contact Number (10 digits)" 
+                      placeholder="10-digit mobile number" 
                       className="pr-input" 
                     />
+                  </div>
+
+                  {/* Expenses Category */}
+                  <div className="pr-field" style={{ gridColumn: 'span 2' }}>
+                    <label className="pr-label">EXPENSES CATEGORY</label>
+                    <input 
+                      type="text" 
+                      name="expensesCategory" 
+                      value={form.expensesCategory} 
+                      onChange={handleChange} 
+                      placeholder="e.g. Expenses" 
+                      className="pr-input" 
+                    />
+                  </div>
+
+                  {/* MEDIA & UPLOADS ROW: Photo, Signature, Hospital Seal, Registration Seal */}
+                  <div className="pr-field" style={{ gridColumn: 'span 4', marginTop: '6px' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+                      gap: '14px',
+                      backgroundColor: '#f8fafc',
+                      padding: '14px 16px',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      
+                      {/* 1. DOCTOR PHOTO */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label className="pr-label" style={{ fontWeight: '700', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Camera size={13} /> 1. DOCTOR PHOTO
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#e0f2fe', color: '#0284c7', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
+                            <Upload size={12} /> Upload Photo
+                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileUpload(e, 'photo')} />
+                          </label>
+                          <button 
+                            type="button" 
+                            onClick={startCamera} 
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                          >
+                            <Camera size={12} /> Webcam
+                          </button>
+                          {form.photo && (
+                            <button type="button" onClick={() => setForm(p => ({ ...p, photo: '' }))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>Remove</button>
+                          )}
+                        </div>
+                        {form.photo ? (
+                          <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <img src={form.photo} alt="Doctor Preview" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #0284c7' }} />
+                            <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>✓ Photo Ready</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>No photo uploaded</div>
+                        )}
+                      </div>
+
+                      {/* 2. DIGITAL SIGNATURE */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label className="pr-label" style={{ fontWeight: '700', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <PenTool size={13} /> 2. DIGITAL SIGNATURE
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#ede9fe', color: '#7c3aed', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
+                            <Upload size={12} /> Upload Image
+                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileUpload(e, 'signature')} />
+                          </label>
+                          <button 
+                            type="button" 
+                            onClick={openSignatureCanvas} 
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#7c3aed', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
+                          >
+                            <PenTool size={12} /> Draw Signature
+                          </button>
+                          {(form.signature || form.signatureImage) && (
+                            <button type="button" onClick={() => setForm(p => ({ ...p, signature: '', signatureImage: '' }))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>Remove</button>
+                          )}
+                        </div>
+                        {(form.signature || form.signatureImage) ? (
+                          <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <img src={form.signature || form.signatureImage} alt="Signature Preview" style={{ maxHeight: '34px', maxWidth: '90px', objectFit: 'contain', border: '1px dashed #7c3aed', borderRadius: '4px', backgroundColor: '#ffffff', padding: '2px' }} />
+                            <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>✓ Signature Attached</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>No signature attached</div>
+                        )}
+                      </div>
+
+                      {/* 3. HOSPITAL SEAL */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label className="pr-label" style={{ fontWeight: '700', color: '#059669', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <ShieldCheck size={13} /> 3. HOSPITAL SEAL
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#d1fae5', color: '#059669', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
+                            <Upload size={12} /> Upload Seal
+                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileUpload(e, 'hospitalSeal')} />
+                          </label>
+                          {form.hospitalSeal && (
+                            <button type="button" onClick={() => setForm(p => ({ ...p, hospitalSeal: '' }))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>Remove</button>
+                          )}
+                        </div>
+                        {form.hospitalSeal ? (
+                          <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <img src={form.hospitalSeal} alt="Hospital Seal" style={{ maxHeight: '34px', maxWidth: '75px', objectFit: 'contain', border: '1px dashed #059669', borderRadius: '4px', backgroundColor: '#ffffff', padding: '2px' }} />
+                            <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>✓ Seal Uploaded</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>No hospital seal</div>
+                        )}
+                      </div>
+
+                      {/* 4. REGISTRATION SEAL */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label className="pr-label" style={{ fontWeight: '700', color: '#d97706', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <ShieldCheck size={13} /> 4. REGISTRATION SEAL
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: '#fef3c7', color: '#d97706', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
+                            <Upload size={12} /> Upload Seal
+                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileUpload(e, 'registrationSeal')} />
+                          </label>
+                          {form.registrationSeal && (
+                            <button type="button" onClick={() => setForm(p => ({ ...p, registrationSeal: '' }))} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>Remove</button>
+                          )}
+                        </div>
+                        {form.registrationSeal ? (
+                          <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <img src={form.registrationSeal} alt="Registration Seal" style={{ maxHeight: '34px', maxWidth: '75px', objectFit: 'contain', border: '1px dashed #d97706', borderRadius: '4px', backgroundColor: '#ffffff', padding: '2px' }} />
+                            <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>✓ Reg Seal Ready</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>No registration seal</div>
+                        )}
+                      </div>
+
+                    </div>
                   </div>
 
                   {/* Checkboxes Area */}
@@ -1375,18 +2002,6 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
                           style={{ width: '16px', height: '16px', accentColor: '#0284c7', cursor: 'pointer' }} 
                         />
                         <span>Active Status</span>
-                      </label>
-
-                      {/* Send SMS */}
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12.5px', color: '#334155', fontWeight: '500' }}>
-                        <input 
-                          type="checkbox" 
-                          name="sendSMS" 
-                          checked={form.sendSMS} 
-                          onChange={handleChange} 
-                          style={{ width: '16px', height: '16px', accentColor: '#0284c7', cursor: 'pointer' }} 
-                        />
-                        <span>Notify via SMS</span>
                       </label>
 
                       {/* Discount Applicable */}
@@ -2308,7 +2923,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
 
           {/* SECTION 4: FOOTER ACTION BAR (matching 2nd image exactly) */}
           <div className="pr-card-box">
-            <div className="pr-form-footer-actions" style={{ padding: '20px', borderTop: 'none', justifyContent: 'flex-end', margin: 0 }}>
+            <div className="pr-form-footer-actions" style={{ padding: '20px', borderTop: 'none', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap', margin: 0 }}>
               <button 
                 type="button" 
                 className="btn-pr-clear" 
@@ -2316,14 +2931,17 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
               >
                 <RotateCcw size={16} /> Clear Form
               </button>
+
               <button 
                 type="button" 
                 className="btn-pr-register"
-                onClick={handleSave}
+                onClick={() => handleSave(false)}
                 style={{ backgroundColor: '#0070bb' }}
               >
                 <Save size={16} /> {editingId ? 'Update Consultant' : 'Save Consultant'}
               </button>
+
+        
             </div>
           </div>
 
@@ -2451,12 +3069,17 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
                   <thead>
                     <tr>
                       <th style={{ width: '45px', textAlign: 'center' }}>S.NO</th>
+                      <th style={{ width: '60px', textAlign: 'center' }}>PHOTO</th>
+                      <th>EMP ID</th>
                       <th>CATEGORY</th>
                       <th>DOCTOR NAME</th>
+                      <th>GENDER</th>
                       <th>QUALIFICATION</th>
                       <th>DESIGNATION</th>
                       <th>DEPARTMENT</th>
-                      <th>HOSPITAL NAME</th>
+                      <th>HOSPITAL BRANCH</th>
+                      <th>MOBILE NUMBER</th>
+                      <th className="text-center">SEALS / SIGN</th>
                       <th className="text-center">TOKEN NO</th>
                       <th className="text-center">OP PLACE</th>
                       <th className="text-center">STATUS</th>
@@ -2466,7 +3089,7 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
                   <tbody>
                     {filteredConsultants.length === 0 ? (
                       <tr>
-                        <td colSpan={11} className="text-center" style={{ padding: '30px', color: '#64748b' }}>
+                        <td colSpan={16} className="text-center" style={{ padding: '30px', color: '#64748b' }}>
                           No consultants found.
                         </td>
                       </tr>
@@ -2474,16 +3097,60 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
                       filteredConsultants.map((c, idx) => (
                         <tr key={c.id}>
                           <td style={{ textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            {c.photo ? (
+                              <img 
+                                src={c.photo} 
+                                alt={c.name} 
+                                style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #0284c7', display: 'inline-block' }} 
+                              />
+                            ) : (
+                              <div style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: '#f1f5f9', color: '#94a3b8', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', border: '1px solid #e2e8f0' }}>
+                                {c.name ? c.name.charAt(0).toUpperCase() : 'D'}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: '700', color: '#0369a1', fontSize: '11.5px', backgroundColor: '#e0f2fe', padding: '2px 7px', borderRadius: '4px' }}>
+                              {c.empId || `DOC${String(idx + 1).padStart(3, '0')}`}
+                            </span>
+                          </td>
                           <td>
                             <span className="brand-badge" style={{ fontSize: '11px' }}>
                               {c.category}
                             </span>
                           </td>
                           <td className="font-semibold-name">{c.prefix} {c.name}</td>
+                          <td>
+                            <span style={{ fontWeight: '500', color: '#475569' }}>{c.gender || '—'}</span>
+                          </td>
                           <td>{c.qualification || '—'}</td>
                           <td style={{ fontWeight: '500', color: '#475569' }}>{c.designation || '—'}</td>
                           <td style={{ color: '#0284c7', fontWeight: '600' }}>{c.department}</td>
                           <td>{c.hospitalName || c.referralHospital || '—'}</td>
+                          <td>{c.contactNo || c.mobileNumber || '—'}</td>
+                          <td className="text-center">
+                            <div style={{ display: 'flex', gap: '3px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                              <span 
+                                title={c.signature || c.signatureImage ? 'Signature Attached' : 'No Signature'} 
+                                style={{ fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '4px', backgroundColor: (c.signature || c.signatureImage) ? '#ede9fe' : '#f1f5f9', color: (c.signature || c.signatureImage) ? '#7c3aed' : '#94a3b8' }}
+                              >
+                                Sign
+                              </span>
+                              <span 
+                                title={c.hospitalSeal ? 'Hospital Seal Attached' : 'No Hosp Seal'} 
+                                style={{ fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '4px', backgroundColor: c.hospitalSeal ? '#d1fae5' : '#f1f5f9', color: c.hospitalSeal ? '#059669' : '#94a3b8' }}
+                              >
+                                Hosp
+                              </span>
+                              <span 
+                                title={c.registrationSeal ? 'Registration Seal Attached' : 'No Reg Seal'} 
+                                style={{ fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '4px', backgroundColor: c.registrationSeal ? '#fef3c7' : '#f1f5f9', color: c.registrationSeal ? '#d97706' : '#94a3b8' }}
+                              >
+                                Reg
+                              </span>
+                            </div>
+                          </td>
                           <td className="text-center">
                             <span style={{ 
                               padding: '2px 8px', 
@@ -2765,18 +3432,33 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
       {/* VIEW CONSULTANT MODAL */}
       {viewRecord && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={() => setViewRecord(null)}>
-          <div style={{ background: '#fff', borderRadius: '14px', width: '720px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 80px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: '#fff', borderRadius: '14px', width: '740px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 80px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div style={{ background: 'linear-gradient(135deg, #1d4ed8, #0ea5e9)', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'sticky', top: 0, zIndex: 10 }}>
-              <div style={{ color: '#fff' }}>
-                <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '700' }}>Consultant Master Record</div>
-                <div style={{ fontSize: '22px', fontWeight: '700', marginBottom: '2px' }}>{viewRecord.prefix} {viewRecord.name}</div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px', flexWrap: 'wrap' }}>
-                  {viewRecord.qualification && <span style={{ fontSize: '12px', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '4px', fontWeight: '500' }}>{viewRecord.qualification}</span>}
-                  <span style={{ fontSize: '12px', background: 'rgba(255,255,255,0.25)', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>{viewRecord.category || 'Consultant'}</span>
-                  <span style={{ fontSize: '12px', padding: '2px 10px', borderRadius: '20px', fontWeight: '700', backgroundColor: viewRecord.active ? '#dcfce7' : '#fee2e2', color: viewRecord.active ? '#15803d' : '#b91c1c' }}>
-                    {viewRecord.active ? '● Active' : '● Inactive'}
-                  </span>
+            <div style={{ background: 'linear-gradient(135deg, #1d4ed8, #0ea5e9)', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                {viewRecord.photo ? (
+                  <img 
+                    src={viewRecord.photo} 
+                    alt={viewRecord.name} 
+                    style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2.5px solid #ffffff', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }} 
+                  />
+                ) : (
+                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '700', border: '2px solid rgba(255,255,255,0.4)' }}>
+                    {viewRecord.name ? viewRecord.name.charAt(0).toUpperCase() : 'D'}
+                  </div>
+                )}
+                <div style={{ color: '#fff' }}>
+                  <div style={{ fontSize: '11px', opacity: 0.85, marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '700' }}>
+                    Consultant Master Record {viewRecord.empId ? `• ${viewRecord.empId}` : ''}
+                  </div>
+                  <div style={{ fontSize: '20px', fontWeight: '700', marginBottom: '2px' }}>{viewRecord.prefix} {viewRecord.name}</div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap' }}>
+                    {viewRecord.qualification && <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '4px', fontWeight: '500' }}>{viewRecord.qualification}</span>}
+                    <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.25)', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>{viewRecord.category || 'Consultant'}</span>
+                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', fontWeight: '700', backgroundColor: viewRecord.active ? '#dcfce7' : '#fee2e2', color: viewRecord.active ? '#15803d' : '#b91c1c' }}>
+                      {viewRecord.active ? '● Active' : '● Inactive'}
+                    </span>
+                  </div>
                 </div>
               </div>
               <button onClick={() => setViewRecord(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '34px', height: '34px', cursor: 'pointer', color: '#fff', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
@@ -2791,15 +3473,16 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '10px' }}>
                   {[
+                    { label: 'EMP ID', value: viewRecord.empId },
                     { label: 'Title / Prefix', value: viewRecord.prefix },
                     { label: 'Full Name', value: viewRecord.name },
+                    { label: 'Gender', value: viewRecord.gender },
                     { label: 'Qualification', value: viewRecord.qualification },
                     { label: 'Designation', value: viewRecord.designation },
                     { label: 'Department', value: viewRecord.department },
                     { label: 'Category', value: viewRecord.category },
-                    { label: 'Hospital / Referral', value: viewRecord.hospitalName || viewRecord.referralHospital },
-                    { label: 'Contact Number', value: viewRecord.contactNo },
-                    { label: 'Email Address', value: viewRecord.email },
+                    { label: 'Hospital Branch', value: viewRecord.hospitalName || viewRecord.referralHospital },
+                    { label: 'Mobile Number', value: viewRecord.contactNo || viewRecord.mobileNumber },
                     { label: 'Expenses Category', value: viewRecord.expensesCategory },
                     { label: 'Status', value: viewRecord.active ? 'Active' : 'Inactive' },
                   ].map(({ label, value }) => (
@@ -2938,6 +3621,134 @@ export default function ConsultantMasterPage({ setSidebarOpen }) {
                 </div>
               </div>
 
+              {/* 5. Digital Signature & Official Seals */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                  5. Digital Signature & Official Seals
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+                  
+                  {/* Signature Card */}
+                  <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ fontSize: '11px', color: '#7c3aed', fontWeight: '700', marginBottom: '8px' }}>
+                      DIGITAL SIGNATURE
+                    </div>
+                    {(viewRecord.signature || viewRecord.signatureImage) ? (
+                      <div style={{ background: '#ffffff', padding: '8px', borderRadius: '6px', border: '1px dashed #cbd5e1', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                        <img 
+                          src={viewRecord.signature || viewRecord.signatureImage} 
+                          alt="Doctor Signature" 
+                          style={{ maxHeight: '60px', maxWidth: '100%', objectFit: 'contain' }} 
+                        />
+                      </div>
+                    ) : (
+                      <div style={{ padding: '16px', color: '#94a3b8', fontSize: '11px', fontStyle: 'italic' }}>
+                        No signature attached
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Hospital Seal Card */}
+                  <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ fontSize: '11px', color: '#059669', fontWeight: '700', marginBottom: '8px' }}>
+                      HOSPITAL SEAL
+                    </div>
+                    {viewRecord.hospitalSeal ? (
+                      <div style={{ background: '#ffffff', padding: '8px', borderRadius: '6px', border: '1px dashed #cbd5e1', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                        <img 
+                          src={viewRecord.hospitalSeal} 
+                          alt="Hospital Seal" 
+                          style={{ maxHeight: '60px', maxWidth: '100%', objectFit: 'contain' }} 
+                        />
+                      </div>
+                    ) : (
+                      <div style={{ padding: '16px', color: '#94a3b8', fontSize: '11px', fontStyle: 'italic' }}>
+                        No hospital seal attached
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Registration Seal Card */}
+                  <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ fontSize: '11px', color: '#d97706', fontWeight: '700', marginBottom: '8px' }}>
+                      REGISTRATION SEAL
+                    </div>
+                    {viewRecord.registrationSeal ? (
+                      <div style={{ background: '#ffffff', padding: '8px', borderRadius: '6px', border: '1px dashed #cbd5e1', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                        <img 
+                          src={viewRecord.registrationSeal} 
+                          alt="Registration Seal" 
+                          style={{ maxHeight: '60px', maxWidth: '100%', objectFit: 'contain' }} 
+                        />
+                      </div>
+                    ) : (
+                      <div style={{ padding: '16px', color: '#94a3b8', fontSize: '11px', fontStyle: 'italic' }}>
+                        No registration seal attached
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {/* WEBCAM CAMERA MODAL */}
+      {showCameraModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 11000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: '#fff', borderRadius: '14px', width: '480px', maxWidth: '95vw', padding: '20px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#0f172a', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <Camera size={18} color="#0284c7" /> Capture Consultant Photo
+            </h3>
+            <div style={{ background: '#000', borderRadius: '10px', overflow: 'hidden', height: '280px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button type="button" onClick={stopCamera} style={{ padding: '8px 16px', background: '#f1f5f9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>Cancel</button>
+              <button type="button" onClick={capturePhoto} style={{ padding: '8px 20px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                <Camera size={16} /> Snap Photo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SIGNATURE DRAWING CANVAS MODAL */}
+      {showSignatureModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 11000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: '#fff', borderRadius: '14px', width: '540px', maxWidth: '95vw', padding: '22px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
+              <PenTool size={18} color="#7c3aed" /> Draw Digital Signature
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginTop: 0, marginBottom: '14px' }}>
+              Use your mouse or touchscreen to draw the consultant's signature in the box below.
+            </p>
+            <div style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', background: '#f8fafc', marginBottom: '16px' }}>
+              <canvas 
+                ref={canvasRef} 
+                width={496} 
+                height={180} 
+                onMouseDown={startDrawing} 
+                onMouseUp={stopDrawing} 
+                onMouseLeave={stopDrawing} 
+                onMouseMove={draw} 
+                onTouchStart={startDrawing}
+                onTouchEnd={stopDrawing}
+                onTouchMove={draw}
+                style={{ cursor: 'crosshair', width: '100%', display: 'block', touchAction: 'none' }} 
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button type="button" onClick={clearSignatureCanvas} style={{ padding: '6px 14px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Clear Canvas</button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => setShowSignatureModal(false)} style={{ padding: '6px 14px', background: '#f1f5f9', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Cancel</button>
+                <button type="button" onClick={saveSignatureCanvas} style={{ padding: '6px 18px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}>Apply Signature</button>
+              </div>
             </div>
           </div>
         </div>

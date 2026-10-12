@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, FileText, Trash2 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -365,7 +365,7 @@ export default function AdverseDrugReactionReportPage({ onNavigate, editData, ed
               <td>
                 <div className="tbl-field">
                   <span className="tbl-lbl">Date of Reaction :</span>
-                  <input type="date" name="dateOfReaction" value={form.dateOfReaction} onChange={handleChange} className="tbl-in" />
+                  <input type="date" name="dateOfReaction" value={form.dateOfReaction} onChange={handleChange} className="tbl-in" min={new Date().toISOString().split('T')[0]} />
                 </div>
               </td>
             </tr>
@@ -499,7 +499,7 @@ export default function AdverseDrugReactionReportPage({ onNavigate, editData, ed
                 name="signDate"
                 value={form.signDate}
                 onChange={handleChange}
-                style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '3px 6px', fontSize: '11.5px' }}
+                style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '3px 6px', fontSize: '11.5px' }} min={new Date().toISOString().split('T')[0]}
               />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

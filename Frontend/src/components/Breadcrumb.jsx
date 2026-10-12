@@ -1,6 +1,7 @@
 import { ChevronRight, Home } from 'lucide-react';
 
 const BREADCRUMB_MAP = {
+  'all-masters': ['Master', 'All Masters', 'Master Modules & Favorites'],
   'user-master': ['Master', 'User Master', 'User Accounts Registry'],
   'type-master': ['Master', 'Type Master', 'User Types & Roles'],
   'case-sheet-master': ['Master', 'Case Sheet Master', 'Case Sheet Types'],
@@ -17,7 +18,8 @@ const BREADCRUMB_MAP = {
   'department-master': ['Master', 'Department Master', 'Departments List'],
   'sub-department-master': ['Master', 'Sub Department Master', 'Sub-Departments List'],
 
-  'new-patient-registration': ['Patient Register', 'New Patient Registration', 'Registration Form'],
+  'new-patient-registration': ['Patient Register', 'OP Register', 'Registration Form'],
+  'op-register': ['Patient Register', 'OP Register', 'Registration Form'],
   'patient-registration': ['Patient Register', 'IP Register', 'Admitted Patients'],
   'admission-record': ['Patient Register', 'Admission Record', 'Inpatient Admission Record'],
   'medico-legal-register': ['Patient Register', 'Medico Legal Register', 'Legal Cases List'],
@@ -63,6 +65,11 @@ const BREADCRUMB_MAP = {
   'incident-report': ['Patient Forms & Records', 'Incident Report'],
   'adverse-drug-reaction-report': ['Patient Forms & Records', 'Adverse Drug Reaction Report Form'],
   'physiotherapy-assessment': ['Patient Forms & Records', 'Physiotherapy Assessment & Reassessment Form'],
+  'general-medicine-opd-case-sheet': ['Patient Forms & Records', 'General Medicine OPD First Visit Case Sheet'],
+  'paediatric-opd-assessment': ['Patient Forms & Records', 'Department of Paediatrics OPD First Visit Assessment'],
+  'consent-haemodialysis': ['Patient Forms & Records', 'Consent for Haemodialysis / ಹೀಮೋಡಯಾಲಿಸಿಸ್‌ ಒಪ್ಪಿಗೆ'],
+  'haemodialysis-record': ['Patient Forms & Records', 'Haemodialysis Record & Technician Record'],
+  'dialysis-summary': ['Patient Forms & Records', 'Dialysis Summary'],
 
   'view-records': ['Records & Drafts', 'View Patient Records', 'Saved Clinical Records'],
   'view-drafts': ['Records & Drafts', 'View Saved Drafts', 'Pending Draft Forms'],

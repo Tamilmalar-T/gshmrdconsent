@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, FileText, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -881,7 +881,7 @@ export default function IncidentReportPage({ onNavigate, editData, editRecordId 
                     </div>
                     <div className="tbl-field" style={{ width: '150px' }}>
                       <span className="tbl-lbl">Date :</span>
-                      <input type="date" name="completingDate" value={form.completingDate} onChange={handleChange} style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 4px', fontSize: '11px' }} />
+                      <input type="date" name="completingDate" value={form.completingDate} onChange={handleChange} style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 4px', fontSize: '11px' }} min={new Date().toISOString().split('T')[0]} />
                     </div>
                   </div>
                 </td>
@@ -902,7 +902,7 @@ export default function IncidentReportPage({ onNavigate, editData, editRecordId 
                     </div>
                     <div className="tbl-field" style={{ width: '150px' }}>
                       <span className="tbl-lbl">Date :</span>
-                      <input type="date" name="qaReceivedDate" value={form.qaReceivedDate} onChange={handleChange} style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 4px', fontSize: '11px' }} />
+                      <input type="date" name="qaReceivedDate" value={form.qaReceivedDate} onChange={handleChange} style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 4px', fontSize: '11px' }} min={new Date().toISOString().split('T')[0]} />
                     </div>
                   </div>
                 </td>
@@ -933,12 +933,12 @@ export default function IncidentReportPage({ onNavigate, editData, editRecordId 
 
                   <div className="tbl-field" style={{ marginBottom: '8px' }}>
                     <span className="tbl-lbl" style={{ fontSize: '10.5px' }}>Investigation completed on :</span>
-                    <input type="date" name="investigationCompletedOn" value={form.investigationCompletedOn} onChange={handleChange} style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 4px', fontSize: '11px', flex: 1 }} />
+                    <input type="date" name="investigationCompletedOn" value={form.investigationCompletedOn} onChange={handleChange} style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 4px', fontSize: '11px', flex: 1 }} min={new Date().toISOString().split('T')[0]} />
                   </div>
 
                   <div className="tbl-field">
                     <span className="tbl-lbl" style={{ fontSize: '10.5px' }}>Reviewed by committee on :</span>
-                    <input type="date" name="reviewedByCommitteeOn" value={form.reviewedByCommitteeOn} onChange={handleChange} style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 4px', fontSize: '11px', flex: 1 }} />
+                    <input type="date" name="reviewedByCommitteeOn" value={form.reviewedByCommitteeOn} onChange={handleChange} style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 4px', fontSize: '11px', flex: 1 }} min={new Date().toISOString().split('T')[0]} />
                   </div>
                 </td>
 

@@ -694,7 +694,7 @@ export default function NeonatalInpatientMedicalRecordPage({ onNavigate, editDat
                       name="admissionDate"
                       value={form.admissionDate}
                       onChange={handleInputChange}
-                      className="info-input-plain"
+                      className="info-input-plain" min={new Date().toISOString().split('T')[0]}
                     />
                   </div>
                 </td>
@@ -2118,7 +2118,7 @@ export default function NeonatalInpatientMedicalRecordPage({ onNavigate, editDat
                 </div>
                 <div className="info-field-inline">
                   <span className="info-lbl-bold" style={{ minWidth: '90px' }}>Date & Time :</span>
-                  <input type="date" name="signDate" value={form.signDate} onChange={handleInputChange} className="info-input-plain" style={{ width: '130px' }} />
+                  <input type="date" name="signDate" value={form.signDate} onChange={handleInputChange} className="info-input-plain" style={{ width: '130px' }} min={new Date().toISOString().split('T')[0]} />
                   <input type="time" name="signTime" value={form.signTime} onChange={handleInputChange} className="info-input-plain" style={{ width: '100px', marginLeft: '6px' }} />
                 </div>
               </div>
@@ -2148,7 +2148,7 @@ export default function NeonatalInpatientMedicalRecordPage({ onNavigate, editDat
                 </div>
                 <div className="info-field-inline">
                   <span className="info-lbl-bold" style={{ minWidth: '90px' }}>Date & Time :</span>
-                  <input type="date" name="consultantSig2Date" value={form.consultantSig2Date} onChange={handleInputChange} className="info-input-plain" style={{ width: '130px' }} />
+                  <input type="date" name="consultantSig2Date" value={form.consultantSig2Date} onChange={handleInputChange} className="info-input-plain" style={{ width: '130px' }} min={new Date().toISOString().split('T')[0]} />
                   <input type="time" name="consultantSig2Time" value={form.consultantSig2Time} onChange={handleInputChange} className="info-input-plain" style={{ width: '100px', marginLeft: '6px' }} />
                 </div>
               </div>
@@ -2221,7 +2221,7 @@ export default function NeonatalInpatientMedicalRecordPage({ onNavigate, editDat
       </div>
 
       {/* Pagination Controls - Bottom */}
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', maxWidth: '800px', margin: '16px auto 16px auto' }}>
+      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', maxWidth: '800px', margin: '16px auto 16px auto', flexWrap: 'wrap', gap: '10px' }}>
         <button
           type="button"
           onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -2238,7 +2238,23 @@ export default function NeonatalInpatientMedicalRecordPage({ onNavigate, editDat
         >
           Previous
         </button>
-        <span style={{ fontWeight: 'bold', alignSelf: 'center' }}>Page {currentPage} of 7</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {[1, 2, 3, 4, 5, 6, 7].map(p => (
+              <button
+                key={p}
+                type="button"
+                className={`page-number-btn ${currentPage === p ? 'active' : ''}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155', marginLeft: '4px' }}>
+            Page {currentPage} of 7
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => setCurrentPage(prev => Math.min(prev + 1, 7))}

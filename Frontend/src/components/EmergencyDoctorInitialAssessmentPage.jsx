@@ -176,24 +176,40 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
     return () => clearTimeout(t);
   }, [patient, form, recordId]);
 
+  const triggerPatientAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      setPatient(prev => ({
+        ...prev,
+        name: found.patientName || prev.name,
+        age: found.age || prev.age,
+        sex: found.sex || prev.sex,
+        mrNo: found.ipNo || found.uhidNo || prev.mrNo,
+        isMlc: found.isMlc || prev.isMlc,
+        mlc: found.mlc || prev.mlc
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (patient.mrNo) {
+      triggerPatientAutofill(patient.mrNo);
+    }
+  }, []);
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
+    if (name === 'mrNo') {
+      triggerPatientAutofill(value);
+    }
   };
 
   const handleMrKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const found = findPatientByIpNo(e.target.value);
-      if (found) {
-        setPatient(prev => ({
-          ...prev,
-          name: found.patientName || prev.name,
-          age: found.age || prev.age,
-          sex: found.sex || prev.sex,
-          mrNo: found.uhidNo || found.ipNo || prev.mrNo
-        }));
-      }
+      triggerPatientAutofill(e.target.value);
     }
   };
 
@@ -290,7 +306,7 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
           }}
         >
           {/* Hospital Header */}
-          <HospitalPaperHeader />
+          <HospitalPaperHeader isMlc={patient.isMlc === 'yes' || patient.mlc === 'Yes'} />
 
           {/* Title Banner */}
           <div
@@ -319,8 +335,9 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
                     type="text"
                     name="name"
                     value={patient.name}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
                 <div className="info-field-inline" style={{ flex: 1, minWidth: '90px' }}>
@@ -329,8 +346,9 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
                     type="text"
                     name="age"
                     value={patient.age}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
                 <div className="info-field-inline" style={{ flex: 1, minWidth: '100px' }}>
@@ -338,8 +356,9 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
                   <select
                     name="sex"
                     value={patient.sex}
-                    onChange={handlePatientChange}
+                    disabled
                     className="info-select-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   >
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -347,15 +366,20 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
                   </select>
                 </div>
                 <div className="info-field-inline" style={{ flex: 1.5, minWidth: '140px' }}>
-                  <span className="info-lbl-bold">MR No :</span>
+                  <span className="info-lbl-bold">MR / IP No :</span>
                   <input
                     type="text"
                     name="mrNo"
                     value={patient.mrNo}
                     onChange={handlePatientChange}
                     onKeyDown={handleMrKeyDown}
+                    onBlur={(e) => triggerPatientAutofill(e.target.value)}
                     className="info-input-plain"
+                    placeholder="Enter IP / MR No..."
                   />
+                  {(patient.isMlc === 'yes' || patient.mlc === 'Yes') && (
+                    <span style={{ backgroundColor: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', marginLeft: '4px', flexShrink: 0 }}>MLC</span>
+                  )}
                 </div>
               </div>
 
@@ -511,15 +535,15 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
                   </div>
 
                   {/* Right side anatomical body outline SVG diagram */}
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', border: '1px dashed #94a3b8', borderRadius: '6px', padding: '10px', backgroundColor: '#fafafa' }}>
+                  {/* <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', border: '1px dashed #94a3b8', borderRadius: '6px', padding: '10px', backgroundColor: '#fafafa' }}> */}
                     {/* Torso / Abdomen outline */}
-                    <svg width="70" height="130" viewBox="0 0 100 180" style={{ stroke: '#0f172a', strokeWidth: 2, fill: 'none' }}>
+                    {/* <svg width="70" height="130" viewBox="0 0 100 180" style={{ stroke: '#0f172a', strokeWidth: 2, fill: 'none' }}>
                       <path d="M 20 20 Q 50 10 80 20 L 90 90 Q 50 170 10 90 Z" />
                       <circle cx="50" cy="115" r="4" fill="#0f172a" />
-                    </svg>
+                    </svg> */}
 
                     {/* Anterior Full Body Outline */}
-                    <svg width="60" height="140" viewBox="0 0 100 220" style={{ stroke: '#0f172a', strokeWidth: 2, fill: 'none' }}>
+                    {/* <svg width="60" height="140" viewBox="0 0 100 220" style={{ stroke: '#0f172a', strokeWidth: 2, fill: 'none' }}>
                       <circle cx="50" cy="20" r="14" />
                       <line x1="45" y1="34" x2="45" y2="42" />
                       <line x1="55" y1="34" x2="55" y2="42" />
@@ -528,10 +552,10 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
                       <path d="M 70 45 L 85 90 L 90 115" />
                       <path d="M 38 110 L 34 170 L 30 210" />
                       <path d="M 62 110 L 66 170 L 70 210" />
-                    </svg>
+                    </svg> */}
 
                     {/* Posterior Full Body Outline */}
-                    <svg width="60" height="140" viewBox="0 0 100 220" style={{ stroke: '#0f172a', strokeWidth: 2, fill: 'none' }}>
+                    {/* <svg width="60" height="140" viewBox="0 0 100 220" style={{ stroke: '#0f172a', strokeWidth: 2, fill: 'none' }}>
                       <circle cx="50" cy="20" r="14" />
                       <line x1="45" y1="34" x2="45" y2="42" />
                       <line x1="55" y1="34" x2="55" y2="42" />
@@ -541,8 +565,8 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
                       <path d="M 70 45 L 85 90 L 90 115" />
                       <path d="M 38 110 L 34 170 L 30 210" />
                       <path d="M 62 110 L 66 170 L 70 210" />
-                    </svg>
-                  </div>
+                    </svg> */}
+                  {/* </div> */}
                 </div>
               </div>
 
@@ -862,7 +886,7 @@ export default function EmergencyDoctorInitialAssessmentPage({ onNavigate, editD
                         name="cmoDate"
                         value={form.cmoDate}
                         onChange={handleFormChange}
-                        className="info-input-plain"
+                        className="info-input-plain" min={new Date().toISOString().split('T')[0]}
                       />
                     </div>
                     <div className="info-field-inline">

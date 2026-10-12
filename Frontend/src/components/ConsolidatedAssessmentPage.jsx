@@ -328,7 +328,7 @@ const ConsolidatedAssessmentPage = ({ onEdit }) => {
                   <span><strong style={{color:'#64748b', fontWeight:'600'}}>DOA:</strong> {patientData.doa}</span>
                   <span><strong style={{color:'#64748b', fontWeight:'600'}}>DOD:</strong> {patientData.dod || '—'}</span>
                   <span><strong style={{color:'#64748b', fontWeight:'600'}}>Mobile:</strong> {patientData.mobile || '--'}</span>
-                  <span><strong style={{color:'#64748b', fontWeight:'600'}}>Insurance:</strong> <span style={{color: patientData.medicalInsurance === 'Yes' ? '#4ade80' : '#f87171'}}>{patientData.medicalInsurance || 'No'}</span></span>
+                  <span><strong style={{color:'#64748b', fontWeight:'600'}}>Insurance:</strong> <span style={{color: (patientData.medicalInsurance && patientData.medicalInsurance !== 'No' && patientData.medicalInsurance !== 'Self') ? '#4ade80' : '#f87171'}}>{patientData.medicalInsurance || 'No'}</span></span>
                 </div>
               </div>
               

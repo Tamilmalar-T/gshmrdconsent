@@ -477,7 +477,7 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                       name="doa"
                       value={patient.doa}
                       onChange={handlePatientChange}
-                      className="info-input-plain"
+                      className="info-input-plain" min={new Date().toISOString().split('T')[0]}
                     />
                   </div>
                 </td>
@@ -834,13 +834,13 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                   y1={alertStart.y}
                   x2={alertEnd.x}
                   y2={alertEnd.y}
-                  stroke="#059669"
-                  strokeWidth="1.5"
+                  stroke="#064e3b"
+                  strokeWidth="0.7"
                 />
                 <text
                   x={(alertStart.x + alertEnd.x) / 2 - 25}
                   y={(alertStart.y + alertEnd.y) / 2 - 8}
-                  fill="#047857"
+                  fill="#064e3b"
                   fontWeight="900"
                   fontSize="11"
                   transform={`rotate(-22, ${(alertStart.x + alertEnd.x) / 2}, ${(alertStart.y + alertEnd.y) / 2})`}
@@ -854,13 +854,13 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                   y1={actionStart.y}
                   x2={actionEnd.x}
                   y2={actionEnd.y}
-                  stroke="#dc2626"
-                  strokeWidth="1.5"
+                  stroke="#7f1d1d"
+                  strokeWidth="0.7"
                 />
                 <text
                   x={(actionStart.x + actionEnd.x) / 2 - 25}
                   y={(actionStart.y + actionEnd.y) / 2 - 8}
-                  fill="#b91c1c"
+                  fill="#7f1d1d"
                   fontWeight="900"
                   fontSize="11"
                   transform={`rotate(-22, ${(actionStart.x + actionEnd.x) / 2}, ${(actionStart.y + actionEnd.y) / 2})`}
@@ -873,8 +873,8 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                   <path
                     d={dilatationPath}
                     fill="none"
-                    stroke="#0284c7"
-                    strokeWidth="1.8"
+                    stroke="#0c4a6e"
+                    strokeWidth="1.0"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -885,8 +885,8 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                   <path
                     d={descentPath}
                     fill="none"
-                    stroke="#059669"
-                    strokeWidth="1.3"
+                    stroke="#064e3b"
+                    strokeWidth="0.8"
                     strokeDasharray="4,3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -903,9 +903,9 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     onClick={() => setSelectedHour(pt.hour)}
                     style={{ cursor: 'pointer' }}
                   >
-                    <circle cx={pt.x} cy={pt.y} r="8" fill="rgba(2, 132, 199, 0.15)" />
-                    <line x1={pt.x - 5} y1={pt.y - 5} x2={pt.x + 5} y2={pt.y + 5} stroke="#0284c7" strokeWidth="1.8" />
-                    <line x1={pt.x + 5} y1={pt.y - 5} x2={pt.x - 5} y2={pt.y + 5} stroke="#0284c7" strokeWidth="1.8" />
+                    <circle cx={pt.x} cy={pt.y} r="8" fill="rgba(12, 74, 110, 0.12)" />
+                    <line x1={pt.x - 5} y1={pt.y - 5} x2={pt.x + 5} y2={pt.y + 5} stroke="#0c4a6e" strokeWidth="1.0" />
+                    <line x1={pt.x + 5} y1={pt.y - 5} x2={pt.x - 5} y2={pt.y + 5} stroke="#0c4a6e" strokeWidth="1.0" />
                   </g>
                 ))}
 
@@ -919,8 +919,8 @@ export default function PartographPage({ onNavigate, editData, editRecordId }) {
                     onClick={() => setSelectedHour(pt.hour)}
                     style={{ cursor: 'pointer' }}
                   >
-                    <circle cx={pt.x} cy={pt.y} r="6" fill="#FFFFFF" stroke="#059669" strokeWidth="1.6" />
-                    <circle cx={pt.x} cy={pt.y} r="2" fill="#059669" />
+                    <circle cx={pt.x} cy={pt.y} r="6" fill="#FFFFFF" stroke="#064e3b" strokeWidth="1.0" />
+                    <circle cx={pt.x} cy={pt.y} r="2" fill="#064e3b" />
                   </g>
                 ))}
 

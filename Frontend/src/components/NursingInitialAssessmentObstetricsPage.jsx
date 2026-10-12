@@ -344,22 +344,6 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
     return () => clearTimeout(t);
   }, [form, currentPage]);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  const handleMedicationChange = (index, field, value) => {
-    setForm(prev => {
-      const updated = [...prev.casualtyMedications];
-      updated[index] = { ...updated[index], [field]: value };
-      return { ...prev, casualtyMedications: updated };
-    });
-  };
-
   const triggerAutofill = (value) => {
     if (!value || !value.trim()) return;
     const found = findPatientByIpNo(value);
@@ -371,9 +355,37 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
         sex: found.sex || prev.sex,
         uhidNo: found.uhidNo || prev.uhidNo,
         ipNo: found.ipNo || prev.ipNo,
-        wardBed: found.ward && found.bedNo ? `${found.ward} / ${found.bedNo}` : (found.ward || prev.wardBed)
+        wardBed: found.ward && found.bedNo ? `${found.ward} / ${found.bedNo}` : (found.ward || prev.wardBed),
+        dateOfAdmission: found.doa || prev.dateOfAdmission,
+        timeOfAdmission: found.doaTime || prev.timeOfAdmission,
+        consultant: found.consultant || found.consultantName || prev.consultant
       }));
     }
+  };
+
+  useEffect(() => {
+    if (form.ipNo) {
+      triggerAutofill(form.ipNo);
+    }
+  }, []);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    if (name === 'ipNo') {
+      triggerAutofill(value);
+    }
+  };
+
+  const handleMedicationChange = (index, field, value) => {
+    setForm(prev => {
+      const updated = [...prev.casualtyMedications];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, casualtyMedications: updated };
+    });
   };
 
   const handleIpKeyDown = (e) => {
@@ -503,19 +515,19 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
                 <td>
                   <div className="tbl-field">
                     <span className="tbl-lbl">Name of the Patient :</span>
-                    <input type="text" name="patientName" value={form.patientName} onChange={handleChange} className="tbl-in" />
+                    <input type="text" name="patientName" value={form.patientName} readOnly className="tbl-in" style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }} />
                   </div>
                 </td>
                 <td>
                   <div className="tbl-field">
                     <span className="tbl-lbl">Age :</span>
-                    <input type="text" name="age" value={form.age} onChange={handleChange} className="tbl-in" />
+                    <input type="text" name="age" value={form.age} readOnly className="tbl-in" style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }} />
                   </div>
                 </td>
                 <td>
                   <div className="tbl-field">
                     <span className="tbl-lbl">Sex :</span>
-                    <select name="sex" value={form.sex} onChange={handleChange} className="tbl-select">
+                    <select name="sex" value={form.sex} disabled className="tbl-select" style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}>
                       <option value="Female">F / Female</option>
                       <option value="Male">M / Male</option>
                     </select>
@@ -527,19 +539,19 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
                 <td>
                   <div className="tbl-field">
                     <span className="tbl-lbl">UHID No. :</span>
-                    <input type="text" name="uhidNo" value={form.uhidNo} onChange={handleChange} className="tbl-in" />
+                    <input type="text" name="uhidNo" value={form.uhidNo} readOnly className="tbl-in" style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }} />
                   </div>
                 </td>
                 <td>
                   <div className="tbl-field">
                     <span className="tbl-lbl">IP No. :</span>
-                    <input type="text" name="ipNo" value={form.ipNo} onChange={handleChange} onKeyDown={handleIpKeyDown} onBlur={handleIpBlur} className="tbl-in" />
+                    <input type="text" name="ipNo" value={form.ipNo} onChange={handleChange} onKeyDown={handleIpKeyDown} onBlur={handleIpBlur} className="tbl-in" placeholder="Enter IP No..." />
                   </div>
                 </td>
                 <td>
                   <div className="tbl-field">
                     <span className="tbl-lbl">Ward / Bed No :</span>
-                    <input type="text" name="wardBed" value={form.wardBed} onChange={handleChange} className="tbl-in" />
+                    <input type="text" name="wardBed" value={form.wardBed} readOnly className="tbl-in" style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }} />
                   </div>
                 </td>
               </tr>
@@ -548,7 +560,7 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
                 <td>
                   <div className="tbl-field">
                     <span className="tbl-lbl">Date of admission :</span>
-                    <input type="date" name="dateOfAdmission" value={form.dateOfAdmission} onChange={handleChange} className="tbl-in" />
+                    <input type="date" name="dateOfAdmission" value={form.dateOfAdmission} onChange={handleChange} className="tbl-in" min={new Date().toISOString().split('T')[0]} />
                   </div>
                 </td>
                 <td>
@@ -687,88 +699,115 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
 
           {/* B. VITAL SIGNS & ANTHROPOMETRY ON ADMISSION */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '4px 8px', borderBottom: '1px solid #000' }}>
               B. VITAL SIGNS &amp; ANTHROPOMETRY ON ADMISSION
             </div>
-            <div style={{ padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px' }}>
-                <div>BP : <input type="text" name="bpSystolic" value={form.bpSystolic} onChange={handleChange} style={{ width: '45px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> / <input type="text" name="bpDiastolic" value={form.bpDiastolic} onChange={handleChange} style={{ width: '45px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> mmHg</div>
-                <div>Pulse : <input type="text" name="pulse" value={form.pulse} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> /min</div>
-                <div>Respiratory rate : <input type="text" name="respiratoryRate" value={form.respiratoryRate} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> /min</div>
+            {/* Row 1: BP | Pulse | Respiratory rate */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #000', fontSize: '11.5px' }}>
+              <div style={{ flex: 1, padding: '5px 8px', borderRight: '1px solid #000' }}>
+                BP : <input type="text" name="bpSystolic" value={form.bpSystolic} onChange={handleChange} style={{ width: '40px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> / <input type="text" name="bpDiastolic" value={form.bpDiastolic} onChange={handleChange} style={{ width: '40px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> mmHg
               </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div>Temperature : <input type="text" name="temperature" value={form.temperature} onChange={handleChange} style={{ width: '55px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> °F</div>
-                <div>SpO2 : <input type="text" name="spO2" value={form.spO2} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> % on room air</div>
-                <div>GRBS (if done) : <input type="text" name="grbs" value={form.grbs} onChange={handleChange} style={{ width: '60px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> mg/dL</div>
+              <div style={{ flex: 1, padding: '5px 8px', borderRight: '1px solid #000' }}>
+                Pulse : <input type="text" name="pulse" value={form.pulse} onChange={handleChange} style={{ width: '45px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> /min
               </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div>Height : <input type="text" name="height" value={form.height} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> cm</div>
-                <div>Weight : <input type="text" name="weight" value={form.weight} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> kg</div>
-                <div>BMI : <input type="text" name="bmi" value={form.bmi} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /></div>
-                <div>Pain score : <input type="text" name="painScore" value={form.painScore} onChange={handleChange} style={{ width: '40px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> /10</div>
-                <div>Urine output : <input type="text" name="urineOutput" value={form.urineOutput} onChange={handleChange} style={{ width: '70px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /></div>
+              <div style={{ flex: 1, padding: '5px 8px' }}>
+                Respiratory rate : <input type="text" name="respiratoryRate" value={form.respiratoryRate} onChange={handleChange} style={{ width: '45px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> /min
               </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Vitals abnormal / outside limits :</span>
-                <label><input type="radio" name="vitalsAbnormal" value="No" checked={form.vitalsAbnormal === 'No'} onChange={handleChange} /> No</label>
-                <label><input type="radio" name="vitalsAbnormal" value="Yes" checked={form.vitalsAbnormal === 'Yes'} onChange={handleChange} /> Yes -&gt; doctor informed at</label>
-                <input type="time" name="vitalsInformedTime" value={form.vitalsInformedTime} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
-                <span>name :</span>
-                <input type="text" name="vitalsInformedDoctorName" value={form.vitalsInformedDoctorName} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '120px' }} />
+            </div>
+            {/* Row 2: Temperature | SpO2 | GRBS */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #000', fontSize: '11.5px' }}>
+              <div style={{ flex: 1, padding: '5px 8px', borderRight: '1px solid #000' }}>
+                Temperature : <input type="text" name="temperature" value={form.temperature} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> &deg;F
               </div>
+              <div style={{ flex: 1, padding: '5px 8px', borderRight: '1px solid #000' }}>
+                SpO2 : <input type="text" name="spO2" value={form.spO2} onChange={handleChange} style={{ width: '45px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> % on room air
+              </div>
+              <div style={{ flex: 1, padding: '5px 8px' }}>
+                GRBS (if done) : <input type="text" name="grbs" value={form.grbs} onChange={handleChange} style={{ width: '55px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> mg/dL
+              </div>
+            </div>
+            {/* Row 3: Height | Weight | BMI | Pain score | Urine output */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #000', fontSize: '11.5px' }}>
+              <div style={{ flex: '0 0 18%', padding: '5px 8px', borderRight: '1px solid #000' }}>
+                Height : <input type="text" name="height" value={form.height} onChange={handleChange} style={{ width: '38px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> cm
+              </div>
+              <div style={{ flex: '0 0 18%', padding: '5px 8px', borderRight: '1px solid #000' }}>
+                Weight : <input type="text" name="weight" value={form.weight} onChange={handleChange} style={{ width: '38px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> kg
+              </div>
+              <div style={{ flex: '0 0 20%', padding: '5px 8px', borderRight: '1px solid #000' }}>
+                BMI : <input type="text" name="bmi" value={form.bmi} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} />
+              </div>
+              <div style={{ flex: '0 0 22%', padding: '5px 8px', borderRight: '1px solid #000' }}>
+                Pain score : <input type="text" name="painScore" value={form.painScore} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> /10
+              </div>
+              <div style={{ flex: 1, padding: '5px 8px' }}>
+                Urine output : <input type="text" name="urineOutput" value={form.urineOutput} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} />
+              </div>
+            </div>
+            {/* Row 4: Vitals abnormal */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '5px 8px', fontSize: '11.5px' }}>
+              <span style={{ fontWeight: 'bold' }}>Vitals abnormal / outside limits :</span>
+              <label><input type="radio" name="vitalsAbnormal" value="No" checked={form.vitalsAbnormal === 'No'} onChange={handleChange} /> No</label>
+              <label><input type="radio" name="vitalsAbnormal" value="Yes" checked={form.vitalsAbnormal === 'Yes'} onChange={handleChange} /> Yes -&gt; doctor informed at</label>
+              <input type="time" name="vitalsInformedTime" value={form.vitalsInformedTime} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
+              <span>name :</span>
+              <input type="text" name="vitalsInformedDoctorName" value={form.vitalsInformedDoctorName} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '120px' }} />
             </div>
           </div>
 
           {/* C. OBSTETRIC DATA */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '4px 8px', borderBottom: '1px solid #000' }}>
               C. OBSTETRIC DATA (from case file / MCP card)
             </div>
-            <div style={{ padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px' }}>
-                <div>LMP : <input type="date" name="lmp" value={form.lmp} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} /></div>
-                <div>EDD : <input type="date" name="edd" value={form.edd} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} /></div>
-                <div>Gestational age : <input type="text" name="gestationalWeeks" value={form.gestationalWeeks} onChange={handleChange} style={{ width: '40px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> wks <input type="text" name="gestationalDays" value={form.gestationalDays} onChange={handleChange} style={{ width: '40px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> d</div>
+            <div style={{ display: 'flex', fontSize: '11.5px' }}>
+
+              {/* Left column: LMP / EDD / Gestational age */}
+              <div style={{ flex: '0 0 28%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div>LMP : <input type="date" name="lmp" value={form.lmp} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', fontSize: '11px' }} /></div>
+                <div>EDD : <input type="date" name="edd" value={form.edd} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', fontSize: '11px' }} /></div>
+                <div>Gestational age : <input type="text" name="gestationalWeeks" value={form.gestationalWeeks} onChange={handleChange} style={{ width: '32px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> wks <input type="text" name="gestationalDays" value={form.gestationalDays} onChange={handleChange} style={{ width: '32px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> d</div>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Obstetric formula :</span>
-                <div>G <input type="text" name="gravida" value={form.gravida} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /></div>
-                <div>P <input type="text" name="para" value={form.para} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /></div>
-                <div>L <input type="text" name="living" value={form.living} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /></div>
-                <div>A <input type="text" name="abortions" value={form.abortions} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /></div>
-                <div>E <input type="text" name="ectopic" value={form.ectopic} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /></div>
-                <div>D <input type="text" name="deaths" value={form.deaths} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /></div>
-                <div style={{ marginLeft: '12px' }}>Blood group &amp; Rh : <input type="text" name="bloodGroupRh" value={form.bloodGroupRh} onChange={handleChange} style={{ width: '90px', border: 'none', borderBottom: '1px solid #000', outline: 'none' }} /></div>
+              {/* Middle column: Obstetric formula + Blood group */}
+              <div style={{ flex: '0 0 38%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div>
+                  <span style={{ fontWeight: 'bold' }}>Obstetric formula : </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', flexWrap: 'wrap' }}>
+                    G<input type="text" name="gravida" value={form.gravida} onChange={handleChange} style={{ width: '26px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} />
+                    {' '}P<input type="text" name="para" value={form.para} onChange={handleChange} style={{ width: '26px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} />
+                    {' '}L<input type="text" name="living" value={form.living} onChange={handleChange} style={{ width: '26px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} />
+                    {' '}A<input type="text" name="abortions" value={form.abortions} onChange={handleChange} style={{ width: '26px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} />
+                    {' '}E<input type="text" name="ectopic" value={form.ectopic} onChange={handleChange} style={{ width: '26px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} />
+                    {' '}D<input type="text" name="deaths" value={form.deaths} onChange={handleChange} style={{ width: '26px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} />
+                  </span>
+                </div>
+                <div>Blood group &amp; Rh : <input type="text" name="bloodGroupRh" value={form.bloodGroupRh} onChange={handleChange} style={{ width: '80px', border: 'none', borderBottom: '1px solid #000', outline: 'none' }} /></div>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Right column: ANC / Previous LSCS / Td doses */}
+              <div style={{ flex: '0 0 34%', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 'bold' }}>ANC :</span>
-                  {['Booked here', 'Booked elsewhere', 'Unbooked'].map(opt => (
-                    <label key={opt}><input type="radio" name="ancStatus" value={opt} checked={form.ancStatus === opt} onChange={handleChange} /> {opt}</label>
-                  ))}
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="ancStatus" value="Booked here" checked={form.ancStatus === 'Booked here'} onChange={handleChange} /> Booked here</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="ancStatus" value="Booked elsewhere" checked={form.ancStatus === 'Booked elsewhere'} onChange={handleChange} /> Booked elsewhere</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="ancStatus" value="Unbooked" checked={form.ancStatus === 'Unbooked'} onChange={handleChange} /> Unbooked</label>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 'bold' }}>Previous LSCS :</span>
-                  <label><input type="radio" name="previousLSCS" value="No" checked={form.previousLSCS === 'No'} onChange={handleChange} /> No</label>
-                  <label><input type="radio" name="previousLSCS" value="Yes" checked={form.previousLSCS === 'Yes'} onChange={handleChange} /> Yes -&gt;</label>
-                  <input type="text" name="previousLSCSDetails" value={form.previousLSCSDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '120px' }} />
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="previousLSCS" value="No" checked={form.previousLSCS === 'No'} onChange={handleChange} /> No</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="previousLSCS" value="Yes" checked={form.previousLSCS === 'Yes'} onChange={handleChange} /> Yes -&gt;</label>
+                  <input type="text" name="previousLSCSDetails" value={form.previousLSCSDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '60px' }} />
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ fontWeight: 'bold' }}>Td doses :</span>
-                  <label><input type="radio" name="tdDoses" value="Complete" checked={form.tdDoses === 'Complete'} onChange={handleChange} /> Complete</label>
-                  <label><input type="radio" name="tdDoses" value="Incomplete" checked={form.tdDoses === 'Incomplete'} onChange={handleChange} /> Incomplete</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="tdDoses" value="Complete" checked={form.tdDoses === 'Complete'} onChange={handleChange} /> Complete</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="tdDoses" value="Incomplete" checked={form.tdDoses === 'Incomplete'} onChange={handleChange} /> Incomplete</label>
                 </div>
               </div>
+
             </div>
           </div>
-
           {/* D. REASON FOR ADMISSION / COMPLAINTS */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
             <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
@@ -791,72 +830,79 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
 
           {/* E. BRIEF HISTORY AS GIVEN BY THE PATIENT / RELATIVE */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '4px 8px', borderBottom: '1px solid #000' }}>
               E. BRIEF HISTORY AS GIVEN BY THE PATIENT / RELATIVE
             </div>
-            <div style={{ padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontWeight: 'bold' }}>Known illnesses :</span>
-                {[
-                  { name: 'illnessNil', label: 'Nil' },
-                  { name: 'illnessHypertension', label: 'Hypertension' },
-                  { name: 'illnessDiabetes', label: 'Diabetes' },
-                  { name: 'illnessThyroid', label: 'Thyroid' },
-                  { name: 'illnessCardiac', label: 'Cardiac' },
-                  { name: 'illnessAsthma', label: 'Asthma' },
-                  { name: 'illnessEpilepsy', label: 'Epilepsy' },
-                  { name: 'illnessTuberculosis', label: 'Tuberculosis' },
-                  { name: 'illnessAnaemia', label: 'Anaemia' },
-                  { name: 'illnessJaundice', label: 'Jaundice' },
-                  { name: 'illnessOthers', label: 'Others' }
-                ].map(item => (
-                  <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                    <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                    <span>{item.label}</span>
-                  </label>
-                ))}
-                <span>Details :</span>
-                <input type="text" name="illnessOthersDetails" value={form.illnessOthersDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '120px' }} />
+            <div style={{ display: 'flex', fontSize: '11.5px' }}>
+
+              {/* Left column: Known illnesses */}
+              <div style={{ flex: '0 0 50%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ fontWeight: 'bold' }}>Known illnesses :</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 10px' }}>
+                  {[
+                    { name: 'illnessNil', label: 'Nil' },
+                    { name: 'illnessHypertension', label: 'Hypertension' },
+                    { name: 'illnessDiabetes', label: 'Diabetes' },
+                    { name: 'illnessThyroid', label: 'Thyroid' },
+                    { name: 'illnessCardiac', label: 'Cardiac' },
+                    { name: 'illnessAsthma', label: 'Asthma' },
+                    { name: 'illnessEpilepsy', label: 'Epilepsy' },
+                    { name: 'illnessTuberculosis', label: 'Tuberculosis' },
+                    { name: 'illnessAnaemia', label: 'Anaemia' },
+                    { name: 'illnessJaundice', label: 'Jaundice' },
+                    { name: 'illnessOthers', label: 'Others' }
+                  ].map(item => (
+                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Details :</span>
+                  <input type="text" name="illnessOthersDetails" value={form.illnessOthersDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1 }} />
+                </div>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Right column: Surgery / Blood transfusion / Medications / Habits */}
+              <div style={{ flex: 1, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 'bold' }}>Previous surgery / hospitalisation :</span>
-                  <label><input type="radio" name="previousSurgeryHospitalisation" value="No" checked={form.previousSurgeryHospitalisation === 'No'} onChange={handleChange} /> No</label>
-                  <label><input type="radio" name="previousSurgeryHospitalisation" value="Yes" checked={form.previousSurgeryHospitalisation === 'Yes'} onChange={handleChange} /> Yes -&gt;</label>
-                  <input type="text" name="previousSurgeryDetails" value={form.previousSurgeryDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '150px' }} />
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="previousSurgeryHospitalisation" value="No" checked={form.previousSurgeryHospitalisation === 'No'} onChange={handleChange} /> No</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="previousSurgeryHospitalisation" value="Yes" checked={form.previousSurgeryHospitalisation === 'Yes'} onChange={handleChange} /> Yes -&gt;</label>
+                  <input type="text" name="previousSurgeryDetails" value={form.previousSurgeryDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '80px' }} />
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontWeight: 'bold' }}>Blood transfusion in the past :</span>
-                  <label><input type="radio" name="bloodTransfusionPast" value="No" checked={form.bloodTransfusionPast === 'No'} onChange={handleChange} /> No</label>
-                  <label><input type="radio" name="bloodTransfusionPast" value="Yes" checked={form.bloodTransfusionPast === 'Yes'} onChange={handleChange} /> Yes</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="bloodTransfusionPast" value="No" checked={form.bloodTransfusionPast === 'No'} onChange={handleChange} /> No</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><input type="radio" name="bloodTransfusionPast" value="Yes" checked={form.bloodTransfusionPast === 'Yes'} onChange={handleChange} /> Yes</label>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                  <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>Medications being taken at home :</span>
+                  <textarea name="medicationsTakenAtHome" value={form.medicationsTakenAtHome} onChange={handleChange} rows={2}
+                    style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, resize: 'none', fontFamily: 'inherit', fontSize: '11.5px', background: 'transparent' }}
+                    onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
+                  <span style={{ fontWeight: 'bold' }}>Habits :</span>
+                  {[
+                    { name: 'habitNil', label: 'Nil' },
+                    { name: 'habitTobacco', label: 'Tobacco' },
+                    { name: 'habitAlcohol', label: 'Alcohol' },
+                    { name: 'habitOther', label: 'Other' }
+                  ].map(item => (
+                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Medications being taken at home :</span>
-                <input type="text" name="medicationsTakenAtHome" value={form.medicationsTakenAtHome} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1 }} />
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Habits :</span>
-                {[
-                  { name: 'habitNil', label: 'Nil' },
-                  { name: 'habitTobacco', label: 'Tobacco' },
-                  { name: 'habitAlcohol', label: 'Alcohol' },
-                  { name: 'habitOther', label: 'Other' }
-                ].map(item => (
-                  <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                    <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                    <span>{item.label}</span>
-                  </label>
-                ))}
-              </div>
             </div>
           </div>
         </div>
-
         {/* PAGE 2 CONTENT */}
         <div className={`obs-page-sheet obs-print-page-2 ${currentPage !== 2 ? 'obs-hide-on-screen' : ''}`}>
           <div className="no-screen-print-only">
@@ -865,114 +911,84 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
 
           {/* F. OBSTETRIC NURSING ASSESSMENT */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '4px 8px', borderBottom: '1px solid #000' }}>
               F. OBSTETRIC NURSING ASSESSMENT
             </div>
-            <div style={{ padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px' }}>
-                <span style={{ fontWeight: 'bold' }}>Uterine contractions :</span>
-                <label><input type="radio" name="uterineContractions" value="Absent" checked={form.uterineContractions === 'Absent'} onChange={handleChange} /> Absent</label>
-                <label><input type="radio" name="uterineContractions" value="Present" checked={form.uterineContractions === 'Present'} onChange={handleChange} /> Present</label>
-                <span>Frequency : <input type="text" name="contractionsFrequency" value={form.contractionsFrequency} onChange={handleChange} style={{ width: '40px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> in 10 min</span>
-                <span>Duration : <input type="text" name="contractionsDuration" value={form.contractionsDuration} onChange={handleChange} style={{ width: '40px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> sec</span>
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', fontSize: '11.5px' }}>
+              <div style={{ flex: '0 0 55%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 'bold' }}>Uterine contractions :</span>
+                  <label><input type="radio" name="uterineContractions" value="Absent" checked={form.uterineContractions === 'Absent'} onChange={handleChange} /> Absent</label>
+                  <label><input type="radio" name="uterineContractions" value="Present" checked={form.uterineContractions === 'Present'} onChange={handleChange} /> Present</label>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                  <span>Frequency : <input type="text" name="contractionsFrequency" value={form.contractionsFrequency} onChange={handleChange} style={{ width: '35px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> in 10 min</span>
+                  <span>Duration : <input type="text" name="contractionsDuration" value={form.contractionsDuration} onChange={handleChange} style={{ width: '35px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> sec</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 'bold' }}>Leaking PV :</span>
                   <label><input type="radio" name="leakingPV" value="No" checked={form.leakingPV === 'No'} onChange={handleChange} /> No</label>
                   <label><input type="radio" name="leakingPV" value="Yes" checked={form.leakingPV === 'Yes'} onChange={handleChange} /> Yes -&gt; since</label>
-                  <input type="text" name="leakingPVSince" value={form.leakingPVSince} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '100px' }} />
+                  <input type="text" name="leakingPVSince" value={form.leakingPVSince} onChange={handleChange} style={{ width: '80px', border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 'bold' }}>Colour / odour of liquor :</span>
                   {['Clear', 'Meconium', 'Blood-stained', 'Foul'].map(opt => (
                     <label key={opt}><input type="radio" name="liquorColourOdour" value={opt} checked={form.liquorColourOdour === opt} onChange={handleChange} /> {opt}</label>
                   ))}
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 'bold' }}>Show :</span>
                   <label><input type="radio" name="showStatus" value="Present" checked={form.showStatus === 'Present'} onChange={handleChange} /> Present</label>
                   <label><input type="radio" name="showStatus" value="Absent" checked={form.showStatus === 'Absent'} onChange={handleChange} /> Absent</label>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Bearing-down sensation :</span>
+                  <span style={{ fontWeight: 'bold', marginLeft: '8px' }}>Bearing-down sensation :</span>
                   <label><input type="radio" name="bearingDownSensation" value="Yes" checked={form.bearingDownSensation === 'Yes'} onChange={handleChange} /> Yes</label>
                   <label><input type="radio" name="bearingDownSensation" value="No" checked={form.bearingDownSensation === 'No'} onChange={handleChange} /> No</label>
                 </div>
-              </div>
-
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Danger signs observed :</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                  {[
-                    { name: 'dangerNil', label: 'Nil' },
-                    { name: 'dangerSevereHeadache', label: 'Severe headache' },
-                    { name: 'dangerBlurringVision', label: 'Blurring of vision' },
-                    { name: 'dangerEpigastricPain', label: 'Epigastric pain' },
-                    { name: 'dangerConvulsions', label: 'Convulsions' },
-                    { name: 'dangerBreathlessness', label: 'Breathlessness' },
-                    { name: 'dangerHeavyBleeding', label: 'Heavy bleeding' },
-                    { name: 'dangerHighFever', label: 'High fever' }
-                  ].map(item => (
-                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
-                  <span>If any present, doctor informed at :</span>
-                  <input type="time" name="dangerDoctorInformedTime" value={form.dangerDoctorInformedTime} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
-                  <span>Name of doctor :</span>
-                  <input type="text" name="dangerDoctorName" value={form.dangerDoctorName} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1 }} />
+                <div>
+                  <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>Danger signs observed :</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 10px' }}>
+                    {[{name:'dangerNil',label:'Nil'},{name:'dangerSevereHeadache',label:'Severe headache'},{name:'dangerBlurringVision',label:'Blurring of vision'},{name:'dangerEpigastricPain',label:'Epigastric pain'},{name:'dangerConvulsions',label:'Convulsions'},{name:'dangerBreathlessness',label:'Breathlessness'},{name:'dangerHeavyBleeding',label:'Heavy bleeding'},{name:'dangerHighFever',label:'High fever'}].map(item => (
+                      <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} /><span>{item.label}</span></label>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                    <span>If any present, doctor informed at :</span>
+                    <input type="time" name="dangerDoctorInformedTime" value={form.dangerDoctorInformedTime} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
+                    <span>Name of doctor :</span>
+                    <input type="text" name="dangerDoctorName" value={form.dangerDoctorName} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '80px' }} />
+                  </div>
                 </div>
               </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ flex: 1, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 'bold' }}>Fetal movements :</span>
-                  {['Good', 'Reduced', 'Absent'].map(opt => (
-                    <label key={opt}><input type="radio" name="fetalMovements" value={opt} checked={form.fetalMovements === opt} onChange={handleChange} /> {opt}</label>
-                  ))}
+                  {['Good', 'Reduced', 'Absent'].map(opt => (<label key={opt}><input type="radio" name="fetalMovements" value={opt} checked={form.fetalMovements === opt} onChange={handleChange} /> {opt}</label>))}
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 'bold' }}>FHR :</span>
-                  <input type="text" name="fhrBpm" value={form.fhrBpm} onChange={handleChange} style={{ width: '50px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> bpm
+                  <input type="text" name="fhrBpm" value={form.fhrBpm} onChange={handleChange} style={{ width: '45px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> bpm
                   <label><input type="radio" name="fhrRhythm" value="Regular" checked={form.fhrRhythm === 'Regular'} onChange={handleChange} /> Regular</label>
                   <label><input type="radio" name="fhrRhythm" value="Irregular" checked={form.fhrRhythm === 'Irregular'} onChange={handleChange} /> Irregular</label>
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 'bold' }}>Bleeding PV :</span>
                   <label><input type="radio" name="bleedingPV" value="No" checked={form.bleedingPV === 'No'} onChange={handleChange} /> No</label>
                   <label><input type="radio" name="bleedingPV" value="Yes" checked={form.bleedingPV === 'Yes'} onChange={handleChange} /> Yes</label>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
                   <span>Amount :</span>
-                  {['Spotting', 'Moderate', 'Heavy'].map(opt => (
-                    <label key={opt}><input type="radio" name="bleedingPVAmount" value={opt} checked={form.bleedingPVAmount === opt} onChange={handleChange} /> {opt}</label>
-                  ))}
+                  {['Spotting', 'Moderate', 'Heavy'].map(opt => (<label key={opt}><input type="radio" name="bleedingPVAmount" value={opt} checked={form.bleedingPVAmount === opt} onChange={handleChange} /> {opt}</label>))}
                   <span>Pads used :</span>
                   <input type="text" name="bleedingPVPadsUsed" value={form.bleedingPVPadsUsed} onChange={handleChange} style={{ width: '40px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} />
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 'bold' }}>Membranes :</span>
                   <label><input type="radio" name="membranesStatus" value="Intact" checked={form.membranesStatus === 'Intact'} onChange={handleChange} /> Intact</label>
                   <label><input type="radio" name="membranesStatus" value="Ruptured" checked={form.membranesStatus === 'Ruptured'} onChange={handleChange} /> Ruptured -&gt; time :</label>
                   <input type="time" name="membranesRupturedTime" value={form.membranesRupturedTime} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 'bold' }}>Perineal pad applied :</span>
                   <label><input type="radio" name="perinealPadApplied" value="Yes" checked={form.perinealPadApplied === 'Yes'} onChange={handleChange} /> Yes</label>
                   <label><input type="radio" name="perinealPadApplied" value="No" checked={form.perinealPadApplied === 'No'} onChange={handleChange} /> No</label>
@@ -983,67 +999,57 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
 
           {/* G. GENERAL NURSING ASSESSMENT */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '4px 8px', borderBottom: '1px solid #000' }}>
               G. GENERAL NURSING ASSESSMENT
             </div>
-            <div style={{ padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px' }}>
-                <span style={{ fontWeight: 'bold' }}>Level of consciousness :</span>
-                {['Alert & oriented', 'Drowsy', 'Confused', 'Unresponsive'].map(opt => (
-                  <label key={opt}><input type="radio" name="levelOfConsciousness" value={opt} checked={form.levelOfConsciousness === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span>GCS: E <input type="text" name="gcsE" value={form.gcsE} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center' }} /> V <input type="text" name="gcsV" value={form.gcsV} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center' }} /> M <input type="text" name="gcsM" value={form.gcsM} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center' }} /> Total <input type="text" name="gcsTotal" value={form.gcsTotal} onChange={handleChange} style={{ width: '35px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center' }} /> / 15</span>
+            <div style={{ display: 'flex', fontSize: '11.5px' }}>
+              <div style={{ flex: '0 0 50%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>Level of consciousness :</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 8px' }}>
+                    {['Alert & oriented', 'Drowsy', 'Confused', 'Unresponsive'].map(opt => (<label key={opt}><input type="radio" name="levelOfConsciousness" value={opt} checked={form.levelOfConsciousness === opt} onChange={handleChange} /> {opt}</label>))}
+                  </div>
+                  <div style={{ marginTop: '3px' }}>GCS: E <input type="text" name="gcsE" value={form.gcsE} onChange={handleChange} style={{ width: '28px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> V <input type="text" name="gcsV" value={form.gcsV} onChange={handleChange} style={{ width: '28px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> M <input type="text" name="gcsM" value={form.gcsM} onChange={handleChange} style={{ width: '28px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> Total <input type="text" name="gcsTotal" value={form.gcsTotal} onChange={handleChange} style={{ width: '32px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> / 15</div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>Skin integrity :</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 8px' }}>
+                    {['Intact', 'Dry', 'Bruise', 'Rash', 'Wound / ulcer', 'Surgical scar'].map(opt => (<label key={opt}><input type="radio" name="skinIntegrity" value={opt} checked={form.skinIntegrity === opt} onChange={handleChange} /> {opt}</label>))}
+                  </div>
+                  <div style={{ marginTop: '3px' }}>Site &amp; description : <input type="text" name="skinDescription" value={form.skinDescription} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '160px' }} /></div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontWeight: 'bold' }}>Any other finding :</span>
+                  <input type="text" name="otherGeneralFindings" value={form.otherGeneralFindings} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1 }} />
+                </div>
               </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Skin integrity :</span>
-                {['Intact', 'Dry', 'Bruise', 'Rash', 'Wound / ulcer', 'Surgical scar'].map(opt => (
-                  <label key={opt}><input type="radio" name="skinIntegrity" value={opt} checked={form.skinIntegrity === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span>Site &amp; description :</span>
-                <input type="text" name="skinDescription" value={form.skinDescription} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '120px' }} />
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Respiratory status :</span>
-                {['Normal', 'Dyspnoea', 'Tachypnoea', 'Cough', 'Wheeze'].map(opt => (
-                  <label key={opt}><input type="radio" name="respiratoryStatus" value={opt} checked={form.respiratoryStatus === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Oxygen support :</span>
-                <label><input type="radio" name="oxygenSupport" value="Not required" checked={form.oxygenSupport === 'Not required'} onChange={handleChange} /> Not required</label>
-                <label><input type="radio" name="oxygenSupport" value="Nasal prongs" checked={form.oxygenSupport === 'Nasal prongs'} onChange={handleChange} /> Nasal prongs</label>
-                <input type="text" name="oxygenLiters" value={form.oxygenLiters} onChange={handleChange} style={{ width: '30px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center' }} /> L/min
-                <label><input type="radio" name="oxygenSupport" value="Mask" checked={form.oxygenSupport === 'Mask'} onChange={handleChange} /> Mask</label>
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>General observation :</span>
-                {[
-                  { name: 'observationPallor', label: 'Pallor' },
-                  { name: 'observationIcterus', label: 'Icterus' },
-                  { name: 'observationPedalOedema', label: 'Pedal oedema' },
-                  { name: 'observationGeneralisedOedema', label: 'Generalised oedema' },
-                  { name: 'observationDehydration', label: 'Dehydration' },
-                  { name: 'observationNil', label: 'Nil significant' }
-                ].map(item => (
-                  <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                    <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                    <span>{item.label}</span>
-                  </label>
-                ))}
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ flex: 1, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>Respiratory status :</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 8px' }}>
+                    {['Normal', 'Dyspnoea', 'Tachypnoea', 'Cough', 'Wheeze'].map(opt => (<label key={opt}><input type="radio" name="respiratoryStatus" value={opt} checked={form.respiratoryStatus === opt} onChange={handleChange} /> {opt}</label>))}
+                  </div>
+                  <div style={{ marginTop: '3px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Oxygen support :</span>
+                    <label><input type="radio" name="oxygenSupport" value="Not required" checked={form.oxygenSupport === 'Not required'} onChange={handleChange} /> Not required</label>
+                    <label><input type="radio" name="oxygenSupport" value="Nasal prongs" checked={form.oxygenSupport === 'Nasal prongs'} onChange={handleChange} /> Nasal prongs</label>
+                    <input type="text" name="oxygenLiters" value={form.oxygenLiters} onChange={handleChange} style={{ width: '28px', border: 'none', borderBottom: '1px solid #000', textAlign: 'center', outline: 'none' }} /> L/min
+                    <label><input type="radio" name="oxygenSupport" value="Mask" checked={form.oxygenSupport === 'Mask'} onChange={handleChange} /> Mask</label>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>General observation :</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 8px' }}>
+                    {[{name:'observationPallor',label:'Pallor'},{name:'observationIcterus',label:'Icterus'},{name:'observationPedalOedema',label:'Pedal oedema'},{name:'observationGeneralisedOedema',label:'Generalised oedema'},{name:'observationDehydration',label:'Dehydration'},{name:'observationNil',label:'Nil significant'}].map(item => (
+                      <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} /><span>{item.label}</span></label>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontWeight: 'bold' }}>IV cannula :</span>
                   <label><input type="radio" name="ivCannula" value="Not sited" checked={form.ivCannula === 'Not sited'} onChange={handleChange} /> Not sited</label>
                   <label><input type="radio" name="ivCannula" value="Sited" checked={form.ivCannula === 'Sited'} onChange={handleChange} /> Sited -&gt; site &amp; gauge :</label>
-                  <input type="text" name="ivCannulaSiteGauge" value={form.ivCannulaSiteGauge} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '150px' }} />
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                  <span style={{ fontWeight: 'bold' }}>Any other finding :</span>
-                  <input type="text" name="otherGeneralFindings" value={form.otherGeneralFindings} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1 }} />
+                  <input type="text" name="ivCannulaSiteGauge" value={form.ivCannulaSiteGauge} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '80px' }} />
                 </div>
               </div>
             </div>
@@ -1051,159 +1057,69 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
 
           {/* H. ELIMINATION, NUTRITION, MOBILITY & SLEEP */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '4px 8px', borderBottom: '1px solid #000' }}>
               H. ELIMINATION, NUTRITION, MOBILITY &amp; SLEEP
             </div>
-            <div style={{ padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px' }}>
-                <span style={{ fontWeight: 'bold' }}>Bladder :</span>
-                {['Normal', 'Burning', 'Retention', 'Incontinence'].map(opt => (
-                  <label key={opt}><input type="radio" name="bladderStatus" value={opt} checked={form.bladderStatus === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Catheter :</span>
-                <label><input type="radio" name="catheterStatus" value="No" checked={form.catheterStatus === 'No'} onChange={handleChange} /> No</label>
-                <label><input type="radio" name="catheterStatus" value="Yes" checked={form.catheterStatus === 'Yes'} onChange={handleChange} /> Yes -&gt; inserted on :</label>
-                <input type="date" name="catheterInsertedDate" value={form.catheterInsertedDate} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
+            <div style={{ display: 'flex', fontSize: '11.5px' }}>
+              <div style={{ flex: '0 0 33.33%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ fontWeight: 'bold' }}>Elimination</div>
+                <div><span style={{ fontWeight: 'bold' }}>Bladder :</span><div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 8px', marginTop: '2px' }}>{['Normal', 'Burning', 'Retention', 'Incontinence'].map(opt => (<label key={opt}><input type="radio" name="bladderStatus" value={opt} checked={form.bladderStatus === opt} onChange={handleChange} /> {opt}</label>))}</div></div>
+                <div><span style={{ fontWeight: 'bold' }}>Catheter :</span><label style={{ marginLeft: '4px' }}><input type="radio" name="catheterStatus" value="No" checked={form.catheterStatus === 'No'} onChange={handleChange} /> No</label><label style={{ marginLeft: '4px' }}><input type="radio" name="catheterStatus" value="Yes" checked={form.catheterStatus === 'Yes'} onChange={handleChange} /> Yes -&gt; inserted on :</label><br /><input type="date" name="catheterInsertedDate" value={form.catheterInsertedDate} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', fontSize: '10px' }} min={new Date().toISOString().split('T')[0]} /></div>
+                <div><span style={{ fontWeight: 'bold' }}>Bowel :</span><div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 8px', marginTop: '2px' }}>{['Regular', 'Constipation', 'Diarrhoea'].map(opt => (<label key={opt}><input type="radio" name="bowelStatus" value={opt} checked={form.bowelStatus === opt} onChange={handleChange} /> {opt}</label>))}</div></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span>Last bowel movement :</span><input type="text" name="lastBowelMovement" value={form.lastBowelMovement} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '70px' }} /></div>
               </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Bowel :</span>
-                {['Regular', 'Constipation', 'Diarrhoea'].map(opt => (
-                  <label key={opt}><input type="radio" name="bowelStatus" value={opt} checked={form.bowelStatus === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span>Last bowel movement :</span>
-                <input type="text" name="lastBowelMovement" value={form.lastBowelMovement} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '120px' }} />
+              <div style={{ flex: '0 0 33.33%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ fontWeight: 'bold' }}>Nutrition &amp; hydration</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>Diet : <label><input type="radio" name="dietPreference" value="Vegetarian" checked={form.dietPreference === 'Vegetarian'} onChange={handleChange} /> Vegetarian</label><label><input type="radio" name="dietPreference" value="Mixed" checked={form.dietPreference === 'Mixed'} onChange={handleChange} /> Mixed</label></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Appetite :</span><label><input type="radio" name="appetite" value="Normal" checked={form.appetite === 'Normal'} onChange={handleChange} /> Normal</label><label><input type="radio" name="appetite" value="Reduced" checked={form.appetite === 'Reduced'} onChange={handleChange} /> Reduced</label></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Last meal taken at : <input type="time" name="lastMealTime" value={form.lastMealTime} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} /></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>NPO :</span><label><input type="radio" name="npoStatus" value="No" checked={form.npoStatus === 'No'} onChange={handleChange} /> No</label><label><input type="radio" name="npoStatus" value="Yes" checked={form.npoStatus === 'Yes'} onChange={handleChange} /> Yes -&gt; since :</label><input type="time" name="npoSinceTime" value={form.npoSinceTime} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} /></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Nausea / vomiting :</span><label><input type="radio" name="nauseaVomiting" value="No" checked={form.nauseaVomiting === 'No'} onChange={handleChange} /> No</label><label><input type="radio" name="nauseaVomiting" value="Yes" checked={form.nauseaVomiting === 'Yes'} onChange={handleChange} /> Yes</label></div>
               </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Nutrition &amp; hydration :</span>
-                <label><input type="radio" name="dietPreference" value="Vegetarian" checked={form.dietPreference === 'Vegetarian'} onChange={handleChange} /> Vegetarian</label>
-                <label><input type="radio" name="dietPreference" value="Mixed" checked={form.dietPreference === 'Mixed'} onChange={handleChange} /> Mixed</label>
-                <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Appetite :</span>
-                <label><input type="radio" name="appetite" value="Normal" checked={form.appetite === 'Normal'} onChange={handleChange} /> Normal</label>
-                <label><input type="radio" name="appetite" value="Reduced" checked={form.appetite === 'Reduced'} onChange={handleChange} /> Reduced</label>
-                <span>Last meal taken at :</span>
-                <input type="time" name="lastMealTime" value={form.lastMealTime} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>NPO :</span>
-                <label><input type="radio" name="npoStatus" value="No" checked={form.npoStatus === 'No'} onChange={handleChange} /> No</label>
-                <label><input type="radio" name="npoStatus" value="Yes" checked={form.npoStatus === 'Yes'} onChange={handleChange} /> Yes -&gt; since :</label>
-                <input type="time" name="npoSinceTime" value={form.npoSinceTime} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
-                <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Nausea / vomiting :</span>
-                <label><input type="radio" name="nauseaVomiting" value="No" checked={form.nauseaVomiting === 'No'} onChange={handleChange} /> No</label>
-                <label><input type="radio" name="nauseaVomiting" value="Yes" checked={form.nauseaVomiting === 'Yes'} onChange={handleChange} /> Yes</label>
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Mobility :</span>
-                {['Independent', 'Needs support', 'Bed-bound'].map(opt => (
-                  <label key={opt}><input type="radio" name="mobilityStatus" value={opt} checked={form.mobilityStatus === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span>Aids :</span>
-                {['None', 'Walker', 'Wheelchair'].map(opt => (
-                  <label key={opt}><input type="radio" name="mobilityAids" value={opt} checked={form.mobilityAids === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Sleep :</span>
-                {['Adequate', 'Disturbed'].map(opt => (
-                  <label key={opt}><input type="radio" name="sleepQuality" value={opt} checked={form.sleepQuality === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Prosthesis / dentures / lenses :</span>
-                <label><input type="radio" name="prosthesisDentures" value="None" checked={form.prosthesisDentures === 'None'} onChange={handleChange} /> None</label>
-                <label><input type="radio" name="prosthesisDentures" value="Yes" checked={form.prosthesisDentures === 'Yes'} onChange={handleChange} /> Yes -&gt;</label>
-                <input type="text" name="prosthesisDetails" value={form.prosthesisDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1 }} />
+              <div style={{ flex: 1, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ fontWeight: 'bold' }}>Mobility &amp; sleep</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Mobility :</span>{['Independent', 'Needs support', 'Bed-bound'].map(opt => (<label key={opt}><input type="radio" name="mobilityStatus" value={opt} checked={form.mobilityStatus === opt} onChange={handleChange} /> {opt}</label>))}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>Aids : {['None', 'Walker', 'Wheelchair'].map(opt => (<label key={opt}><input type="radio" name="mobilityAids" value={opt} checked={form.mobilityAids === opt} onChange={handleChange} /> {opt}</label>))}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Sleep :</span>{['Adequate', 'Disturbed'].map(opt => (<label key={opt}><input type="radio" name="sleepQuality" value={opt} checked={form.sleepQuality === opt} onChange={handleChange} /> {opt}</label>))}</div>
+                <div><div style={{ fontWeight: 'bold' }}>Prosthesis / dentures / lenses :</div><div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginTop: '2px' }}><label><input type="radio" name="prosthesisDentures" value="None" checked={form.prosthesisDentures === 'None'} onChange={handleChange} /> None</label><label><input type="radio" name="prosthesisDentures" value="Yes" checked={form.prosthesisDentures === 'Yes'} onChange={handleChange} /> Yes -&gt;</label><input type="text" name="prosthesisDetails" value={form.prosthesisDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '50px' }} /></div></div>
               </div>
             </div>
           </div>
 
           {/* I. PSYCHOSOCIAL, COMMUNICATION & CULTURAL NEEDS */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '4px 8px', borderBottom: '1px solid #000' }}>
               I. PSYCHOSOCIAL, COMMUNICATION &amp; CULTURAL NEEDS
             </div>
-            <div style={{ padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontWeight: 'bold' }}>Emotional state :</span>
-                {['Calm', 'Anxious', 'Fearful', 'Tearful', 'Irritable'].map(opt => (
-                  <label key={opt}><input type="radio" name="emotionalState" value={opt} checked={form.emotionalState === opt} onChange={handleChange} /> {opt}</label>
-                ))}
+            <div style={{ display: 'flex', fontSize: '11.5px' }}>
+              <div style={{ flex: '0 0 50%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Emotional state :</span>{['Calm', 'Anxious', 'Fearful', 'Tearful', 'Irritable'].map(opt => (<label key={opt}><input type="radio" name="emotionalState" value={opt} checked={form.emotionalState === opt} onChange={handleChange} /> {opt}</label>))}</div>
+                <div><div style={{ fontWeight: 'bold', marginBottom: '2px' }}>Able to communicate :</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 8px' }}>{['Yes', 'Hearing impaired', 'Speech difficulty', 'Language barrier'].map(opt => (<label key={opt}><input type="radio" name="communicationStatus" value={opt} checked={form.communicationStatus === opt} onChange={handleChange} /> {opt}</label>))}</div></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Language preferred : <input type="text" name="languagePreferred" value={form.languagePreferred} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1 }} /></div>
               </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Able to communicate :</span>
-                {['Yes', 'Hearing impaired', 'Speech difficulty', 'Language barrier'].map(opt => (
-                  <label key={opt}><input type="radio" name="communicationStatus" value={opt} checked={form.communicationStatus === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span>Language preferred :</span>
-                <input type="text" name="languagePreferred" value={form.languagePreferred} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '100px' }} />
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Support person / birth companion :</span>
-                <label><input type="radio" name="supportPerson" value="Available" checked={form.supportPerson === 'Available'} onChange={handleChange} /> Available -&gt; name :</label>
-                <input type="text" name="supportPersonName" value={form.supportPersonName} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '130px' }} />
-                <label><input type="radio" name="supportPerson" value="Not available" checked={form.supportPerson === 'Not available'} onChange={handleChange} /> Not available</label>
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Religious / cultural / dietary preference :</span>
-                <label><input type="radio" name="religiousDietaryPref" value="None stated" checked={form.religiousDietaryPref === 'None stated'} onChange={handleChange} /> None stated</label>
-                <label><input type="radio" name="religiousDietaryPref" value="Yes" checked={form.religiousDietaryPref === 'Yes'} onChange={handleChange} /> Yes -&gt;</label>
-                <input type="text" name="religiousPrefDetails" value={form.religiousPrefDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1 }} />
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Educational need identified :</span>
-                <label><input type="checkbox" name="eduNeedLabour" checked={form.eduNeedLabour} onChange={handleChange} /> Labour process</label>
-                <label><input type="checkbox" name="eduNeedBreastfeeding" checked={form.eduNeedBreastfeeding} onChange={handleChange} /> Breastfeeding</label>
-                <label><input type="checkbox" name="eduNeedDiet" checked={form.eduNeedDiet} onChange={handleChange} /> Diet</label>
-                <label><input type="checkbox" name="eduNeedMedication" checked={form.eduNeedMedication} onChange={handleChange} /> Medication</label>
-                <label><input type="checkbox" name="eduNeedPostnatal" checked={form.eduNeedPostnatal} onChange={handleChange} /> Postnatal care</label>
+              <div style={{ flex: 1, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Support person / birth companion :</span><label><input type="radio" name="supportPerson" value="Available" checked={form.supportPerson === 'Available'} onChange={handleChange} /> Available -&gt; name :</label><input type="text" name="supportPersonName" value={form.supportPersonName} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '100px' }} /><label><input type="radio" name="supportPerson" value="Not available" checked={form.supportPerson === 'Not available'} onChange={handleChange} /> Not available</label></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Religious / cultural / dietary preference :</span><label><input type="radio" name="religiousDietaryPref" value="None stated" checked={form.religiousDietaryPref === 'None stated'} onChange={handleChange} /> None stated</label><label><input type="radio" name="religiousDietaryPref" value="Yes" checked={form.religiousDietaryPref === 'Yes'} onChange={handleChange} /> Yes -&gt;</label><input type="text" name="religiousPrefDetails" value={form.religiousPrefDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '60px' }} /></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Educational need identified :</span><label><input type="checkbox" name="eduNeedLabour" checked={form.eduNeedLabour} onChange={handleChange} /> Labour process</label><label><input type="checkbox" name="eduNeedBreastfeeding" checked={form.eduNeedBreastfeeding} onChange={handleChange} /> Breastfeeding</label><label><input type="checkbox" name="eduNeedDiet" checked={form.eduNeedDiet} onChange={handleChange} /> Diet</label><label><input type="checkbox" name="eduNeedMedication" checked={form.eduNeedMedication} onChange={handleChange} /> Medication</label><label><input type="checkbox" name="eduNeedPostnatal" checked={form.eduNeedPostnatal} onChange={handleChange} /> Postnatal care</label></div>
               </div>
             </div>
           </div>
 
           {/* J. IF ADMITTED AFTER DELIVERY / OPERATION */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
-              J. IF ADMITTED AFTER DELIVERY / OPERATION (postnatal or post-operative admission — else mark NA)
+            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '4px 8px', borderBottom: '1px solid #000' }}>
+              J. IF ADMITTED AFTER DELIVERY / OPERATION (postnatal or post-operative admission -- else mark NA)
             </div>
-            <div style={{ padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px' }}>
-                <span style={{ fontWeight: 'bold' }}>Uterus :</span>
-                {['Well contracted', 'Atonic', 'NA'].map(opt => (
-                  <label key={opt}><input type="radio" name="postnatalUterus" value={opt} checked={form.postnatalUterus === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Lochia :</span>
-                {['Normal', 'Excessive', 'Foul smelling', 'NA'].map(opt => (
-                  <label key={opt}><input type="radio" name="postnatalLochia" value={opt} checked={form.postnatalLochia === opt} onChange={handleChange} /> {opt}</label>
-                ))}
+            <div style={{ display: 'flex', fontSize: '11.5px' }}>
+              <div style={{ flex: '0 0 50%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Uterus :</span>{['Well contracted', 'Atonic', 'NA'].map(opt => (<label key={opt}><input type="radio" name="postnatalUterus" value={opt} checked={form.postnatalUterus === opt} onChange={handleChange} /> {opt}</label>))}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Lochia :</span>{['Normal', 'Excessive', 'Foul smelling', 'NA'].map(opt => (<label key={opt}><input type="radio" name="postnatalLochia" value={opt} checked={form.postnatalLochia === opt} onChange={handleChange} /> {opt}</label>))}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Perineum / wound :</span>{['Healthy', 'Gaping', 'Soaked dressing', 'NA'].map(opt => (<label key={opt}><input type="radio" name="postnatalPerineum" value={opt} checked={form.postnatalPerineum === opt} onChange={handleChange} /> {opt}</label>))}</div>
               </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Perineum / wound :</span>
-                {['Healthy', 'Gaping', 'Soaked dressing', 'NA'].map(opt => (
-                  <label key={opt}><input type="radio" name="postnatalPerineum" value={opt} checked={form.postnatalPerineum === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Baby with mother :</span>
-                {['Yes', 'In NICU', 'NA'].map(opt => (
-                  <label key={opt}><input type="radio" name="postnatalBabyLocation" value={opt} checked={form.postnatalBabyLocation === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 'bold' }}>Breastfeeding :</span>
-                {['Established', 'Difficulty', 'NA'].map(opt => (
-                  <label key={opt}><input type="radio" name="postnatalBreastfeeding" value={opt} checked={form.postnatalBreastfeeding === opt} onChange={handleChange} /> {opt}</label>
-                ))}
-                <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Catheter / drain in situ :</span>
-                <label><input type="radio" name="postnatalCatheterDrain" value="No" checked={form.postnatalCatheterDrain === 'No'} onChange={handleChange} /> No</label>
-                <label><input type="radio" name="postnatalCatheterDrain" value="Yes" checked={form.postnatalCatheterDrain === 'Yes'} onChange={handleChange} /> Yes -&gt;</label>
-                <input type="text" name="postnatalCatheterDetails" value={form.postnatalCatheterDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1 }} />
+              <div style={{ flex: 1, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Baby with mother :</span>{['Yes', 'In NICU', 'NA'].map(opt => (<label key={opt}><input type="radio" name="postnatalBabyLocation" value={opt} checked={form.postnatalBabyLocation === opt} onChange={handleChange} /> {opt}</label>))}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Breastfeeding :</span>{['Established', 'Difficulty', 'NA'].map(opt => (<label key={opt}><input type="radio" name="postnatalBreastfeeding" value={opt} checked={form.postnatalBreastfeeding === opt} onChange={handleChange} /> {opt}</label>))}<span>-&gt; assistance given :</span><input type="text" name="breastfeedingAssistance" value={form.breastfeedingAssistance || ''} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '80px' }} /></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}><span style={{ fontWeight: 'bold' }}>Catheter / drain in situ :</span><label><input type="radio" name="postnatalCatheterDrain" value="No" checked={form.postnatalCatheterDrain === 'No'} onChange={handleChange} /> No</label><label><input type="radio" name="postnatalCatheterDrain" value="Yes" checked={form.postnatalCatheterDrain === 'Yes'} onChange={handleChange} /> Yes -&gt;</label><input type="text" name="postnatalCatheterDetails" value={form.postnatalCatheterDetails} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '60px' }} /></div>
               </div>
             </div>
           </div>
@@ -1290,180 +1206,111 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
 
           {/* L. RISK ASSESSMENT & SAFETY */}
           <div style={{ border: '1.5px solid #000', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '4px 8px', borderBottom: '1px solid #000' }}>
               L. RISK ASSESSMENT &amp; SAFETY
             </div>
-            <div style={{ padding: '8px 10px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {/* FALL RISK */}
-              <div style={{ border: '1px solid #cbd5e1', padding: '6px 8px', borderRadius: '4px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '4px', textDecoration: 'underline' }}>FALL RISK</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '4px' }}>
-                  {[
-                    { name: 'fallRiskHistory', label: 'History of fall' },
-                    { name: 'fallRiskDizziness', label: 'Dizziness / giddiness' },
-                    { name: 'fallRiskSedatives', label: 'Sedatives / anaesthesia' },
-                    { name: 'fallRiskImpairedVision', label: 'Impaired vision' },
-                    { name: 'fallRiskIVLine', label: 'IV line / catheter in situ' },
-                    { name: 'fallRiskAdvancedGestation', label: 'Advanced gestation / unsteady gait' }
-                  ].map(item => (
-                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
+            <div style={{ display: 'flex', fontSize: '11.5px' }}>
+
+              {/* Left column: FALL RISK + PRESSURE SORE RISK */}
+              <div style={{ flex: '0 0 50%', borderRight: '1px solid #000', padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', textDecoration: 'underline', marginBottom: '4px' }}>FALL RISK</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', marginBottom: '4px' }}>
+                    {[{name:'fallRiskHistory',label:'History of fall'},{name:'fallRiskDizziness',label:'Dizziness / giddiness'},{name:'fallRiskSedatives',label:'Sedatives / anaesthesia'},{name:'fallRiskImpairedVision',label:'Impaired vision'},{name:'fallRiskIVLine',label:'IV line / catheter in situ'},{name:'fallRiskAdvancedGestation',label:'Advanced gestation / unsteady gait'}].map(item => (
+                      <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} /><span>{item.label}</span></label>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Fall risk :</span>
+                    {['Low', 'Moderate', 'High'].map(opt => (<label key={opt}><input type="radio" name="fallRiskLevel" value={opt} checked={form.fallRiskLevel === opt} onChange={handleChange} /> {opt}</label>))}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 8px', marginTop: '3px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Precautions :</span>
+                    {[{name:'fallPrecautionBedRails',label:'Bed rails up'},{name:'fallPrecautionLowBed',label:'Bed in low position'},{name:'fallPrecautionCallBell',label:'Call bell in reach'},{name:'fallPrecautionSign',label:'Fall-risk sign'},{name:'fallPrecautionAssistedAmbulation',label:'Assisted ambulation'},{name:'fallPrecautionNonSlipFootwear',label:'Non-slip footwear'}].map(item => (
+                      <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} /><span>{item.label}</span></label>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Fall risk :</span>
-                  {['Low', 'Moderate', 'High'].map(opt => (
-                    <label key={opt}><input type="radio" name="fallRiskLevel" value={opt} checked={form.fallRiskLevel === opt} onChange={handleChange} /> {opt}</label>
-                  ))}
-                  <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Precautions :</span>
-                  {[
-                    { name: 'fallPrecautionBedRails', label: 'Bed rails up' },
-                    { name: 'fallPrecautionLowBed', label: 'Bed in low position' },
-                    { name: 'fallPrecautionCallBell', label: 'Call bell in reach' },
-                    { name: 'fallPrecautionSign', label: 'Fall-risk sign' },
-                    { name: 'fallPrecautionAssistedAmbulation', label: 'Assisted ambulation' },
-                    { name: 'fallPrecautionNonSlipFootwear', label: 'Non-slip footwear' }
-                  ].map(item => (
-                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
+                <div>
+                  <div style={{ fontWeight: 'bold', textDecoration: 'underline', marginBottom: '4px' }}>PRESSURE SORE RISK</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', marginBottom: '4px' }}>
+                    {[{name:'pressureSoreProlongedBedRest',label:'Prolonged bed rest'},{name:'pressureSoreReducedMobility',label:'Reduced mobility'},{name:'pressureSoreIncontinence',label:'Incontinence / moisture'},{name:'pressureSorePoorNutrition',label:'Poor nutrition'},{name:'pressureSoreOedema',label:'Oedema'},{name:'pressureSoreEpidural',label:'Epidural in situ'}].map(item => (
+                      <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} /><span>{item.label}</span></label>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Pressure sore present :</span>
+                    <label><input type="radio" name="pressureSorePresent" value="No" checked={form.pressureSorePresent === 'No'} onChange={handleChange} /> No</label>
+                    <label><input type="radio" name="pressureSorePresent" value="Yes" checked={form.pressureSorePresent === 'Yes'} onChange={handleChange} /> Yes -&gt; site &amp; stage :</label>
+                    <input type="text" name="pressureSoreSiteStage" value={form.pressureSoreSiteStage} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '80px' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 8px', marginTop: '3px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Precautions :</span>
+                    {[{name:'pressurePrecaution2HrChange',label:'2-hourly position change'},{name:'pressurePrecautionAirMattress',label:'Air / foam mattress'},{name:'pressurePrecautionSkinCare',label:'Skin care & hygiene'},{name:'pressurePrecautionHeelProtection',label:'Heel protection'}].map(item => (
+                      <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} /><span>{item.label}</span></label>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* PRESSURE SORE RISK */}
-              <div style={{ border: '1px solid #cbd5e1', padding: '6px 8px', borderRadius: '4px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '4px', textDecoration: 'underline' }}>PRESSURE SORE RISK</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '4px' }}>
-                  {[
-                    { name: 'pressureSoreProlongedBedRest', label: 'Prolonged bed rest' },
-                    { name: 'pressureSoreReducedMobility', label: 'Reduced mobility' },
-                    { name: 'pressureSoreIncontinence', label: 'Incontinence / moisture' },
-                    { name: 'pressureSorePoorNutrition', label: 'Poor nutrition' },
-                    { name: 'pressureSoreOedema', label: 'Oedema' },
-                    { name: 'pressureSoreEpidural', label: 'Epidural in situ' }
-                  ].map(item => (
-                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
+              {/* Right column: VTE/DVT RISK + VULNERABILITY & RESTRAINTS */}
+              <div style={{ flex: 1, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', textDecoration: 'underline', marginBottom: '4px' }}>VTE / DVT RISK</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', marginBottom: '4px' }}>
+                    {[{name:'vteAgeOver35',label:'Age > 35 yrs'},{name:'vteBMIOver30',label:'BMI >= 30'},{name:'vteImmobility',label:'Immobility / bed rest'},{name:'vtePreviousVTE',label:'Previous VTE'},{name:'vteVaricoseVeins',label:'Varicose veins'},{name:'vtePostOperative',label:'Post-operative'},{name:'vteMultiplePregnancy',label:'Multiple pregnancy'},{name:'vteDehydration',label:'Dehydration'}].map(item => (
+                      <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} /><span>{item.label}</span></label>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
+                    <span style={{ fontWeight: 'bold' }}>DVT risk :</span>
+                    {['Low', 'Moderate', 'High'].map(opt => (<label key={opt}><input type="radio" name="dvtRiskLevel" value={opt} checked={form.dvtRiskLevel === opt} onChange={handleChange} /> {opt}</label>))}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 8px', marginTop: '3px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Precautions :</span>
+                    {[{name:'vtePrecautionEarlyAmbulation',label:'Early ambulation'},{name:'vtePrecautionLegExercises',label:'Leg exercises'},{name:'vtePrecautionHydration',label:'Hydration'},{name:'vtePrecautionCompressionStockings',label:'Compression stockings'},{name:'vtePrecautionLMWH',label:'LMWH as prescribed'}].map(item => (
+                      <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} /><span>{item.label}</span></label>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Pressure sore present :</span>
-                  <label><input type="radio" name="pressureSorePresent" value="No" checked={form.pressureSorePresent === 'No'} onChange={handleChange} /> No</label>
-                  <label><input type="radio" name="pressureSorePresent" value="Yes" checked={form.pressureSorePresent === 'Yes'} onChange={handleChange} /> Yes -&gt; site &amp; stage :</label>
-                  <input type="text" name="pressureSoreSiteStage" value={form.pressureSoreSiteStage} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '120px' }} />
-                  <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Precautions :</span>
-                  {[
-                    { name: 'pressurePrecaution2HrChange', label: '2-hourly position change' },
-                    { name: 'pressurePrecautionAirMattress', label: 'Air / foam mattress' },
-                    { name: 'pressurePrecautionSkinCare', label: 'Skin care & hygiene' },
-                    { name: 'pressurePrecautionHeelProtection', label: 'Heel protection' }
-                  ].map(item => (
-                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* VTE / DVT RISK */}
-              <div style={{ border: '1px solid #cbd5e1', padding: '6px 8px', borderRadius: '4px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '4px', textDecoration: 'underline' }}>VTE / DVT RISK</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '4px' }}>
-                  {[
-                    { name: 'vteAgeOver35', label: 'Age > 35 yrs' },
-                    { name: 'vteBmiOver30', label: 'BMI ≥ 30' },
-                    { name: 'vteImmobility', label: 'Immobility / bed rest' },
-                    { name: 'vtePreviousVTE', label: 'Previous VTE' },
-                    { name: 'vteVaricoseVeins', label: 'Varicose veins' },
-                    { name: 'vtePostOperative', label: 'Post-operative' },
-                    { name: 'vteMultiplePregnancy', label: 'Multiple pregnancy' },
-                    { name: 'vteDehydration', label: 'Dehydration' }
-                  ].map(item => (
-                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
-                  <span style={{ fontWeight: 'bold' }}>DVT risk :</span>
-                  {['Low', 'Moderate', 'High'].map(opt => (
-                    <label key={opt}><input type="radio" name="vteRiskLevel" value={opt} checked={form.vteRiskLevel === opt} onChange={handleChange} /> {opt}</label>
-                  ))}
-                  <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>Precautions :</span>
-                  {[
-                    { name: 'vtePrecautionEarlyAmbulation', label: 'Early ambulation' },
-                    { name: 'vtePrecautionLegExercises', label: 'Leg exercises' },
-                    { name: 'vtePrecautionHydration', label: 'Hydration' },
-                    { name: 'vtePrecautionStockings', label: 'Compression stockings' },
-                    { name: 'vtePrecautionLMWH', label: 'LMWH as prescribed' }
-                  ].map(item => (
-                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
+                <div>
+                  <div style={{ fontWeight: 'bold', textDecoration: 'underline', marginBottom: '4px' }}>VULNERABILITY &amp; RESTRAINTS</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Vulnerable patient :</span>
+                    <label><input type="radio" name="vulnerablePatient" value="No" checked={form.vulnerablePatient === 'No'} onChange={handleChange} /> No</label>
+                    <label><input type="radio" name="vulnerablePatient" value="Yes" checked={form.vulnerablePatient === 'Yes'} onChange={handleChange} /> Yes -&gt; reason :</label>
+                    <input type="text" name="vulnerableReason" value={form.vulnerableReason} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '80px' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Restraints :</span>
+                    <label><input type="radio" name="restraintsUsed" value="Not used" checked={form.restraintsUsed === 'Not used'} onChange={handleChange} /> Not used</label>
+                    <label><input type="radio" name="restraintsUsed" value="Used" checked={form.restraintsUsed === 'Used'} onChange={handleChange} /> Used -&gt; type &amp; reason :</label>
+                    <input type="text" name="restraintsTypeReason" value={form.restraintsTypeReason} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '100px' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <span>Consent taken :</span>
+                    <label><input type="radio" name="restraintConsentTaken" value="Yes" checked={form.restraintConsentTaken === 'Yes'} onChange={handleChange} /> Yes</label>
+                    <label><input type="radio" name="restraintConsentTaken" value="No" checked={form.restraintConsentTaken === 'No'} onChange={handleChange} /> No</label>
+                    <span style={{ marginLeft: '8px' }}>Doctor's order :</span>
+                    <label><input type="radio" name="restraintDoctorOrder" value="Yes" checked={form.restraintDoctorOrder === 'Yes'} onChange={handleChange} /> Yes</label>
+                    <label><input type="radio" name="restraintDoctorOrder" value="No" checked={form.restraintDoctorOrder === 'No'} onChange={handleChange} /> No</label>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 8px', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
+                    <span style={{ fontWeight: 'bold' }}>Infection precautions :</span>
+                    {[{name:'infectionStandard',label:'Standard'},{name:'infectionContact',label:'Contact'},{name:'infectionDroplet',label:'Droplet'},{name:'infectionIsolation',label:'Isolation required'}].map(item => (
+                      <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} /><span>{item.label}</span></label>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* VULNERABILITY & RESTRAINTS */}
-              <div style={{ border: '1px solid #cbd5e1', padding: '6px 8px', borderRadius: '4px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '4px', textDecoration: 'underline' }}>VULNERABILITY &amp; RESTRAINTS</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Vulnerable patient :</span>
-                  <label><input type="radio" name="vulnerablePatient" value="No" checked={form.vulnerablePatient === 'No'} onChange={handleChange} /> No</label>
-                  <label><input type="radio" name="vulnerablePatient" value="Yes" checked={form.vulnerablePatient === 'Yes'} onChange={handleChange} /> Yes -&gt; reason :</label>
-                  <input type="text" name="vulnerableReason" value={form.vulnerableReason} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', flex: 1, minWidth: '120px' }} />
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Restraints :</span>
-                  <label><input type="radio" name="restraintsUsed" value="Not used" checked={form.restraintsUsed === 'Not used'} onChange={handleChange} /> Not used</label>
-                  <label><input type="radio" name="restraintsUsed" value="Used" checked={form.restraintsUsed === 'Used'} onChange={handleChange} /> Used -&gt; type &amp; reason :</label>
-                  <input type="text" name="restraintsTypeReason" value={form.restraintsTypeReason} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', width: '130px' }} />
-                  <span>Consent taken :</span>
-                  <label><input type="radio" name="restraintConsentTaken" value="Yes" checked={form.restraintConsentTaken === 'Yes'} onChange={handleChange} /> Yes</label>
-                  <label><input type="radio" name="restraintConsentTaken" value="No" checked={form.restraintConsentTaken === 'No'} onChange={handleChange} /> No</label>
-                  <span>Doctor's order :</span>
-                  <label><input type="radio" name="restraintDoctorOrder" value="Yes" checked={form.restraintDoctorOrder === 'Yes'} onChange={handleChange} /> Yes</label>
-                  <label><input type="radio" name="restraintDoctorOrder" value="No" checked={form.restraintDoctorOrder === 'No'} onChange={handleChange} /> No</label>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '4px' }}>
-                  <span style={{ fontWeight: 'bold' }}>Infection precautions :</span>
-                  {[
-                    { name: 'infectionStandard', label: 'Standard' },
-                    { name: 'infectionContact', label: 'Contact' },
-                    { name: 'infectionDroplet', label: 'Droplet' },
-                    { name: 'infectionIsolation', label: 'Isolation required' }
-                  ].map(item => (
-                    <label key={item.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="checkbox" name={item.name} checked={!!form[item.name]} onChange={handleChange} />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>Any special care given / additional precautions :</div>
-                <textarea
-                  name="specialCareAdditionalPrecautions"
-                  value={form.specialCareAdditionalPrecautions}
-                  onChange={handleChange}
-                  rows={2}
-                  style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', resize: 'none', overflow: 'hidden', fontSize: '12px', fontFamily: 'inherit' }}
-                  onInput={(e) => {
-                    e.target.style.height = 'auto';
-                    e.target.style.height = `${e.target.scrollHeight}px`;
-                  }}
-                />
-              </div>
+            </div>
+            <div style={{ borderTop: '1px solid #000', padding: '6px 10px', fontSize: '11.5px' }}>
+              <span style={{ fontWeight: 'bold' }}>Any special care given / additional precautions :</span>
+              <textarea name="specialCareAdditionalPrecautions" value={form.specialCareAdditionalPrecautions} onChange={handleChange} rows={2}
+                style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', resize: 'none', overflow: 'hidden', fontSize: '11.5px', fontFamily: 'inherit' }}
+                onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }}
+              />
             </div>
           </div>
 
@@ -1530,7 +1377,7 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontWeight: 'bold' }}>Date :</span>
-                <input type="date" name="nurseSignDate" value={form.nurseSignDate} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} />
+                <input type="date" name="nurseSignDate" value={form.nurseSignDate} onChange={handleChange} style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none' }} min={new Date().toISOString().split('T')[0]} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontWeight: 'bold' }}>Time :</span>
@@ -1576,9 +1423,23 @@ export default function NursingInitialAssessmentObstetricsPage({ onNavigate, edi
           <ChevronLeft size={18} /> Previous Page
         </button>
 
-        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>
-          Page {currentPage} of 3
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {[1, 2, 3].map(p => (
+              <button
+                key={p}
+                type="button"
+                className={`page-number-btn ${currentPage === p ? 'active' : ''}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155', marginLeft: '4px' }}>
+            Page {currentPage} of 3
+          </span>
+        </div>
 
         <button
           type="button"

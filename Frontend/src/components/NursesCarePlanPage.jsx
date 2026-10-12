@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
@@ -376,7 +376,7 @@ export default function NursesCarePlanPage({ onNavigate, editData, editRecordId 
                       value={row.date || ''} 
                       onChange={(e) => handleRowChange(row.id, 'date', e.target.value)} 
                       className="mint-date-picker"
-                    />
+                     min={new Date().toISOString().split('T')[0]} />
                     <button 
                       type="button" 
                       className="btn-pill-delete"

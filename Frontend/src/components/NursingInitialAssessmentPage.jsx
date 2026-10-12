@@ -3,19 +3,37 @@ import {
   Save,
   Printer,
   CheckCircle2,
-  FolderCheck
+  FolderCheck,
+  Eye,
+  Brain
 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import HospitalPaperHeader from './HospitalPaperHeader';
 import { findPatientByIpNo } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
+import DateInput from './common/DateInput';
+import { getTodayDDMMYYYY, formatDateToDDMMYYYY } from '../utils/dateUtils';
+
+const MouthIcon = ({ size = 12, ...props }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M2.5 12c2.5-3.5 6.5-5.5 9.5-3.5 3-2 7 0 9.5 3.5-2.5 3.5-5.5 6.5-9.5 6.5s-7-3-9.5-6.5z" />
+    <path d="M2.5 12c3.5 2 6 2.5 9.5 2.5s6-.5 9.5-2.5" />
+  </svg>
+);
 
 const PERSIST_KEY = 'nursing_initial_assessment';
 
-const getCurrentDate = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
+const getCurrentDate = () => getTodayDDMMYYYY();
 const getCurrentTime = () => {
   const now = new Date();
   return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -195,28 +213,43 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
     });
   });
 
+  const triggerPatientAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      setPatient(prev => ({
+        ...prev,
+        name: found.patientName || prev.name,
+        age: found.age || prev.age,
+        sex: found.sex || prev.sex,
+        uhidNo: found.uhidNo || prev.uhidNo,
+        ipNo: found.ipNo || prev.ipNo,
+        ward: found.ward || prev.ward,
+        bedNo: found.bedNo || prev.bedNo,
+        isMlc: found.isMlc || prev.isMlc,
+        mlc: found.mlc || prev.mlc
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (patient.ipNo) {
+      triggerPatientAutofill(patient.ipNo);
+    }
+  }, []);
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
+    if (name === 'ipNo') {
+      triggerPatientAutofill(value);
+    }
   };
 
   const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const value = e.target.value;
-      const found = findPatientByIpNo(value);
-      if (found) {
-        setPatient(prev => ({
-          ...prev,
-          name: found.patientName || prev.name,
-          age: found.age || prev.age,
-          sex: found.sex || prev.sex,
-          uhidNo: found.uhidNo || prev.uhidNo,
-          ipNo: found.ipNo || prev.ipNo,
-          ward: found.ward || prev.ward,
-          bedNo: found.bedNo || prev.bedNo
-        }));
-      }
+      triggerPatientAutofill(e.target.value);
     }
   };
 
@@ -425,7 +458,7 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
       <div className={`green-paper-container page-1-content ${currentPage !== 1 ? 'hide-on-screen' : ''}`}>
 
         {/* Hospital Header */}
-        <HospitalPaperHeader />
+        <HospitalPaperHeader isMlc={patient.isMlc === 'yes' || patient.mlc === 'Yes'} />
 
         {/* Form Title Banner */}
         <div className="care-plan-form-title daily-form-title">
@@ -443,8 +476,9 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
                     type="text"
                     name="name"
                     value={patient.name}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -455,8 +489,9 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
                     type="text"
                     name="age"
                     value={patient.age}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -466,8 +501,9 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
                   <select
                     name="sex"
                     value={patient.sex}
-                    onChange={handlePatientChange}
+                    disabled
                     className="info-select-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   >
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -485,10 +521,9 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
                     type="text"
                     name="uhidNo"
                     value={patient.uhidNo}
-                    onChange={handlePatientChange}
-                    onKeyDown={handleIpKeyDown}
+                    readOnly
                     className="info-input-plain"
-                    placeholder="Enter UHID number"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -501,9 +536,13 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
                     value={patient.ipNo}
                     onChange={handlePatientChange}
                     onKeyDown={handleIpKeyDown}
+                    onBlur={(e) => triggerPatientAutofill(e.target.value)}
                     className="info-input-plain"
                     placeholder="Enter IP number"
                   />
+                  {(patient.isMlc === 'yes' || patient.mlc === 'Yes') && (
+                    <span style={{ backgroundColor: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', marginLeft: '4px', flexShrink: 0 }}>MLC</span>
+                  )}
                 </div>
               </td>
               <td className="cell-doa" colSpan={2}>
@@ -513,8 +552,9 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
                     type="text"
                     name="ward"
                     value={patient.ward}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -525,8 +565,9 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
                     type="text"
                     name="bedNo"
                     value={patient.bedNo}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -658,11 +699,59 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
                 <option value="unConsiouse">unConsiouse</option>
               </select>
             </div>
-            <div className="gcs-group">
-              <span className="info-lbl-bold">GCS :</span>
-              <span className="gcs-sub-item">E <input type="text" name="gcsE" value={exam.gcsE} onChange={handleExamChange} className="gcs-in" /></span>
-              <span className="gcs-sub-item">V <input type="text" name="gcsV" value={exam.gcsV} onChange={handleExamChange} className="gcs-in" /></span>
-              <span className="gcs-sub-item">M <input type="text" name="gcsM" value={exam.gcsM} onChange={handleExamChange} className="gcs-in" /></span>
+            <div className="gcs-group" style={{ display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
+              <span className="info-lbl-bold" style={{ marginBottom: '3px' }}>GCS :</span>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px' }}>
+                <span
+                  title="Eye Opening Response (E)"
+                  style={{ fontSize: '11px', fontWeight: '700', color: '#0f172a', marginBottom: '3px', cursor: 'default' }}
+                >
+                  E
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                  <span
+                    title="Eye Opening Response (E)"
+                    style={{ display: 'inline-flex', alignItems: 'center', color: '#0f172a', cursor: 'default' }}
+                  >
+                    <Eye size={13} strokeWidth={2.2} />
+                  </span>
+                  <input type="text" name="gcsE" value={exam.gcsE} onChange={handleExamChange} className="gcs-in" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px' }}>
+                <span
+                  title="Verbal Response (V)"
+                  style={{ fontSize: '11px', fontWeight: '700', color: '#0f172a', marginBottom: '3px', cursor: 'default' }}
+                >
+                  V
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                  <span
+                    title="Verbal Response (V)"
+                    style={{ display: 'inline-flex', alignItems: 'center', color: '#0f172a', cursor: 'default' }}
+                  >
+                    <MouthIcon size={13} strokeWidth={2.2} />
+                  </span>
+                  <input type="text" name="gcsV" value={exam.gcsV} onChange={handleExamChange} className="gcs-in" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px' }}>
+                <span
+                  title="Motor Response (M)"
+                  style={{ fontSize: '11px', fontWeight: '700', color: '#0f172a', marginBottom: '3px', cursor: 'default' }}
+                >
+                  M
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                  <span
+                    title="Motor Response (M)"
+                    style={{ display: 'inline-flex', alignItems: 'center', color: '#0f172a', cursor: 'default' }}
+                  >
+                    <Brain size={13} strokeWidth={2.2} />
+                  </span>
+                  <input type="text" name="gcsM" value={exam.gcsM} onChange={handleExamChange} className="gcs-in" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -909,12 +998,12 @@ export default function NursingInitialAssessmentPage({ onNavigate, editData, edi
           </div>
           <div className="sig-field-item">
             <span className="info-lbl-bold">Date :</span>
-            <input
-              type="date"
+            <DateInput
               name="sigDate"
               value={pg2.sigDate}
               onChange={handlePg2Change}
               className="info-input-plain"
+              style={{ width: '130px' }}
             />
           </div>
           <div className="sig-field-item">

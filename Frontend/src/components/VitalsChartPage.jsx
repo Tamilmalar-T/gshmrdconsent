@@ -228,7 +228,9 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
         ipNo: found.ipNo || prev.ipNo,
         ward: found.ward || prev.ward,
         bedNo: found.bedNo || prev.bedNo || prev.bed || '',
-        doa: found.doa || prev.doa
+        doa: found.doa || prev.doa,
+        isMlc: found.isMlc || prev.isMlc,
+        mlc: found.mlc || prev.mlc
       }));
     }
   };
@@ -834,6 +836,9 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                       onBlur={handleIpBlur}
                       className="info-input-plain"
                     />
+                    {(patient.isMlc === 'yes' || patient.mlc === 'Yes') && (
+                      <span style={{ backgroundColor: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', marginLeft: '4px', flexShrink: 0 }}>MLC</span>
+                    )}
                   </div>
                 </td>
                 <td className="cell-doa">
@@ -890,7 +895,7 @@ export default function VitalsChartPage({ onNavigate, editData, editRecordId }) 
                     name="date"
                     value={entry.date}
                     onChange={handleEntryChange}
-                    className="entry-input"
+                    className="entry-input" min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
                 <div className="entry-field-group">

@@ -15,12 +15,12 @@ import {
   X,
   Snowflake,
   Tv,
-  Plug,
   Sofa,
   Fan
 } from 'lucide-react';
 import HospitalPaperHeader from './HospitalPaperHeader';
-import { getRegisteredPatients, registerPatient, updatePatient, deleteRegisteredPatient } from '../utils/patientRegistry';
+import { getRegisteredPatients, registerPatient, updatePatient, deleteRegisteredPatient, fetchRegisteredPatientsFromBackend } from '../utils/patientRegistry';
+import { getConsultantDoctors, getReferralDoctors, getFormattedDoctorName } from '../utils/consultantMaster';
 
 const formatTime12h = (time24) => {
   if (!time24) return '';
@@ -40,15 +40,55 @@ const getTodayFormatted = () => {
   return `${day}-${month}-${year}`;
 };
 
+const DEFAULT_WARDS = [
+  { id: 'W01', wardCode: 'W01', wardName: 'ICU', floor: '1F', dayCharge: 2500, isActive: 'Yes' },
+  { id: 'W02', wardCode: 'W02', wardName: 'General', floor: 'GF', dayCharge: 1000, isActive: 'Yes' },
+  { id: 'W03', wardCode: 'W03', wardName: 'Special', floor: '2F', dayCharge: 2000, isActive: 'Yes' },
+  { id: 'W04', wardCode: 'W04', wardName: 'Emergency', floor: 'GF', dayCharge: 1500, isActive: 'Yes' },
+  { id: 'W05', wardCode: 'W05', wardName: 'Pediatric', floor: '3F', dayCharge: 1200, isActive: 'Yes' },
+  { id: 'W06', wardCode: 'W06', wardName: 'Maternity', floor: '2F', dayCharge: 1800, isActive: 'Yes' },
+  { id: 'W07', wardCode: 'W07', wardName: 'Surgical', floor: '3F', dayCharge: 2200, isActive: 'Yes' },
+  { id: 'W08', wardCode: 'W08', wardName: 'Post Operative', floor: '1F', dayCharge: 2000, isActive: 'Yes' }
+];
+
+const DEFAULT_ROOMS = [
+  { id: 'R101', roomId: 'R101', roomNo: 'Room 101', wardId: 'W01', ward: 'ICU', isActive: 'Yes' },
+  { id: 'R102', roomId: 'R102', roomNo: 'Room 102', wardId: 'W01', ward: 'ICU', isActive: 'Yes' },
+  { id: 'R201', roomId: 'R201', roomNo: 'Room 201', wardId: 'W02', ward: 'General', isActive: 'Yes' },
+  { id: 'R202', roomId: 'R202', roomNo: 'Room 202', wardId: 'W02', ward: 'General', isActive: 'Yes' },
+  { id: 'R301', roomId: 'R301', roomNo: 'Room 301', wardId: 'W03', ward: 'Special', isActive: 'Yes' },
+  { id: 'R401', roomId: 'R401', roomNo: 'Room 401', wardId: 'W04', ward: 'Emergency', isActive: 'Yes' },
+  { id: 'R501', roomId: 'R501', roomNo: 'Room 501', wardId: 'W05', ward: 'Pediatric', isActive: 'Yes' },
+  { id: 'R601', roomId: 'R601', roomNo: 'Room 601', wardId: 'W06', ward: 'Maternity', isActive: 'Yes' },
+  { id: 'R701', roomId: 'R701', roomNo: 'Room 701', wardId: 'W07', ward: 'Surgical', isActive: 'Yes' },
+  { id: 'R801', roomId: 'R801', roomNo: 'Room 801', wardId: 'W08', ward: 'Post Operative', isActive: 'Yes' }
+];
+
+const DEFAULT_BEDS = [
+  { id: 'B101', bedNo: 'Bed 101', roomId: 'R101', wardId: 'W01', status: 'Available', isActive: 'Yes' },
+  { id: 'B102', bedNo: 'Bed 102', roomId: 'R101', wardId: 'W01', status: 'Available', isActive: 'Yes' },
+  { id: 'B201', bedNo: 'Bed 201', roomId: 'R201', wardId: 'W02', status: 'Available', isActive: 'Yes' },
+  { id: 'B202', bedNo: 'Bed 202', roomId: 'R201', wardId: 'W02', status: 'Available', isActive: 'Yes' },
+  { id: 'B301', bedNo: 'Bed 301', roomId: 'R301', wardId: 'W03', status: 'Available', isActive: 'Yes' },
+  { id: 'B401', bedNo: 'Bed 401', roomId: 'R401', wardId: 'W04', status: 'Available', isActive: 'Yes' },
+  { id: 'B501', bedNo: 'Bed 501', roomId: 'R501', wardId: 'W05', status: 'Available', isActive: 'Yes' },
+  { id: 'B601', bedNo: 'Bed 601', roomId: 'R601', wardId: 'W06', status: 'Available', isActive: 'Yes' },
+  { id: 'B701', bedNo: 'Bed 701', roomId: 'R701', wardId: 'W07', status: 'Available', isActive: 'Yes' },
+  { id: 'B801', bedNo: 'Bed 801', roomId: 'R801', wardId: 'W08', status: 'Available', isActive: 'Yes' }
+];
+
 export default function IPRegister({ onViewDetails, onNavigate, editData }) {
   const [form, setForm] = useState({
     ipNo: '',
     uhidNo: '',
     patientName: '',
+    mobileNo: '',
     regDate: getTodayFormatted(),
     consultant: '',
     referral: '',
     paymentDetails: 'Self',
+    insuranceProvider: '',
+    isMlc: 'No',
     patientType: 'Normal',
     admissionType: 'Emergency',
     doa: '',
@@ -73,27 +113,58 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [matchedMasterPatient, setMatchedMasterPatient] = useState(null);
+  const [uhidValidated, setUhidValidated] = useState(false);
 
   const [masterWards, setMasterWards] = useState([]);
   const [masterRooms, setMasterRooms] = useState([]);
   const [masterBeds, setMasterBeds] = useState([]);
   const [masterFacilities, setMasterFacilities] = useState([]);
+  const [consultantList, setConsultantList] = useState([]);
+  const [referralList, setReferralList] = useState([]);
 
   useEffect(() => {
-    const allPatients = getRegisteredPatients();
-    setPatients(allPatients);
+    const loadInitialPatients = async () => {
+      const allPatients = await fetchRegisteredPatientsFromBackend();
+      setPatients(allPatients);
+    };
+    loadInitialPatients();
     fetchMasterOptions();
 
+    const loadConsultants = () => {
+      try {
+        setConsultantList(getConsultantDoctors());
+        setReferralList(getReferralDoctors());
+      } catch (e) {}
+    };
+    loadConsultants();
+
+    window.addEventListener('focus', loadConsultants);
+    window.addEventListener('storage', loadConsultants);
+
+    const getStoredMasters = (key, defaultVal) => {
+      try {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+      localStorage.setItem(key, JSON.stringify(defaultVal));
+      return defaultVal;
+    };
+
     try {
-      const bedsStr = localStorage.getItem('masters_beds');
-      let beds = JSON.parse(bedsStr) || [];
+      const wards = getStoredMasters('masters_wards', DEFAULT_WARDS);
+      const rooms = getStoredMasters('masters_rooms', DEFAULT_ROOMS);
+      let beds = getStoredMasters('masters_beds', DEFAULT_BEDS);
       let updated = false;
       
+      const allPatients = getRegisteredPatients();
       // Auto-sync: Make sure all beds assigned to patients are marked as Occupied
       allPatients.forEach(p => {
         if (p.bedNo && p.room) {
           beds = beds.map(b => {
-            if (String(b.bedNo).trim() === String(p.bedNo).trim() && String(b.roomId).trim() === String(p.room).trim()) {
+            if (String(b.bedNo).trim() === String(p.bedNo).trim() && String(b.roomId || b.room).trim() === String(p.room).trim()) {
               if (b.status !== 'Occupied') {
                 updated = true;
                 return { ...b, status: 'Occupied' };
@@ -108,11 +179,16 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
         localStorage.setItem('masters_beds', JSON.stringify(beds));
       }
 
-      setMasterWards(JSON.parse(localStorage.getItem('masters_wards')) || []);
-      setMasterRooms(JSON.parse(localStorage.getItem('masters_rooms')) || []);
+      setMasterWards(wards);
+      setMasterRooms(rooms);
       setMasterBeds(beds);
       setMasterFacilities(JSON.parse(localStorage.getItem('masters_facilities')) || []);
     } catch(e) {}
+
+    return () => {
+      window.removeEventListener('focus', loadConsultants);
+      window.removeEventListener('storage', loadConsultants);
+    };
   }, []);
 
   useEffect(() => {
@@ -137,70 +213,135 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
     return masterOptions.filter(opt => opt.category === category && opt.status === 'Active');
   };
 
-  const handleUhidKeyDown = async (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const enteredUhid = form.uhidNo.trim();
-      if (!enteredUhid) return;
+  const parseDateToDDMMYYYY = (rawDate) => {
+    if (!rawDate) return '';
+    const str = String(rawDate).trim();
+    if (!str) return '';
+
+    // If DD/MM/YYYY or DD-MM-YYYY
+    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(str)) {
+      const parts = str.split(/[-/]/);
+      return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+    }
+
+    // If YYYY-MM-DD
+    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(str)) {
+      const parts = str.split(/[-/]/);
+      return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+    }
+
+    // Try JS Date parsing (for ISO strings / timestamps)
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+    return str;
+  };
+
+  const handleUhidVerify = async () => {
+    const enteredUhid = form.uhidNo.trim().toUpperCase();
+    if (!enteredUhid) return;
+    try {
+      let match = null;
+      let regData = {};
+
       try {
         const res = await fetch('http://localhost:5000/api/patients');
         const data = await res.json();
         if (data.success && data.data) {
-          const match = data.data.find(p => p.uhid_no === enteredUhid || p.ip_no === enteredUhid);
-          if (match) {
-            let regData = {};
-            if (typeof match.registration_data === 'string') {
-               try { regData = JSON.parse(match.registration_data); } catch (e) {}
-            } else if (match.registration_data) {
-               regData = match.registration_data;
+          match = data.data.find(p => {
+            const pUhid = (p.uhid_no || '').trim().toUpperCase();
+            const pIp = (p.ip_no || '').trim().toUpperCase();
+            let regId = '';
+            if (p.registration_data) {
+              const reg = typeof p.registration_data === 'string' ? JSON.parse(p.registration_data) : p.registration_data;
+              regId = (reg.patientId || '').trim().toUpperCase();
             }
-            
-            let formattedRegDate = '';
-            if (regData.savedDate) {
-              const d = new Date(regData.savedDate);
-              if (!isNaN(d)) {
-                const day = String(d.getDate()).padStart(2, '0');
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const year = d.getFullYear();
-                formattedRegDate = `${day}-${month}-${year}`;
-              }
-            } else if (regData.regDate) {
-              formattedRegDate = regData.regDate;
-            }
-
-            let ageString = '';
-            if (regData.ageYear !== undefined || regData.ageMonth !== undefined) {
-              ageString = `${regData.ageYear || 0}Y ${regData.ageMonth || 0}M ${regData.ageDay || 0}D`;
-            } else if (match.age) {
-              ageString = match.age;
-            } else if (regData.age) {
-              ageString = regData.age;
-            }
-
-            setForm(prev => ({
-              ...prev,
-              patientName: regData.firstName || match.name || '',
-              mobileNo: regData.mobileNo || '',
-              regDate: formattedRegDate || prev.regDate || getTodayFormatted(),
-              admissionType: regData.regType || prev.admissionType,
-              address: regData.presentAddress || regData.address || '',
-              pincode: regData.pincode || '',
-              altContact: regData.alternateContact || regData.altContact || '',
-              email: regData.emailId || regData.email || '',
-              age: ageString,
-              attender: regData.relationName || regData.attender || ''
-            }));
-            setMatchedMasterPatient(match);
-            setSuccessMsg('Patient details auto-filled successfully!');
-            setTimeout(() => setSuccessMsg(''), 3000);
-          } else {
-            setErrorMsg('No patient found with this UHID/Patient ID.');
-            setTimeout(() => setErrorMsg(''), 3000);
-          }
+            return pUhid === enteredUhid || pIp === enteredUhid || regId === enteredUhid;
+          });
         }
       } catch (err) {
-        console.error(err);
+        console.warn('Backend patient fetch failed, falling back to local registry:', err);
       }
+
+      // Fallback to local patient registry if backend match not found
+      if (!match) {
+        const localList = getRegisteredPatients();
+        const localFound = localList.find(p => 
+          (p.uhidNo || '').trim().toUpperCase() === enteredUhid ||
+          (p.ipNo || '').trim().toUpperCase() === enteredUhid
+        );
+        if (localFound) {
+          match = {
+            name: localFound.patientName,
+            ip_no: localFound.ipNo,
+            uhid_no: localFound.uhidNo,
+            age: localFound.age,
+            registration_data: localFound
+          };
+        }
+      }
+
+      if (match) {
+        if (typeof match.registration_data === 'string') {
+          try { regData = JSON.parse(match.registration_data); } catch (e) {}
+        } else if (match.registration_data) {
+          regData = match.registration_data;
+        }
+
+        const rawRegDate = regData.regDate || regData.savedDate || match.created_at || match.doa || regData.doa;
+        const formattedRegDate = parseDateToDDMMYYYY(rawRegDate);
+
+        let ageString = '';
+        if (regData.ageYear !== undefined || regData.ageMonth !== undefined) {
+          ageString = `${regData.ageYear || 0}Y ${regData.ageMonth || 0}M ${regData.ageDay || 0}D`;
+        } else if (match.age) {
+          ageString = match.age;
+        } else if (regData.age) {
+          ageString = regData.age;
+        }
+
+        const autofillConsultant = regData.consultantDr || regData.consultant || '';
+        const autofillReferral = regData.referral || regData.referredByDoctor || '';
+
+        setForm(prev => ({
+          ...prev,
+          patientName: regData.firstName || match.name || regData.patientName || '',
+          mobileNo: regData.mobileNo || prev.mobileNo || '',
+          regDate: formattedRegDate || prev.regDate || getTodayFormatted(),
+          admissionType: regData.regType || prev.admissionType,
+          consultant: autofillConsultant || prev.consultant,
+          referral: autofillReferral || prev.referral,
+          address: regData.presentAddress || regData.address || '',
+          pincode: regData.pincode || '',
+          altContact: regData.alternateContact || regData.altContact || '',
+          email: regData.emailId || regData.email || '',
+          isMlc: regData.isMlc || regData.mlc || prev.isMlc || 'No',
+          age: ageString,
+          attender: regData.relationName || regData.attender || ''
+        }));
+        setMatchedMasterPatient(match);
+        setUhidValidated(true);
+        setSuccessMsg('Patient details auto-filled from OP Register!');
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        setUhidValidated(false);
+        setMatchedMasterPatient(null);
+        setErrorMsg('❌ UHID not found in OP Register. Please register the patient in OP Register first.');
+        setTimeout(() => setErrorMsg(''), 4000);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUhidKeyDown = async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      await handleUhidVerify();
     }
   };
 
@@ -209,6 +350,11 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
     setForm((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: '' }));
     setErrorMsg('');
+    // Reset UHID validation whenever the UHID field is edited
+    if (name === 'uhidNo') {
+      setUhidValidated(false);
+      setMatchedMasterPatient(null);
+    }
   };
 
   const handleClear = () => {
@@ -221,6 +367,8 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
       consultant: '',
       referral: '',
       paymentDetails: 'Self',
+      insuranceProvider: '',
+      isMlc: 'No',
       patientType: 'Normal',
       admissionType: 'Emergency',
       doa: '',
@@ -244,6 +392,13 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
+
+    // Block new registrations with unverified UHID
+    if (!editData && !uhidValidated) {
+      setErrors(prev => ({ ...prev, uhidNo: 'Please verify this UHID by pressing Enter in the UHID field.' }));
+      setErrorMsg('❌ UHID not verified. Enter a valid UHID from OP Register and press Enter to verify.');
+      return;
+    }
 
     // Mandatory fields check
     const requiredFields = [
@@ -273,6 +428,11 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
       }
     }
 
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (form.doa && form.doa > todayStr) {
+      newErrors.doa = 'Future dates are not allowed for Admission Date';
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       if (modalHasErrors) {
@@ -283,8 +443,32 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
 
     try {
       let updatedList;
+      let regData = {};
+      if (matchedMasterPatient?.registration_data) {
+        if (typeof matchedMasterPatient.registration_data === 'string') {
+          try { regData = JSON.parse(matchedMasterPatient.registration_data); } catch (e) {}
+        } else {
+          regData = matchedMasterPatient.registration_data;
+        }
+      }
+
+      const isIns = form.paymentDetails === 'Insurance';
+      const insProviderName = isIns ? (form.insuranceProvider || '') : '';
+      const medicalInsuranceVal = isIns ? (insProviderName || 'Insurance') : (form.paymentDetails || 'Self');
+
       if (editData) {
-        updatedList = updatePatient(editData.originalIpNo || editData.ipNo, form);
+        const combined = { 
+          ...regData, 
+          ...form,
+          isMlc: form.isMlc || 'No',
+          mlc: form.isMlc || 'No',
+          paymentDetails: form.paymentDetails,
+          insuranceProvider: insProviderName,
+          hasInsurance: isIns ? 'yes' : 'no',
+          medicalInsurance: medicalInsuranceVal,
+          tpaCompanyName: insProviderName
+        };
+        updatedList = updatePatient(editData.originalIpNo || editData.ipNo, combined);
         setSuccessMsg(`Patient "${form.patientName}" updated successfully!`);
       } else {
         const existingIps = patients
@@ -294,7 +478,26 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
           .filter(n => !isNaN(n));
         const nextIpNum = existingIps.length > 0 ? Math.max(...existingIps) + 1 : 1;
         const finalIpNo = `IP${String(nextIpNum).padStart(2, '0')}`;
-        const patientData = { ...form, ipNo: finalIpNo };
+        const patientData = {
+          ...regData,
+          ...form,
+          ipNo: finalIpNo,
+          sex: regData.gender || form.sex || form.gender || '',
+          dob: regData.dob || form.dob || '',
+          maritalStatus: regData.maritalStatus || '',
+          occupation: regData.occupation || '',
+          bloodGroup: regData.bloodGroup || '',
+          religion: regData.religion || '',
+          nationality: regData.nationality || '',
+          isMlc: form.isMlc || 'No',
+          mlc: form.isMlc || 'No',
+          paymentDetails: form.paymentDetails,
+          insuranceProvider: insProviderName,
+          hasInsurance: isIns ? 'yes' : 'no',
+          medicalInsurance: medicalInsuranceVal,
+          tpaCompanyName: insProviderName,
+          registration_data: regData
+        };
         updatedList = registerPatient(patientData);
         setSuccessMsg(`Patient "${form.patientName}" registered successfully!`);
       }
@@ -387,16 +590,43 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
               {/* UHID NO. */}
               <div className="pr-field">
                 <label className="pr-label">UHID NO. <span className="req-star">*</span></label>
-                <input 
-                  type="text" 
-                  name="uhidNo" 
-                  value={form.uhidNo} 
-                  onChange={handleChange} 
-                  onKeyDown={handleUhidKeyDown}
-                  placeholder="e.g. UHID 984201" 
-                  className="pr-input"
-                  style={{ borderColor: errors.uhidNo ? '#ef4444' : undefined }}
-                />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <input 
+                    type="text" 
+                    name="uhidNo" 
+                    value={form.uhidNo || ''} 
+                    onChange={handleChange} 
+                    onKeyDown={handleUhidKeyDown}
+                    onBlur={handleUhidVerify}
+                    placeholder="e.g. GSH01OP — press Enter to verify" 
+                    className="pr-input"
+                    style={{
+                      borderColor: errors.uhidNo
+                        ? '#ef4444'
+                        : form.uhidNo && uhidValidated
+                          ? '#16a34a'
+                          : form.uhidNo && !uhidValidated
+                            ? '#f59e0b'
+                            : undefined,
+                      flex: 1
+                    }}
+                  />
+                  {form.uhidNo && (
+                    <span style={{
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                      color: uhidValidated ? '#16a34a' : '#ef4444',
+                      flexShrink: 0
+                    }}>
+                      {uhidValidated ? '✓' : '✗'}
+                    </span>
+                  )}
+                </div>
+                {!editData && form.uhidNo && !uhidValidated && !errors.uhidNo && (
+                  <div style={{ color: '#f59e0b', fontSize: '11px', marginTop: '3px' }}>
+                    ⚠ Press <strong>Enter</strong> in the UHID field to verify against registered patients.
+                  </div>
+                )}
                 {errors.uhidNo && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>{errors.uhidNo}</div>}
               </div>
 
@@ -406,7 +636,7 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
                 <input 
                   type="text" 
                   name="patientName" 
-                  value={form.patientName} 
+                  value={form.patientName || ''} 
                   onChange={handleChange} 
                   placeholder="Full Name" 
                   className="pr-input"
@@ -452,7 +682,8 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
                   value={form.doa || ''} 
                   onChange={handleChange} 
                   className="pr-input"
-                  style={{ borderColor: errors.doa ? '#ef4444' : undefined }}
+                  style={{ borderColor: errors.doa ? '#ef4444' : undefined }} 
+                  max={new Date().toLocaleDateString('en-CA')}
                 />
                 {errors.doa && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>{errors.doa}</div>}
               </div>
@@ -482,30 +713,60 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
                 </select>
               </div>
 
-              {/* CONSULTANT */}
+              {/* CONSULTANT (From Consultant Master) */}
               <div className="pr-field">
                 <label className="pr-label">CONSULTANT</label>
-                <input 
-                  type="text" 
+                <select 
                   name="consultant" 
                   value={form.consultant || ''} 
                   onChange={handleChange} 
-                  placeholder="Consultant Name" 
-                  className="pr-input"
-                />
+                  className="pr-select"
+                >
+                  <option value="">--Select Consultant--</option>
+                  {consultantList.map(c => {
+                    const docName = getFormattedDoctorName(c);
+                    const label = `${docName}${c.department ? ' (' + c.department + ')' : ''}`;
+                    return (
+                      <option key={c.id || c.empId || docName} value={docName}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                  {form.consultant && !consultantList.some(c => getFormattedDoctorName(c) === form.consultant) && (
+                    <option value={form.consultant}>{form.consultant}</option>
+                  )}
+                </select>
               </div>
 
-              {/* REFERRAL */}
+              {/* REFERRAL (From Consultant Master - Referral Category Only) */}
               <div className="pr-field">
                 <label className="pr-label">REFERRAL</label>
-                <input 
-                  type="text" 
+                <select 
                   name="referral" 
                   value={form.referral || ''} 
                   onChange={handleChange} 
-                  placeholder="Referral Info" 
-                  className="pr-input"
-                />
+                  className="pr-select"
+                >
+                  <option value="">--Select Referral Dr.--</option>
+                  <option value="Self">Self / Direct</option>
+                  {referralList.map(c => {
+                    const docName = getFormattedDoctorName(c);
+                    const label = `${docName}${c.department ? ' (' + c.department + ')' : ''}`;
+                    return (
+                      <option key={'ref-' + (c.id || c.empId || docName)} value={docName}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                  {getOptions('Referral').map(opt => (
+                    <option key={'ref-opt-' + opt.id} value={opt.label}>
+                      {opt.label}
+                    </option>
+                  ))}
+                  {form.referral && form.referral !== 'Self' && !referralList.some(c => getFormattedDoctorName(c) === form.referral) && !getOptions('Referral').some(opt => opt.label === form.referral) && (
+                    <option value={form.referral}>{form.referral}</option>
+                  )}
+                </select>
               </div>
 
 
@@ -554,6 +815,35 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
                 </div>
               </div>
 
+              {/* MLC (Yes / No) */}
+              <div className="pr-field">
+                <label className="pr-label">MLC</label>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', height: '36px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="isMlc" 
+                      value="Yes" 
+                      checked={form.isMlc === 'Yes' || form.isMlc === 'yes'} 
+                      onChange={handleChange} 
+                      style={{ accentColor: '#8b5cf6', cursor: 'pointer' }}
+                    />
+                    Yes
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="isMlc" 
+                      value="No" 
+                      checked={form.isMlc === 'No' || form.isMlc === 'no' || !form.isMlc} 
+                      onChange={handleChange} 
+                      style={{ accentColor: '#8b5cf6', cursor: 'pointer' }}
+                    />
+                    No
+                  </label>
+                </div>
+              </div>
+
               <div className="pr-field" style={{ display: 'flex', alignItems: 'flex-end', height: '100%', paddingBottom: '2px' }}>
                 <button 
                   type="button" 
@@ -584,9 +874,14 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
                       style={{ borderColor: '#3b82f6' }}
                     >
                       <option value="">Select Ward</option>
-                      {masterWards.filter(w => w.isActive === 'Yes').map(w => (
-                        <option key={w.id} value={w.wardCode}>{w.wardName}</option>
-                      ))}
+                      {masterWards.filter(w => w.isActive !== 'No').map(w => {
+                        const val = w.wardCode || w.id || w.wardName;
+                        return (
+                          <option key={w.id || w.wardCode} value={val}>
+                            {w.wardName} ({w.wardCode || val})
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -599,16 +894,35 @@ export default function IPRegister({ onViewDetails, onNavigate, editData }) {
                       onChange={(e) => setForm({...form, room: e.target.value, bedNo: ''})} 
                       className="pr-select"
                       style={{ borderColor: '#3b82f6' }}
-                      disabled={!form.ward}
                     >
                       <option value="">Select Room</option>
-                      {masterRooms.filter(r => r.wardId === form.ward && r.isActive === 'Yes').map(r => {
-                        const bedsInRoom = masterBeds.filter(b => b.roomId === r.roomId && b.isActive === 'Yes');
-                        const vacantBeds = bedsInRoom.filter(b => b.status === 'Available').length;
-                        return (
-                          <option key={r.id} value={r.roomId}>{r.roomNo} - {vacantBeds} Vacant</option>
-                        );
-                      })}
+                      {masterRooms
+                        .filter(r => {
+                          if (r.isActive === 'No') return false;
+                          if (!form.ward) return true;
+                          const rWard = String(r.wardId || r.ward || r.wardCode || '').trim().toLowerCase();
+                          const formWard = String(form.ward || '').trim().toLowerCase();
+                          const matchedWard = masterWards.find(w => 
+                            String(w.wardCode || w.id || w.wardName || '').trim().toLowerCase() === formWard
+                          );
+                          const matchedWardCode = matchedWard ? String(matchedWard.wardCode || matchedWard.id || matchedWard.wardName).trim().toLowerCase() : '';
+                          const matchedWardName = matchedWard ? String(matchedWard.wardName || '').trim().toLowerCase() : '';
+                          
+                          return rWard === formWard || (matchedWardCode && rWard === matchedWardCode) || (matchedWardName && rWard === matchedWardName);
+                        })
+                        .map(r => {
+                          const rId = r.roomId || r.id;
+                          const bedsInRoom = masterBeds.filter(b => {
+                            const bRoom = String(b.roomId || b.room || b.id || '').trim().toLowerCase();
+                            return bRoom === String(rId).trim().toLowerCase() || bRoom === String(r.roomNo || '').trim().toLowerCase();
+                          });
+                          const vacantBeds = bedsInRoom.filter(b => b.status === 'Available' || !b.status).length;
+                          return (
+                            <option key={r.id || r.roomId} value={rId}>
+                              {r.roomNo || r.roomId} - {vacantBeds} Vacant Bed(s)
+                            </option>
+                          );
+                        })}
                     </select>
                   </div>
 

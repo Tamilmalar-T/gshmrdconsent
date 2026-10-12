@@ -14,6 +14,7 @@ export default function ConsentHospitalizationConductProceduresPage({ onNavigate
     uhidNo: '',
     ipNo: '',
     ward: '',
+    consultantName: '',
 
     // Section 1: Consent for Procedures
     consentDate: new Date().toISOString().split('T')[0],
@@ -24,6 +25,7 @@ export default function ConsentHospitalizationConductProceduresPage({ onNavigate
     consultantSignature: '',
 
     // Section 2: Authorization for Financial Transactions
+    declarantType: 'attender', // 'patient' | 'attender'
     declarantName: '',
     declarantAddress: '',
     targetAdmitType: 'myself', // 'myself', 'relative'
@@ -85,17 +87,59 @@ export default function ConsentHospitalizationConductProceduresPage({ onNavigate
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleDeclarantTypeChange = (type) => {
+    setForm(prev => {
+      if (type === 'patient') {
+        return {
+          ...prev,
+          declarantType: 'patient',
+          declarantName: prev.patientName || '',
+          declarantAddress: prev.declarantAddress || '',
+          targetRelativeRelationship: 'myself / self',
+          finSignature: prev.patientName || ''
+        };
+      } else {
+        return {
+          ...prev,
+          declarantType: 'attender',
+          declarantName: prev.repFullNameBlock || '',
+          declarantAddress: prev.declarantAddress || '',
+          targetRelativeRelationship: prev.repRelationship || 'relative',
+          finSignature: prev.repFullNameBlock || ''
+        };
+      }
+    });
+  };
+
   const triggerAutofill = (value) => {
     if (!value || !value.trim()) return;
     const found = findPatientByIpNo(value);
     if (found) {
+      // Find primary attender if attenders array exists
+      let primaryAttender = null;
+      if (Array.isArray(found.attenders) && found.attenders.length > 0) {
+        primaryAttender = found.attenders.find(a => a.isPrimary) || found.attenders[0];
+      }
+      const primaryName = (primaryAttender?.attenderName || found.attenderName || found.kinName || found.emergencyContactName || '').toUpperCase();
+      const primaryRel = primaryAttender?.relationType || found.relationType || found.kinRelationship || found.emergencyContactRel || '';
+      const doctor = found.doctorName || found.consultantName || found.admittingDoctor || found.mainConsultant || '';
+
       setForm(prev => ({
         ...prev,
         patientName: found.patientName || prev.patientName,
         uhidNo: found.uhidNo || prev.uhidNo,
         ipNo: found.ipNo || prev.ipNo,
         ward: found.ward || prev.ward,
-        declarantName: prev.declarantName || found.patientName
+        consultantName: doctor || prev.consultantName,
+        declarantType: prev.declarantType || (primaryName ? 'attender' : 'patient'),
+        declarantName: prev.declarantName || (prev.declarantType === 'patient' ? found.patientName : (primaryName || found.patientName)),
+        declarantAddress: prev.declarantAddress || found.address || '',
+        targetRelativeRelationship: prev.targetRelativeRelationship || (prev.declarantType === 'patient' ? 'myself / self' : (primaryRel || 'relative')),
+        patientSignature: prev.patientSignature || found.patientName || '',
+        repFullNameBlock: prev.repFullNameBlock || primaryName,
+        repRelationship: prev.repRelationship || primaryRel,
+        consultantSignature: prev.consultantSignature || doctor,
+        finSignature: prev.finSignature || (prev.declarantType === 'patient' ? found.patientName : (primaryName || found.patientName))
       }));
     }
   };
@@ -235,16 +279,37 @@ export default function ConsentHospitalizationConductProceduresPage({ onNavigate
                 <strong>Date & Time / ದಿನಾಂಕ ಮತ್ತು ಸಮಯ:</strong>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <input type="date" name="consentDate" value={form.consentDate} onChange={handleChange} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '4px', outline: 'none' }} />
+                <input type="date" name="consentDate" value={form.consentDate} onChange={handleChange} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '4px', outline: 'none' }} min={new Date().toISOString().split('T')[0]} />
                 <input type="time" name="consentTime" value={form.consentTime} onChange={handleChange} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '4px', outline: 'none' }} />
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <input type="text" name="patientSignature" value={form.patientSignature} onChange={handleChange} placeholder="Patient Signature / Name" style={{ width: '100%', border: 'none', borderBottom: '1px solid #000', outline: 'none', textAlign: 'center' }} />
+                <input 
+                  type="text" 
+                  name="patientSignature" 
+                  value={form.patientSignature} 
+                  onChange={handleChange} 
+                  placeholder="Patient Signature" 
+                  style={{ 
+                    width: '100%', 
+                    border: 'none', 
+                    borderBottom: '1px solid #000', 
+                    outline: 'none', 
+                    textAlign: 'center',
+                    fontFamily: (form.patientSignature || form.patientName) ? "'Brush Script MT', 'Dancing Script', cursive, sans-serif" : 'inherit',
+                    fontSize: '16px'
+                  }} 
+                />
+                {form.patientName && (
+                  <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '600', color: '#374151', marginTop: '2px' }}>
+                    ({form.patientName})
+                  </div>
+                )}
                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '11px', marginTop: '2px' }}>
-                  Signature of the Patient / LTI / Representative / ರೋಗಿ/ನ್ಯಾಯೋಚಿತ ವಾರಸುದಾರರು / ಪ್ರತಿನಿಧಿಗಳು
+                  Signature of the Patient / LTI / Representative<br />
+                  <span style={{ fontWeight: 'normal' }}>ರೋಗಿ/ನ್ಯಾಯೋಚಿತ ವಾರಸುದಾರರು / ಪ್ರತಿನಿಧಿಗಳು</span>
                 </div>
               </div>
 
@@ -253,13 +318,47 @@ export default function ConsentHospitalizationConductProceduresPage({ onNavigate
                   If representative, full name in BLOCK LETTERS and relationship to patient / ಒಂದು ವೇಳೆ ಪ್ರತಿನಿಧಿಯಾಗಿದ್ದರೆ ಸಂಪೂರ್ಣ ಹೆಸರು ಮತ್ತು ರೋಗಿಯೊಂದಿಗಿನ ಸಂಬಂಧವನ್ನು ದಪ್ಪ ಅಕ್ಷರದಲ್ಲಿ ಬರೆಯಬೇಕು:
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
-                  <input type="text" name="repFullNameBlock" value={form.repFullNameBlock} onChange={handleChange} placeholder="Full Name in BLOCK LETTERS" style={{ border: 'none', borderBottom: '1px dotted #666', outline: 'none', textTransform: 'uppercase' }} />
-                  <input type="text" name="repRelationship" value={form.repRelationship} onChange={handleChange} placeholder="Relationship to patient" style={{ border: 'none', borderBottom: '1px dotted #666', outline: 'none' }} />
+                  <input 
+                    type="text" 
+                    name="repFullNameBlock" 
+                    value={form.repFullNameBlock} 
+                    onChange={handleChange} 
+                    placeholder="FULL NAME IN BLOCK LETTERS" 
+                    style={{ border: 'none', borderBottom: '1px dotted #666', outline: 'none', textTransform: 'uppercase', textAlign: 'center', fontWeight: '600' }} 
+                  />
+                  <input 
+                    type="text" 
+                    name="repRelationship" 
+                    value={form.repRelationship} 
+                    onChange={handleChange} 
+                    placeholder="Relationship to patient" 
+                    style={{ border: 'none', borderBottom: '1px dotted #666', outline: 'none', textAlign: 'center', fontWeight: '600' }} 
+                  />
                 </div>
               </div>
 
               <div style={{ marginTop: '10px' }}>
-                <input type="text" name="consultantSignature" value={form.consultantSignature} onChange={handleChange} placeholder="Consultant Name/Signature" style={{ width: '100%', border: 'none', borderBottom: '1px solid #000', outline: 'none', textAlign: 'center' }} />
+                <input 
+                  type="text" 
+                  name="consultantSignature" 
+                  value={form.consultantSignature} 
+                  onChange={handleChange} 
+                  placeholder="Consultant Signature" 
+                  style={{ 
+                    width: '100%', 
+                    border: 'none', 
+                    borderBottom: '1px solid #000', 
+                    outline: 'none', 
+                    textAlign: 'center',
+                    fontFamily: (form.consultantSignature || form.consultantName) ? "'Brush Script MT', 'Dancing Script', cursive, sans-serif" : 'inherit',
+                    fontSize: '16px'
+                  }} 
+                />
+                {(form.consultantName || (form.consultantSignature && form.consultantSignature !== form.consultantName)) && (
+                  <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '600', color: '#374151', marginTop: '2px' }}>
+                    ({form.consultantName || form.consultantSignature})
+                  </div>
+                )}
                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '11px', marginTop: '2px' }}>
                   Signature of consultant / ಸಮಾಲೋಚಕರ ಸಹಿ
                 </div>
@@ -284,8 +383,34 @@ export default function ConsentHospitalizationConductProceduresPage({ onNavigate
               ಆಸ್ಪತ್ರೆಯಲ್ಲಿರುವ ಸೌಲಭ್ಯಗಳ ಬಗ್ಗೆ ನನಗೆ ವಿವರಿಸಲಾಗಿದೆ. ಆಸ್ಪತ್ರೆಯ ನಿಯಮ ಮತ್ತು ಕಾನೂನುಗಳ ಬಗ್ಗೆ ನನಗೆ ಅರಿವಿದೆ. ಆಸ್ಪತ್ರೆಯವರಿಗೆ ಯಾವಾಗ ಅಗತ್ಯವೆನಿಸುತ್ತದೋ ಆವಾಗ ನಾನು ಮುಂಗಡ ಹಣ/ಠೇವಣಿ ಇರಿಸಬೇಕಾಗುತ್ತದೆ. ಮೇಲೆ ಹೇಳಿದ ರೋಗಿಯನ್ನು ಬಿಡುಗಡೆಗೊಳಿಸುವ ಮುಂಚೆಯೇ ಆಸ್ಪತ್ರೆ ಬಿಲ್‌ಗಳನ್ನು ಸಂಪೂರ್ಣಗೊಳಿಸಲು ನಾನು ಒಪ್ಪುತ್ತೇನೆ. ನಾನು ತಿಳಿದುಕೊಳ್ಳುವುದೇನೆಂದರೆ ಈ ನಮೂನೆಯನ್ನು ತುಂಬಿದಾಕ್ಷಣ ರೋಗಿಯನ್ನು ದಾಖಲು ಮಾಡಬಹುದು. ಅದು ಆಸ್ಪತ್ರೆಯವರ ವಿವೇಚನೆಗೆ ಸಂಬಂಧಿಸಿದ ವಿಷಯವಾಗಿರುತ್ತದೆ. ಆಸ್ಪತ್ರೆಯ ನೀತಿ ನಿಯಮಗಳು ಮತ್ತು ಸಿದ್ಧಾಂತಗಳ ಪ್ರಕಾರ ಯಾವುದೇ ಅಗತ್ಯವಿದೆಯೆಂದು ತೋರುತ್ತದೋ ಅಂತಹ ವೃತ್ತಿಪರ ಮತ್ತು ವೈದ್ಯಕೀಯ ದಾಖಲೆಗಳಿಂದ ಇತರೆ ಮಾಹಿತಿಗಳನ್ನು ಬಿಡುಗಡೆಗೊಳಿಸಲು ನಾನು ಒಪ್ಪಿಗೆ ನೀಡುತ್ತಿದ್ದೇನೆ. ಮುಂಗಡ ಹಣ/ ಠೇವಣಿಗೆ ಒಳಪಡದಿರುವ ಯಾವುದೇ ಮೊತ್ತವನ್ನು / ಟಿ.ಪಿ.ಎ. (ಏನಾದರೂ ಇದ್ದರೆ) ಮತ್ತು ವಿಮೆ / ಟಿ.ಪಿ.ಎ. ಕಂಪನಿಯು ತಿರಸ್ಕರಿಸುವ ಯಾವುದೇ ಮೊತ್ತವನ್ನು ಪಾವತಿಸುತ್ತೇನೆ.
             </p>
 
-            {/* Declarant Details Fillable Sentences */}
+            {/* Declarant Details Fillable Sentences with Patient / Attender Option */}
             <div style={{ border: '1px solid #e5e7eb', padding: '12px', borderRadius: '6px', backgroundColor: '#f9fafb', marginBottom: '15px' }}>
+              <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px dashed #cbd5e1' }}>
+                <span style={{ fontWeight: '700', fontSize: '12px', color: '#0f766e' }}>
+                  Select Declarant / ಘೋಷಣೆದಾರರ ಆಯ್ಕೆ:
+                </span>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', color: form.declarantType === 'patient' ? '#0f766e' : '#475569' }}>
+                  <input 
+                    type="radio" 
+                    name="declarantType" 
+                    value="patient" 
+                    checked={form.declarantType === 'patient'} 
+                    onChange={() => handleDeclarantTypeChange('patient')} 
+                  />
+                  Patient / ರೋಗಿ {form.patientName ? `(${form.patientName})` : ''}
+                </label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', color: form.declarantType === 'attender' ? '#0f766e' : '#475569' }}>
+                  <input 
+                    type="radio" 
+                    name="declarantType" 
+                    value="attender" 
+                    checked={form.declarantType === 'attender'} 
+                    onChange={() => handleDeclarantTypeChange('attender')} 
+                  />
+                  Attender / Representative / ಸಹಾಯಕರು / ಪ್ರತಿನಿಧಿ {form.repFullNameBlock ? `(${form.repFullNameBlock})` : ''}
+                </label>
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
                 <span>I / ನಾನು</span>
                 <input type="text" name="declarantName" value={form.declarantName} onChange={handleChange} placeholder="Declarant Name" style={{ flex: 1, minWidth: '200px', border: 'none', borderBottom: '1px dotted #000', outline: 'none', fontWeight: 'bold' }} />
@@ -295,7 +420,7 @@ export default function ConsentHospitalizationConductProceduresPage({ onNavigate
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span>hereby give consent to admit myself / my - ಈ ಮೂಲಕ ನನ್ನನ್ನು / ನನ್ನ</span>
-                <input type="text" name="targetRelativeRelationship" value={form.targetRelativeRelationship} onChange={handleChange} placeholder="self / relative name & relation" style={{ flex: 1, minWidth: '200px', border: 'none', borderBottom: '1px dotted #000', outline: 'none' }} />
+                <input type="text" name="targetRelativeRelationship" value={form.targetRelativeRelationship} onChange={handleChange} placeholder="myself / relative name & relation" style={{ flex: 1, minWidth: '200px', border: 'none', borderBottom: '1px dotted #000', outline: 'none', fontWeight: '600' }} />
                 <span>whose details have been mentioned herein above / ಒಳರೋಗಿಯಾಗಿ ದಾಖಲಾಗಲು ಒಪ್ಪಿಗೆ ನೀಡುತ್ತಿದ್ದೇನೆ. ಈ ಮೇಲೆ ನನ್ನ/ಅವರ ವಿವರಗಳು ತಿಳಿಸಲಾಗಿದೆ.</span>
               </div>
             </div>
@@ -307,14 +432,35 @@ export default function ConsentHospitalizationConductProceduresPage({ onNavigate
                 <strong>Date & Time / ದಿನಾಂಕ ಮತ್ತು ಸಮಯ:</strong>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <input type="date" name="finSignDate" value={form.finSignDate} onChange={handleChange} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '4px', outline: 'none' }} />
+                <input type="date" name="finSignDate" value={form.finSignDate} onChange={handleChange} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '4px', outline: 'none' }} min={new Date().toISOString().split('T')[0]} />
                 <input type="time" name="finSignTime" value={form.finSignTime} onChange={handleChange} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '4px', outline: 'none' }} />
               </div>
             </div>
 
             <div style={{ textAlign: 'center' }}>
-              <input type="text" name="finSignature" value={form.finSignature} onChange={handleChange} placeholder="Signature / ಸಹಿ" style={{ width: '80%', border: 'none', borderBottom: '1px solid #000', outline: 'none', textAlign: 'center' }} />
-              <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '4px' }}>
+              <input 
+                type="text" 
+                name="finSignature" 
+                value={form.finSignature || form.declarantName} 
+                onChange={handleChange} 
+                placeholder="Signature / ಸಹಿ" 
+                style={{ 
+                  width: '80%', 
+                  border: 'none', 
+                  borderBottom: '1px solid #000', 
+                  outline: 'none', 
+                  textAlign: 'center',
+                  fontFamily: (form.finSignature || form.declarantName) ? "'Brush Script MT', 'Dancing Script', cursive, sans-serif" : 'inherit',
+                  fontSize: '16px',
+                  marginBottom: '4px'
+                }} 
+              />
+              {form.declarantName && (
+                <div style={{ fontSize: '11px', fontWeight: '600', color: '#374151', marginBottom: '2px' }}>
+                  ({form.declarantName})
+                </div>
+              )}
+              <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '2px' }}>
                 Signature / ಸಹಿ
               </div>
             </div>

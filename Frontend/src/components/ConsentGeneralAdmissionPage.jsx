@@ -16,6 +16,8 @@ import { upsertFormRecord, autoSaveFormDraft, getSavedRecords } from '../utils/s
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { focusFirstInputOfVisiblePage } from '../utils/keyboardNavigation';
 
+import { parseDateToISO } from '../utils/dateUtils';
+
 const PERSIST_KEY = 'consent_general_admission';
 
 const getCurrentDate = () => {
@@ -37,7 +39,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     ipNo: '',
     ipOpNo: '', // Added to prevent uncontrolled input warning
     bedNo: '',
-    medicalInsurance: 'Yes',
+    medicalInsurance: '',
     doa: '',
     occupation: '',
     fatherName: '',
@@ -93,6 +95,10 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
     for (const key in data) {
       sanitized[key] = data[key] ?? '';
     }
+    if (sanitized.dateOfAdmission) sanitized.dateOfAdmission = parseDateToISO(sanitized.dateOfAdmission);
+    if (sanitized.doa) sanitized.doa = parseDateToISO(sanitized.doa);
+    if (sanitized.patientSignDate) sanitized.patientSignDate = parseDateToISO(sanitized.patientSignDate);
+    if (sanitized.witnessSignDate) sanitized.witnessSignDate = parseDateToISO(sanitized.witnessSignDate);
     return sanitized;
   };
 
@@ -153,40 +159,77 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
   const [hasWitnessSigned, setHasWitnessSigned] = useState(false);
   const [expandedCanvas, setExpandedCanvas] = useState(null);
 
+  const triggerAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      const insVal = found.medicalInsurance || found.insuranceProvider || found.tpaCompanyName || (found.paymentDetails === 'Insurance' ? 'Insurance' : found.paymentDetails) || '';
+      setForm(prev => ({
+        ...prev,
+        patientName: found.patientName || prev.patientName,
+        age: found.age || prev.age,
+        sex: found.sex || prev.sex,
+        uhidNo: found.uhidNo || prev.uhidNo,
+        ipNo: found.ipNo || prev.ipNo,
+        ipOpNo: found.ipNo || prev.ipOpNo,
+        bedNo: found.bedNo || prev.bedNo,
+        medicalInsurance: insVal || prev.medicalInsurance,
+        isMlc: found.isMlc || prev.isMlc || 'no',
+        mlc: found.mlc || prev.mlc || 'No',
+        doa: found.doa || prev.doa,
+        ward: found.ward || prev.ward,
+        address: found.address || prev.address,
+        presentAddress: found.address || prev.presentAddress,
+        patientAddress: found.address || prev.patientAddress,
+        phoneNo: found.altContact || found.mobileNo || prev.phoneNo,
+        mobileNo: found.mobileNo || found.altContact || prev.mobileNo,
+        officeUhid: found.uhidNo || prev.officeUhid,
+        officeIpNo: found.ipNo || prev.officeIpNo,
+        officeWard: found.ward || prev.officeWard,
+        officeBed: found.bedNo || prev.officeBed
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (form.ipOpNo || form.ipNo) {
+      triggerAutofill(form.ipOpNo || form.ipNo);
+    }
+
+    const handleWardTransferUpdate = (e) => {
+      const { ipNo, uhidNo, ward, bedNo } = e.detail || {};
+      const currentIp = (form.ipOpNo || form.ipNo || '').replace(/[^A-Z0-9]/g, '').toUpperCase();
+      const targetIp = (ipNo || '').replace(/[^A-Z0-9]/g, '').toUpperCase();
+      const currentUhid = (form.uhidNo || '').replace(/[^A-Z0-9]/g, '').toUpperCase();
+      const targetUhid = (uhidNo || '').replace(/[^A-Z0-9]/g, '').toUpperCase();
+
+      if ((targetIp && currentIp && currentIp === targetIp) || (targetUhid && currentUhid && currentUhid === targetUhid)) {
+        setForm(prev => ({
+          ...prev,
+          ...(ward ? { ward, officeWard: ward } : {}),
+          ...(bedNo ? { bedNo, officeBed: bedNo } : {})
+        }));
+      }
+    };
+    window.addEventListener('patient-ward-transferred', handleWardTransferUpdate);
+    return () => window.removeEventListener('patient-ward-transferred', handleWardTransferUpdate);
+  }, [form.ipOpNo, form.ipNo, form.uhidNo]);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    if (name === 'ipOpNo' || name === 'ipNo') {
+      triggerAutofill(value);
+    }
   };
 
-   const handleIpKeyDown = (e) => {
+  const handleIpKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const value = e.target.value;
-      const found = findPatientByIpNo(value);
-      if (found) {
-        setForm(prev => ({
-          ...prev,
-          patientName: found.patientName || prev.patientName,
-          age: found.age || prev.age,
-          sex: found.sex || prev.sex,
-          uhidNo: found.uhidNo || prev.uhidNo,
-          ipNo: found.ipNo || prev.ipNo,
-          ipOpNo: found.ipNo || prev.ipOpNo,
-          bedNo: found.bedNo || prev.bedNo,
-          medicalInsurance: found.medicalInsurance || prev.medicalInsurance,
-          doa: found.doa || prev.doa,
-          ward: found.ward || prev.ward,
-          address: found.address || prev.address,
-          presentAddress: found.address || prev.presentAddress,
-          officeUhid: found.uhidNo || prev.officeUhid,
-          officeIpNo: found.ipNo || prev.officeIpNo,
-          officeWard: found.ward || prev.officeWard,
-          officeBed: found.bedNo || prev.officeBed
-        }));
-      }
+      triggerAutofill(e.target.value);
     }
   };
 
@@ -382,7 +425,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
   const handleClear = () => {
     setForm({
       patientName: '', age: '', sex: 'Male', uhidNo: '', ipNo: '', ipOpNo: '', bedNo: '',
-      medicalInsurance: 'Yes', doa: '', occupation: '', fatherName: '',
+      medicalInsurance: '', doa: '', occupation: '', fatherName: '',
       husbandName: '', address: '', presentAddress: '', phoneNo: '', mobileNo: '', informantName: '',
       relationship: '', informantAddress: '', consentAccepted: false,
       patientSignDate: getCurrentDate(), witnessSignDate: getCurrentDate(), patientSignTime: getCurrentTime(),
@@ -511,7 +554,7 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
         {/* PAGE 1 WRAPPER */}
         <div className={`page-1-content ${currentPage !== 1 ? 'hide-on-screen' : ''}`}>
           {/* Hospital Header */}
-          <HospitalPaperHeader />
+          <HospitalPaperHeader isMlc={form.isMlc === 'yes' || form.mlc === 'Yes'} />
 
         {/* Form Banner Title */}
         <div className="form-banner-header">
@@ -536,8 +579,9 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     type="text" 
                     name="patientName" 
                     value={form.patientName} 
-                    onChange={handleChange} 
+                    readOnly
                     className="tbl-in"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -548,15 +592,16 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     type="text" 
                     name="age" 
                     value={form.age} 
-                    onChange={handleChange} 
+                    readOnly
                     className="tbl-in"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
               <td className="cell-w25">
                 <div className="tbl-field">
                   <span className="tbl-lbl">Sex/ಲಿಂಗ :</span>
-                  <select name="sex" value={form.sex} onChange={handleChange} className="tbl-select">
+                  <select name="sex" value={form.sex} disabled className="tbl-select" style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}>
                     <option value="Male">Male / ಗಂಡು</option>
                     <option value="Female">Female / ಹೆಣ್ಣು</option>
                     <option value="Other">Other / ಇತರೆ</option>
@@ -573,10 +618,9 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     type="text" 
                     name="uhidNo" 
                     value={form.uhidNo} 
-                    onChange={handleChange} 
-                    onKeyDown={handleIpKeyDown}
+                    readOnly
                     className="tbl-in"
-                    placeholder="Enter UHID number"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -589,9 +633,13 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     value={form.ipOpNo} 
                     onChange={handleChange} 
                     onKeyDown={handleIpKeyDown}
+                    onBlur={(e) => triggerAutofill(e.target.value)}
                     className="tbl-in"
                     placeholder="Enter IP number"
                   />
+                  {(form.isMlc === 'yes' || form.mlc === 'Yes') && (
+                    <span style={{ backgroundColor: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', marginLeft: '4px', flexShrink: 0 }}>MLC</span>
+                  )}
                 </div>
               </td>
               <td className="cell-w20">
@@ -601,8 +649,9 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     type="text" 
                     name="ward" 
                     value={form.ward} 
-                    onChange={handleChange} 
+                    readOnly
                     className="tbl-in"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -613,8 +662,9 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     type="text" 
                     name="bedNo" 
                     value={form.bedNo} 
-                    onChange={handleChange} 
+                    readOnly
                     className="tbl-in"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -624,26 +674,14 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
               <td colSpan="2">
                 <div className="tbl-field">
                   <span className="tbl-lbl">Medical Insurance/ವೈದ್ಯಕೀಯ ವಿಮೆ :</span>
-                  <div className="radios-inline">
-                    <label className="radio-lbl">
-                      <input 
-                        type="radio" 
-                        name="medicalInsurance" 
-                        value="Yes" 
-                        checked={form.medicalInsurance === 'Yes'} 
-                        onChange={handleChange} 
-                      /> Yes - ಹೌದು
-                    </label>
-                    <label className="radio-lbl">
-                      <input 
-                        type="radio" 
-                        name="medicalInsurance" 
-                        value="No" 
-                        checked={form.medicalInsurance === 'No'} 
-                        onChange={handleChange} 
-                      /> No - ಇಲ್ಲ
-                    </label>
-                  </div>
+                  <input 
+                    type="text" 
+                    name="medicalInsurance" 
+                    value={form.medicalInsurance || ''} 
+                    onChange={handleChange} 
+                    className="tbl-in"
+                    placeholder="Medical insurance details"
+                  />
                 </div>
               </td>
               <td colSpan="2">
@@ -834,8 +872,9 @@ export default function ConsentGeneralAdmissionPage({ onNavigate, editData, edit
                     type="text" 
                     name="patientName" 
                     value={form.patientName} 
-                    onChange={handleChange} 
+                    readOnly
                     className="box-in"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>

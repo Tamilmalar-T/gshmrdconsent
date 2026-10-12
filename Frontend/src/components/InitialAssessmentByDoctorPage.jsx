@@ -158,24 +158,38 @@ export default function InitialAssessmentByDoctorPage({ onNavigate, editData, ed
     return () => clearTimeout(t);
   }, [patient, form, recordId]);
 
+  const triggerPatientAutofill = (value) => {
+    if (!value || !value.trim()) return;
+    const found = findPatientByIpNo(value);
+    if (found) {
+      setPatient(prev => ({
+        ...prev,
+        name: found.patientName || prev.name,
+        age: found.age || prev.age,
+        sex: found.sex || prev.sex,
+        uhidNo: found.uhidNo || found.ipNo || prev.uhidNo
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (patient.uhidNo) {
+      triggerPatientAutofill(patient.uhidNo);
+    }
+  }, []);
+
   const handlePatientChange = (e) => {
     const { name, value } = e.target;
     setPatient((prev) => ({ ...prev, [name]: value }));
+    if (name === 'uhidNo') {
+      triggerPatientAutofill(value);
+    }
   };
 
   const handleUhidKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const found = findPatientByIpNo(e.target.value);
-      if (found) {
-        setPatient(prev => ({
-          ...prev,
-          name: found.patientName || prev.name,
-          age: found.age || prev.age,
-          sex: found.sex || prev.sex,
-          uhidNo: found.uhidNo || prev.uhidNo
-        }));
-      }
+      triggerPatientAutofill(e.target.value);
     }
   };
 
@@ -320,8 +334,9 @@ export default function InitialAssessmentByDoctorPage({ onNavigate, editData, ed
                     type="text"
                     name="name"
                     value={patient.name}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -332,8 +347,9 @@ export default function InitialAssessmentByDoctorPage({ onNavigate, editData, ed
                     type="text"
                     name="age"
                     value={patient.age}
-                    onChange={handlePatientChange}
+                    readOnly
                     className="info-input-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   />
                 </div>
               </td>
@@ -343,8 +359,9 @@ export default function InitialAssessmentByDoctorPage({ onNavigate, editData, ed
                   <select
                     name="sex"
                     value={patient.sex}
-                    onChange={handlePatientChange}
+                    disabled
                     className="info-select-plain"
+                    style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed' }}
                   >
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -358,14 +375,16 @@ export default function InitialAssessmentByDoctorPage({ onNavigate, editData, ed
             <tr>
               <td colSpan={2} style={{ width: '35%' }}>
                 <div className="info-field-inline">
-                  <span className="info-lbl-bold">UHID No. :</span>
+                  <span className="info-lbl-bold">UHID / IP No. :</span>
                   <input
                     type="text"
                     name="uhidNo"
                     value={patient.uhidNo}
                     onChange={handlePatientChange}
                     onKeyDown={handleUhidKeyDown}
+                    onBlur={(e) => triggerPatientAutofill(e.target.value)}
                     className="info-input-plain"
+                    placeholder="Enter UHID / IP No..."
                   />
                 </div>
               </td>
@@ -389,7 +408,7 @@ export default function InitialAssessmentByDoctorPage({ onNavigate, editData, ed
                     name="date"
                     value={patient.date}
                     onChange={handlePatientChange}
-                    className="info-input-plain"
+                    className="info-input-plain" min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
               </td>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, FileText, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -417,7 +417,7 @@ export default function PhysiotherapyAssessmentPage({ onNavigate, editData, edit
                 <td>
                   <div className="tbl-field">
                     <span className="tbl-lbl">Date :</span>
-                    <input type="date" name="date" value={form.date} onChange={handleChange} className="tbl-in" />
+                    <input type="date" name="date" value={form.date} onChange={handleChange} className="tbl-in" min={new Date().toISOString().split('T')[0]} />
                   </div>
                 </td>
                 <td>
@@ -506,7 +506,7 @@ export default function PhysiotherapyAssessmentPage({ onNavigate, editData, edit
                 name="dateOfSurgery"
                 value={form.dateOfSurgery}
                 onChange={handleChange}
-                style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', fontSize: '11.5px', background: 'transparent' }}
+                style={{ border: 'none', borderBottom: '1px solid #000', outline: 'none', fontSize: '11.5px', background: 'transparent' }} min={new Date().toISOString().split('T')[0]}
               />
             </div>
             <div style={{ fontWeight: 'bold', fontSize: '11.5px', padding: '6px 10px', borderBottom: '1px solid #000', backgroundColor: '#f8fafc' }}>

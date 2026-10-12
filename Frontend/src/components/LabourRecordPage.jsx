@@ -183,8 +183,7 @@ export default function LabourRecordPage({ onNavigate, editData, editRecordId })
   };
 
   const handleSave = async () => {
-    const recordName = form.patientName ? `Labour Record - ${form.patientName}` : 'Labour Record';
-    await upsertFormRecord('labour_record', form.ipNo || 'NO_IP', recordName, form, editRecordId);
+    upsertFormRecord(editRecordId, 'Labour Record', form.ipNo || '', form);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };
@@ -567,7 +566,7 @@ export default function LabourRecordPage({ onNavigate, editData, editRecordId })
                       value={form.date}
                       onChange={handleInputChange}
                       className="lr-cell-input"
-                      style={{ flex: 1 }}
+                      style={{ flex: 1 }} min={new Date().toISOString().split('T')[0]}
                     />
                   </div>
                 </div>
@@ -589,7 +588,7 @@ export default function LabourRecordPage({ onNavigate, editData, editRecordId })
                     value={form.admissionDate}
                     onChange={handleInputChange}
                     className="lr-cell-input"
-                    style={{ flex: 1 }}
+                    style={{ flex: 1 }} min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
                 <div className="lr-field-row">

@@ -915,26 +915,55 @@ export default function FormHeaderMasterPage() {
                   )}
 
                   {/* Contact Block */}
-                  {(form.addressLine1 || form.phone || form.email || form.regNo || form.whatsapp) && (
-                    <div style={{ marginTop:'10px', paddingTop:'8px', borderTop:'1px dashed #cbd5e1', lineHeight:'1.6', width:'100%', textAlign: form.headerStyle==='Left'?'left':'center' }}>
-                      {(form.addressLine1 || form.addressLine2) && (
-                        <div style={fs('addressLine1')}>
-                          <strong>Addr:</strong> {[form.addressLine1, form.addressLine2].filter(Boolean).join(', ')}
+                  {(form.addressLine1 || form.phone || form.email || form.regNo || form.whatsapp || form.website) && (
+                    form.headerStyle === 'Center' ? (
+                      /* Centered Brand: compact single horizontal row */
+                      <div style={{ marginTop:'8px', paddingTop:'6px', borderTop:'1px dashed #cbd5e1', textAlign:'center', width:'100%' }}>
+                        <div style={{ display:'inline-flex', flexWrap:'wrap', justifyContent:'center', alignItems:'center', gap:'0 4px', ...fs('addressLine1') }}>
+                          {form.addressLine1 && (
+                            <span>{[form.addressLine1, form.addressLine2].filter(Boolean).join(', ')}</span>
+                          )}
+                          {form.addressLine1 && (form.phone || form.email || form.website || (form.whatsapp && form.whatsappEnabled)) && (
+                            <span style={{ color:'#94a3b8', margin:'0 2px' }}>|</span>
+                          )}
+                          {form.phone && <span style={fs('phone')}>Ph: {form.phone}</span>}
+                          {form.phone && (form.email || form.website || (form.whatsapp && form.whatsappEnabled)) && (
+                            <span style={{ color:'#94a3b8', margin:'0 2px' }}>|</span>
+                          )}
+                          {form.whatsapp && form.whatsappEnabled && <span style={fs('whatsapp')}>WA: {form.whatsapp}</span>}
+                          {form.whatsapp && form.whatsappEnabled && (form.email || form.website) && (
+                            <span style={{ color:'#94a3b8', margin:'0 2px' }}>|</span>
+                          )}
+                          {form.email && <span style={fs('email')}>Email: {form.email}</span>}
+                          {form.email && form.website && <span style={{ color:'#94a3b8', margin:'0 2px' }}>|</span>}
+                          {form.website && <span style={fs('website')}>Web: {form.website}</span>}
                         </div>
-                      )}
-                      <div style={{ display:'flex', flexWrap:'wrap', justifyContent: form.headerStyle==='Left'?'flex-start':'center', gap:'4px' }}>
-                        {form.phone  && <span style={fs('phone')}>📞 {form.phone}</span>}
-                        {form.phone  && (form.email || form.website || (form.whatsapp && form.whatsappEnabled)) && <span style={{ color:'#94a3b8' }}>|</span>}
-                        {form.whatsapp && form.whatsappEnabled && <span style={fs('whatsapp')}>💬 {form.whatsapp}</span>}
-                        {form.whatsapp && form.whatsappEnabled && (form.email || form.website) && <span style={{ color:'#94a3b8' }}>|</span>}
-                        {form.email  && <span style={fs('email')}>✉ {form.email}</span>}
-                        {form.email  && form.website && <span style={{ color:'#94a3b8' }}>|</span>}
-                        {form.website && <span style={fs('website')}>🌐 {form.website}</span>}
+                        {form.regNo && (
+                          <div style={{ marginTop:'1px', ...fs('regNo') }}>{form.regNo}</div>
+                        )}
                       </div>
-                      {form.regNo && (
-                        <div style={{ marginTop:'2px', ...fs('regNo') }}>{form.regNo}</div>
-                      )}
-                    </div>
+                    ) : (
+                      /* Left / Bordered: stacked layout */
+                      <div style={{ marginTop:'10px', paddingTop:'8px', borderTop:'1px dashed #cbd5e1', lineHeight:'1.6', width:'100%', textAlign: form.headerStyle==='Left'?'left':'center' }}>
+                        {(form.addressLine1 || form.addressLine2) && (
+                          <div style={fs('addressLine1')}>
+                            <strong>Addr:</strong> {[form.addressLine1, form.addressLine2].filter(Boolean).join(', ')}
+                          </div>
+                        )}
+                        <div style={{ display:'flex', flexWrap:'wrap', justifyContent: form.headerStyle==='Left'?'flex-start':'center', gap:'4px' }}>
+                          {form.phone  && <span style={fs('phone')}>📞 {form.phone}</span>}
+                          {form.phone  && (form.email || form.website || (form.whatsapp && form.whatsappEnabled)) && <span style={{ color:'#94a3b8' }}>|</span>}
+                          {form.whatsapp && form.whatsappEnabled && <span style={fs('whatsapp')}>💬 {form.whatsapp}</span>}
+                          {form.whatsapp && form.whatsappEnabled && (form.email || form.website) && <span style={{ color:'#94a3b8' }}>|</span>}
+                          {form.email  && <span style={fs('email')}>✉ {form.email}</span>}
+                          {form.email  && form.website && <span style={{ color:'#94a3b8' }}>|</span>}
+                          {form.website && <span style={fs('website')}>🌐 {form.website}</span>}
+                        </div>
+                        {form.regNo && (
+                          <div style={{ marginTop:'2px', ...fs('regNo') }}>{form.regNo}</div>
+                        )}
+                      </div>
+                    )
                   )}
                 </div>
 

@@ -604,35 +604,38 @@
 }
 
 .app-sidebar {
-  width: 240px;
+  width: 195px;
+  min-width: 195px;
+  flex-shrink: 0;
   background-color: #ffffff;
   border-right: 1px solid #e2ece9;
   color: #475569;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, min-width 0.3s ease;
   height: calc(100vh - 60px);
   overflow-y: auto;
 }
 
 .app-sidebar.closed {
   width: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
 .sidebar-search-container {
-  padding: 14px 12px 6px;
+  padding: 10px 10px 4px;
 }
 
 .sidebar-search-box {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background-color: #f4f8f7;
   border: 1px solid #e1ebe8;
-  border-radius: 10px;
-  padding: 7px 12px;
+  border-radius: 8px;
+  padding: 6px 10px;
 }
 
 .sidebar-search-icon {
@@ -644,28 +647,28 @@
   background: transparent;
   border: none;
   outline: none;
-  font-size: 13.5px;
+  font-size: 12.5px;
   color: #0f172a;
   width: 100%;
 }
 
 .sidebar-scroll-content {
-  padding: 8px 12px 16px;
+  padding: 6px 8px 14px;
   flex: 1;
   overflow-y: auto;
 }
 
 .sidebar-section {
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .section-title {
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 700;
   color: #64748b;
   letter-spacing: 0.05em;
-  padding: 0 10px;
-  margin-bottom: 8px;
+  padding: 0 8px;
+  margin-bottom: 6px;
   text-transform: uppercase;
 }
 
@@ -677,14 +680,24 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 8px 10px;
   color: #334155;
-  font-size: 14.5px;
+  font-size: 13px;
   font-weight: 500;
-  border-radius: 10px;
+  border-radius: 8px;
   transition: all 0.2s ease;
   text-align: left;
+}
+
+.sidebar-nav-item .item-icon {
+  flex-shrink: 0;
+}
+
+.sidebar-nav-item .item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-nav-item:hover {
@@ -716,19 +729,25 @@
 .sidebar-submenu {
   list-style: none;
   padding-left: 0;
-  margin-top: 4px;
-  margin-bottom: 6px;
+  margin-top: 3px;
+  margin-bottom: 4px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   border-left: 2px solid #cbd5e1;
-  margin-left: 22px;
+  margin-left: 16px;
+}
+
+.sidebar-nav-item.active-parent {
+  color: #0f766e;
+  background-color: #f0fdfa;
+  font-weight: 600;
 }
 
 .sidebar-nav-item.sidebar-sub-item {
-  font-size: 13.5px;
-  padding: 8px 12px;
-  border-radius: 8px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
   color: #475569;
 }
 
@@ -745,7 +764,7 @@
 }
 
 .sidebar-footer {
-  padding: 14px 18px;
+  padding: 10px 14px;
   border-top: 1px solid #e2ece9;
   background-color: #f8faf9;
 }
@@ -858,7 +877,7 @@
 .center-hospital-brand {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .hospital-logo-row {
@@ -1252,92 +1271,77 @@
   background-color: #b91c1c;
 }
 
-/* Progress Sheet Specific Styles */
+/* Progress Sheet Specific Styles (Pink Sheet) */
 .progress-sheet-wrapper {
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
 }
 
+.pink-paper-container,
 .pink-card-container {
-  background-color: #f7a2c3;
-  /* Soft pink paper sheet color matching physical document */
-  padding: 16px;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background-color: #fdf2f8;
+  border: 1.5px solid #f472b6;
+  border-radius: 6px;
+  padding: 24px 28px;
+  box-shadow: 0 4px 16px rgba(244, 114, 182, 0.12);
 }
 
-.inner-pink-form-box {
-  background-color: #f7a2c3;
-  border: 1.5px solid #0f172a;
-  padding: 14px 18px 20px 18px;
-  border-radius: 2px;
-  position: relative;
+.pink-form-title {
+  background-color: #f472b6 !important;
+  color: #500724 !important;
+  border-color: #db2777 !important;
 }
 
-.inner-pink-form-box .mint-patient-info-table,
-.inner-pink-form-box .mint-notes-table,
-.inner-pink-form-box .mint-notes-table th,
-.inner-pink-form-box .mint-notes-table td,
-.inner-pink-form-box .mint-patient-info-table td {
-  background-color: #f7a2c3;
-  border-color: #0f172a;
+.pink-patient-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1.5px solid #000000;
+  margin-top: 10px;
+  margin-bottom: 14px;
+  table-layout: fixed;
+  background-color: #ffffff;
 }
 
-.cell-progress-name {
-  width: 38%;
+.pink-patient-table td {
+  border: 1px solid #000000;
+  padding: 5px 8px;
+  font-size: 11.5px;
+  box-sizing: border-box;
 }
 
-.cell-progress-age {
-  width: 14%;
+.pink-notes-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1.5px solid #000000;
+  margin-top: 10px;
+  margin-bottom: 14px;
+  table-layout: fixed;
+  background-color: #ffffff;
 }
 
-.cell-progress-sex {
-  width: 16%;
-}
-
-.cell-progress-uhid {
-  width: 32%;
-}
-
-.cell-progress-ip {
-  width: 20%;
-}
-
-.cell-progress-consultant {
-  width: 34%;
-}
-
-.cell-progress-doa {
-  width: 16%;
-}
-
-.cell-progress-wardbed {
-  width: 30%;
-}
-
-.cell-short {
-  width: 45px !important;
-}
-
-.th-progress-date {
-  width: 16%;
-}
-
-.th-progress-notes {
-  width: 68%;
-}
-
-.th-progress-sign {
-  width: 16%;
-}
-
-.td-progress-date {
+.pink-notes-table th {
+  border: 1px solid #000000;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  font-weight: 800;
   text-align: center;
+  color: #500724;
+  background-color: #f472b6;
+  letter-spacing: 0.3px;
+}
+
+.pink-notes-table td {
+  border: 1px solid #000000;
+  padding: 0;
+  vertical-align: top;
+  box-sizing: border-box;
+  background-color: #ffffff;
 }
 
 .btn-pink-save {
   background-color: #db2777 !important;
+  color: #ffffff !important;
   box-shadow: 0 2px 6px rgba(219, 39, 119, 0.3) !important;
 }
 
@@ -1812,7 +1816,7 @@
   color: #1e1b4b;
 }
 
-/* ── Vitals Chart Legend Corner ── */
+/* â”€â”€ Vitals Chart Legend Corner â”€â”€ */
 .th-legend-corner {
   width: 90px;
   min-width: 90px;
@@ -1864,7 +1868,7 @@
   flex-shrink: 0;
 }
 
-/* ── Readings axis column ── */
+/* â”€â”€ Readings axis column â”€â”€ */
 .th-readings-corner {
   width: 44px;
   min-width: 44px;
@@ -1993,7 +1997,7 @@
   background-color: rgba(186, 230, 253, 0.6);
 }
 
-/* ── Major row (every 10 pulse units / 5 rows): bold top border ── */
+/* â”€â”€ Major row (every 10 pulse units / 5 rows): bold top border â”€â”€ */
 .vitals-major-row .vitals-cell-slot {
   border-top: 1.5px solid #334155 !important;
   background-color: #f1f5f9;
@@ -2003,7 +2007,7 @@
   background-color: rgba(186, 230, 253, 0.6);
 }
 
-/* ── Minor rows: faint alternating tint every other minor row ── */
+/* â”€â”€ Minor rows: faint alternating tint every other minor row â”€â”€ */
 .vitals-minor-row:nth-child(even) .vitals-cell-slot {
   background-color: #f8fafc;
 }
@@ -2012,7 +2016,7 @@
   background-color: rgba(186, 230, 253, 0.6);
 }
 
-/* ── Major row: bold top border on axis cells too ── */
+/* â”€â”€ Major row: bold top border on axis cells too â”€â”€ */
 .vitals-major-row .td-pulse-axis {
   border-top: 1.5px solid #334155 !important;
   border-bottom: none !important;
@@ -2034,7 +2038,7 @@
 
 
 
-/* ── Vertical Dividers ── */
+/* â”€â”€ Vertical Dividers â”€â”€ */
 /* Between Day and Night groups */
 .vdivider-day-night {
   border-right: 2px solid #64748b !important;
@@ -3398,6 +3402,7 @@
 
 .green-paper-container {
   background-color: #e8f5e9;
+
   border: 1.5px solid #2e7d32;
   border-radius: 6px;
   padding: 24px 28px;
@@ -6198,6 +6203,42 @@ button:focus,
   background-color: #f0fdf4 !important;
   transition: outline 0.1s ease, box-shadow 0.1s ease, background-color 0.1s ease;
 }
+
+/* Pagination Page Number Buttons Styling */
+.page-number-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.page-number-btn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.page-number-btn.active,
+.page-number-btn.active:focus,
+.page-number-btn.active:hover {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border: 2px solid #2563eb !important;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3) !important;
+  outline: none !important;
+}
+
+.page-number-btn:focus:not(.active) {
+  outline: 2px solid #2563eb !important;
+  background-color: #ffffff !important;
+}
+
 
 /* Radio & Checkbox High Visibility Focus */
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
@@ -761,7 +761,7 @@ export default function ResidentDoctorProgressRecordPage({ onNavigate, editData,
                     name="docDate" 
                     value={soap.docDate} 
                     onChange={handleSoapChange} 
-                    className="box-in"
+                    className="box-in" min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
               </td>

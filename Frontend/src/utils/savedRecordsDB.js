@@ -59,7 +59,8 @@ const syncToPostgres = async (record) => {
     // 2. Post Form Data to PG
     const formPayload = {
       patientId: patientId,
-      formData: record.data
+      formData: record.data,
+      formType: record.formType
     };
 
     let formRes = await fetch(`${API_BASE_URL}/${endpoint}`, {
@@ -92,19 +93,51 @@ export const getSavedRecords = () => {
  * Returns the saved record (with its id).
  */
 export const upsertFormRecord = (existingId, formType, rawIpNo, formData, createdBy, forceDraft) => {
+  if (typeof existingId === 'object' && existingId !== null && !formType) {
+    const obj = existingId;
+    return upsertFormRecord(
+      obj.id,
+      obj.formType || 'Clinical Record',
+      obj.rawIpNo || obj.patientIpNo || obj.ipNo || obj.uhidNo || obj.patient?.ipNo || obj.patient?.uhidNo,
+      obj.data || obj,
+      obj.createdBy,
+      obj.isDraft
+    );
+  }
+
   const records = getSavedRecords();
-  const cleanIp = (rawIpNo || '').trim().toUpperCase();
+  
+  let resolvedIp = typeof rawIpNo === 'string' 
+    ? rawIpNo 
+    : (rawIpNo?.ipNo || rawIpNo?.ip || rawIpNo?.patientIpNo || formData?.ipNo || formData?.patient?.ipNo || formData?.form?.ipNo || formData?.patientIpNo || '');
+  
+  const cleanIp = (resolvedIp || '').trim().toUpperCase();
   const isDraft = forceDraft !== undefined ? forceDraft : (!cleanIp || cleanIp === 'UNASSIGNED' || cleanIp === 'DRAFT' || cleanIp === 'NO IP');
 
   const patientName =
+    (typeof rawIpNo === 'object' ? (rawIpNo?.name || rawIpNo?.patientName) : '') ||
     formData?.patientName ||
     formData?.name ||
     formData?.patName ||
     formData?.patient?.name ||
     formData?.patient?.patientName ||
+    formData?.form?.patientName ||
+    '';
+
+  const gender =
+    (typeof rawIpNo === 'object' ? (rawIpNo?.sex || rawIpNo?.gender) : '') ||
+    formData?.sex ||
+    formData?.gender ||
+    formData?.patient?.sex ||
+    formData?.patient?.gender ||
+    formData?.form?.sex ||
+    formData?.form?.gender ||
     '';
 
   const displayIp = (!cleanIp || cleanIp === 'UNASSIGNED' || cleanIp === 'DRAFT' || cleanIp === 'NO IP') ? 'Draft (No IP)' : cleanIp;
+
+  const nowStr = new Date().toLocaleString();
+  let savedItem = null;
 
   if (existingId) {
     // Update existing record
@@ -114,48 +147,88 @@ export const upsertFormRecord = (existingId, formType, rawIpNo, formData, create
         ...records[idx],
         patientIpNo: displayIp,
         rawIpNo: displayIp === 'Draft (No IP)' ? '' : cleanIp,
-        patientName,
+        patientName: patientName || records[idx].patientName,
+        gender: gender || records[idx].gender || '',
+        createdOn: records[idx].createdOn || records[idx].createdAt || records[idx].savedAt || nowStr,
+        createdBy: records[idx].createdBy || createdBy || 'Sadhana Admin',
+        updatedOn: nowStr,
+        updatedBy: createdBy || 'Sadhana Admin',
         isDraft,
-        savedAt: new Date().toLocaleString(),
+        savedAt: nowStr,
         data: formData
       };
       
+      records[idx] = updated;
+      localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+      
       if (!isDraft) {
-        // If it's no longer a draft (has an IP), delete it from Local Storage
-        records.splice(idx, 1);
-        localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
-        syncToPostgres(updated); // Save to Postgres
-      } else {
-        // Still a draft, keep it in Local Storage
-        records[idx] = updated;
-        localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+        syncToPostgres(updated); // Background Postgres sync
       }
-      return updated;
+      savedItem = updated;
     }
   }
 
-  // No existing record — create new
-  const newRecord = {
-    id: Date.now(),
-    formType,
-    patientIpNo: displayIp,
-    rawIpNo: displayIp === 'Draft (No IP)' ? '' : cleanIp,
-    patientName,
-    createdBy: createdBy || 'Sadhana Admin',
-    isDraft,
-    savedAt: new Date().toLocaleString(),
-    data: formData
-  };
+  if (!savedItem) {
+    // Check if an existing record for same formType and IP exists to update in place
+    const existingIdx = !isDraft && cleanIp 
+      ? records.findIndex(r => r.formType === formType && ((r.rawIpNo || r.patientIpNo || '').trim().toUpperCase() === cleanIp))
+      : -1;
 
-  if (!isDraft) {
-    // If it's created with an IP immediately, don't store in Local Storage
-    syncToPostgres(newRecord); // Save to Postgres
-  } else {
-    // Prepend new draft to Local Storage
-    records.unshift(newRecord);
-    localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+    if (existingIdx !== -1) {
+      const updated = {
+        ...records[existingIdx],
+        patientIpNo: displayIp,
+        rawIpNo: cleanIp,
+        patientName: patientName || records[existingIdx].patientName,
+        gender: gender || records[existingIdx].gender || '',
+        createdOn: records[existingIdx].createdOn || records[existingIdx].createdAt || records[existingIdx].savedAt || nowStr,
+        createdBy: records[existingIdx].createdBy || createdBy || 'Sadhana Admin',
+        updatedOn: nowStr,
+        updatedBy: createdBy || 'Sadhana Admin',
+        isDraft: false,
+        savedAt: nowStr,
+        data: formData
+      };
+      records[existingIdx] = updated;
+      localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+      syncToPostgres(updated);
+      savedItem = updated;
+    } else {
+      // Create new record
+      const newRecord = {
+        id: Date.now(),
+        formType,
+        patientIpNo: displayIp,
+        rawIpNo: displayIp === 'Draft (No IP)' ? '' : cleanIp,
+        patientName,
+        gender,
+        createdOn: nowStr,
+        createdBy: createdBy || 'Sadhana Admin',
+        updatedOn: nowStr,
+        updatedBy: createdBy || 'Sadhana Admin',
+        isDraft,
+        savedAt: nowStr,
+        data: formData
+      };
+
+      records.unshift(newRecord);
+      localStorage.setItem(SAVED_RECORDS_KEY, JSON.stringify(records));
+      
+      if (!isDraft) {
+        syncToPostgres(newRecord); // Background Postgres sync
+      }
+      savedItem = newRecord;
+    }
   }
-  return newRecord;
+
+  // Dispatch global event for instant UI reflection (MRD Checklist, etc.)
+  try {
+    window.dispatchEvent(new CustomEvent('form_record_saved', { detail: savedItem }));
+  } catch (e) {
+    // ignore in non-browser env
+  }
+
+  return savedItem;
 };
 
 // Legacy alias (kept for backward compat)
@@ -196,11 +269,21 @@ export const deleteAllDrafts = () => {
   return updated;
 };
 
-export const updatePatientInRecords = (oldIpNo, newIpNo, newPatientName) => {
+export const updatePatientInRecords = (oldIpNo, newIpNo, updatedPatientData) => {
   const records = getSavedRecords();
   const searchIp = (oldIpNo || '').trim().toUpperCase();
   const newCleanIp = (newIpNo || '').trim().toUpperCase();
   
+  const patientName = typeof updatedPatientData === 'string' ? updatedPatientData : (updatedPatientData?.patientName || updatedPatientData?.name);
+  const age = typeof updatedPatientData === 'object' ? (updatedPatientData?.age || '') : '';
+  const sex = typeof updatedPatientData === 'object' ? (updatedPatientData?.sex || updatedPatientData?.gender || '') : '';
+  const uhidNo = typeof updatedPatientData === 'object' ? (updatedPatientData?.uhidNo || '') : '';
+  const ward = typeof updatedPatientData === 'object' ? (updatedPatientData?.ward || '') : '';
+  const bedNo = typeof updatedPatientData === 'object' ? (updatedPatientData?.bedNo || '') : '';
+  const wardBed = (ward && bedNo) ? `${ward} / ${bedNo}` : (ward || bedNo);
+  const doa = typeof updatedPatientData === 'object' ? (updatedPatientData?.doa || updatedPatientData?.dateOfAdmission || '') : '';
+  const consultant = typeof updatedPatientData === 'object' ? (updatedPatientData?.consultant || updatedPatientData?.consultantName || updatedPatientData?.consultantDr || '') : '';
+
   let updatedCount = 0;
   const updatedRecords = records.map(r => {
     const recIp = (r.rawIpNo || r.patientIpNo || '').trim().toUpperCase();
@@ -210,19 +293,37 @@ export const updatePatientInRecords = (oldIpNo, newIpNo, newPatientName) => {
         ...r,
         patientIpNo: (r.isDraft && (!r.patientIpNo || r.patientIpNo === 'Draft (No IP)')) ? 'Draft (No IP)' : newCleanIp,
         rawIpNo: newCleanIp,
-        patientName: newPatientName || r.patientName,
+        patientName: patientName || r.patientName,
         data: {
           ...r.data,
-          patientName: newPatientName || r.data?.patientName,
-          name: newPatientName || r.data?.name,
-          patName: newPatientName || r.data?.patName,
+          patientName: patientName || r.data?.patientName,
+          name: patientName || r.data?.name,
+          patName: patientName || r.data?.patName,
+          age: age || r.data?.age,
+          sex: sex || r.data?.sex,
+          gender: sex || r.data?.gender,
+          uhidNo: uhidNo || r.data?.uhidNo,
           ipNo: newCleanIp,
           ipOpNo: newCleanIp,
+          ward: ward || r.data?.ward,
+          bedNo: bedNo || r.data?.bedNo,
+          wardBed: wardBed || r.data?.wardBed,
+          doa: doa || r.data?.doa,
+          dateOfAdmission: doa || r.data?.dateOfAdmission,
+          consultant: consultant || r.data?.consultant,
           patient: r.data?.patient ? {
             ...r.data.patient,
-            patientName: newPatientName || r.data.patient.patientName,
-            name: newPatientName || r.data.patient.name,
-            ipNo: newCleanIp
+            patientName: patientName || r.data.patient.patientName,
+            name: patientName || r.data.patient.name,
+            age: age || r.data.patient.age,
+            sex: sex || r.data.patient.sex,
+            gender: sex || r.data.patient.gender,
+            uhidNo: uhidNo || r.data.patient.uhidNo,
+            ipNo: newCleanIp,
+            ward: ward || r.data.patient.ward,
+            bedNo: bedNo || r.data.patient.bedNo,
+            wardBed: wardBed || r.data.patient.wardBed,
+            doa: doa || r.data.patient.doa
           } : undefined
         }
       };

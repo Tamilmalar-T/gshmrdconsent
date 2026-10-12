@@ -23,7 +23,8 @@ import {
   Phone,
   Lock,
   User as UserIcon,
-  Check
+  Check,
+  Filter
 } from 'lucide-react';
 
 const STORAGE_KEY = 'masters_users';
@@ -49,7 +50,7 @@ const INITIAL_USERS = [
   { 
     userId: 'mrd', 
     userName: 'MRD Admin', 
-    empName: 'System Administrator',
+    empName: 'SYSTEM ADMINISTRATOR',
     empCode: 'EMP001',
     department: 'Administration',
     designation: 'Chief Administrator',
@@ -68,7 +69,7 @@ const INITIAL_USERS = [
   { 
     userId: 'ramesh02', 
     userName: 'Dr. Ramesh', 
-    empName: 'Ramesh Kumar',
+    empName: 'RAMESH KUMAR',
     empCode: 'EMP002',
     department: 'Cardiology',
     designation: 'Senior Consultant Doctor',
@@ -87,7 +88,7 @@ const INITIAL_USERS = [
   { 
     userId: 'suresh03', 
     userName: 'Dr. Suresh', 
-    empName: 'Suresh Babu',
+    empName: 'SURESH BABU',
     empCode: 'EMP003',
     department: 'Neurology',
     designation: 'Consultant Neurosurgeon',
@@ -106,7 +107,7 @@ const INITIAL_USERS = [
   { 
     userId: 'kavitha04', 
     userName: 'Dr. Kavitha', 
-    empName: 'Kavitha Devi',
+    empName: 'KAVITHA DEVI',
     empCode: 'EMP004',
     department: 'Gynecology',
     designation: 'Consultant Gynecologist',
@@ -153,6 +154,9 @@ const DEFAULT_ROLES = [
 ];
 
 const LANDING_PAGES = [
+  'OP Register',
+  'IP Register',
+  'Admission Record',
   'Patient Registration',
   'New Patient Registration',
   'Ward Master',
@@ -217,6 +221,8 @@ export default function UserMasterPage() {
   const [branches, setBranches] = useState(DEFAULT_BRANCHES);
   const [roles, setRoles] = useState(DEFAULT_ROLES);
 
+  const [currentView, setCurrentView] = useState('form'); // 'form' or 'list'
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState('All');
   const [editingUserId, setEditingUserId] = useState(null);
   const [errors, setErrors] = useState({});
   const [successMsg, setSuccessMsg] = useState('');
@@ -303,7 +309,11 @@ export default function UserMasterPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    let finalVal = value;
+    if (name === 'empName' && typeof value === 'string') {
+      finalVal = value.toUpperCase();
+    }
+    setForm((prev) => ({ ...prev, [name]: finalVal }));
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
@@ -330,11 +340,6 @@ export default function UserMasterPage() {
       password: '',
       empName: '',
       empCode: '',
-      department: departments[0] || 'Administration',
-      designation: designations[0] || 'Senior Consultant Doctor',
-      qualification: qualifications[0] || 'MBBS',
-      mobileNumber: '',
-      branch: branches[0] || 'Main Branch - Central',
       role: roles[0] || 'Admin',
       landingPage: 'User Master',
       status: 'Active',
@@ -456,7 +461,6 @@ export default function UserMasterPage() {
     if (!editingUserId && !(form.password || '').trim()) newErrors.password = 'Password is required.';
     if (!(form.empName || '').trim()) newErrors.empName = 'Employee Name is required.';
     if (!(form.empCode || '').trim()) newErrors.empCode = 'Employee Code is required.';
-    if (!(form.branch || '').trim()) newErrors.branch = 'Branch is required.';
     if (!(form.role || '').trim()) newErrors.role = 'Role is required.';
 
     // Duplicate User ID Check (Case Insensitive)
@@ -490,6 +494,7 @@ export default function UserMasterPage() {
 
     const userDataToSave = {
       ...form,
+      empName: (form.empName || '').trim().toUpperCase(),
       password: hashedPassword
     };
 
@@ -499,12 +504,14 @@ export default function UserMasterPage() {
       saveToStorage(updated);
       setSuccessMsg(`User "${form.userName}" updated successfully!`);
       handleClear();
+      setCurrentView('list');
     } else {
       // Add new user
       const updated = [...users, userDataToSave];
       saveToStorage(updated);
       setSuccessMsg(`User "${form.userName}" created successfully with secure hashed password!`);
       handleClear();
+      setCurrentView('list');
     }
 
     setTimeout(() => setSuccessMsg(''), 4000);
@@ -515,20 +522,17 @@ export default function UserMasterPage() {
       ...user,
       empName: user.empName || user.userName || '',
       empCode: user.empCode || `EMP00${users.indexOf(user) + 1}`,
-      department: user.department || departments[0] || '',
-      designation: user.designation || designations[0] || '',
-      qualification: user.qualification || qualifications[0] || '',
-      mobileNumber: user.mobileNumber || user.contact || '',
-      branch: user.branch || branches[0] || '',
       role: user.role || user.userType || roles[0] || '',
       landingPage: user.landingPage || 'User Master',
       photo: user.photo || '',
       signature: user.signature || user.signatureImage || '',
       themeType: user.themeType || 'Default Light Blue',
-      userRoleGroup: user.userRoleGroup || 'Super Admin Group'
+      userRoleGroup: user.userRoleGroup || 'Super Admin Group',
+      password: ''
     });
     setEditingUserId(user.userId);
     setErrors({});
+    setCurrentView('form');
   };
 
   const handleDelete = (userId) => {
@@ -545,16 +549,23 @@ export default function UserMasterPage() {
     }
   };
 
+  const allAvailableRoles = ['All', ...Array.from(new Set([...roles, ...users.map(u => u.role || u.userType).filter(Boolean)]))];
+
   const filteredUsers = users.filter((u) => {
     const q = searchQuery.toLowerCase();
+    const userRole = (u.role || u.userType || '').trim();
+
+    // Role filter
+    if (selectedRoleFilter !== 'All' && userRole.toLowerCase() !== selectedRoleFilter.toLowerCase()) {
+      return false;
+    }
+
     return (
       (u.userName || '').toLowerCase().includes(q) ||
       (u.userId || '').toLowerCase().includes(q) ||
       (u.empCode || '').toLowerCase().includes(q) ||
       (u.empName || '').toLowerCase().includes(q) ||
-      (u.role || u.userType || '').toLowerCase().includes(q) ||
-      (u.department || '').toLowerCase().includes(q) ||
-      (u.branch || '').toLowerCase().includes(q)
+      (u.role || u.userType || '').toLowerCase().includes(q)
     );
   });
 
@@ -633,7 +644,10 @@ export default function UserMasterPage() {
             onChange={handleChange} 
             placeholder="Full official employee name" 
             className="pr-input" 
-            style={{ borderColor: errors.empName ? '#ef4444' : undefined }} 
+            style={{ 
+              textTransform: 'uppercase',
+              borderColor: errors.empName ? '#ef4444' : undefined 
+            }} 
           />
           {errors.empName && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>{errors.empName}</div>}
         </div>
@@ -653,48 +667,6 @@ export default function UserMasterPage() {
         </div>
 
         <div className="pr-field">
-          <label className="pr-label">MOBILE NUMBER</label>
-          <input 
-            type="text" 
-            name="mobileNumber" 
-            value={form.mobileNumber} 
-            onChange={handleChange} 
-            placeholder="10-digit phone number" 
-            className="pr-input" 
-          />
-        </div>
-
-        <div className="pr-field">
-          <label className="pr-label">DEPARTMENT (Master)</label>
-          <select name="department" value={form.department} onChange={handleChange} className="pr-select">
-            {departments.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-
-        {/* Row 3 */}
-        <div className="pr-field">
-          <label className="pr-label">DESIGNATION (Master)</label>
-          <select name="designation" value={form.designation} onChange={handleChange} className="pr-select">
-            {designations.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-
-        <div className="pr-field">
-          <label className="pr-label">QUALIFICATION (Master)</label>
-          <select name="qualification" value={form.qualification} onChange={handleChange} className="pr-select">
-            {qualifications.map(q => <option key={q} value={q}>{q}</option>)}
-          </select>
-        </div>
-
-        <div className="pr-field">
-          <label className="pr-label">HOSPITAL BRANCH <span className="req-star">*</span></label>
-          <select name="branch" value={form.branch} onChange={handleChange} className="pr-select" style={{ borderColor: errors.branch ? '#ef4444' : undefined }}>
-            {branches.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-          {errors.branch && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>{errors.branch}</div>}
-        </div>
-
-        <div className="pr-field">
           <label className="pr-label">USER ROLE <span className="req-star">*</span></label>
           <select name="role" value={form.role} onChange={handleChange} className="pr-select" style={{ borderColor: errors.role ? '#ef4444' : undefined }}>
             {roles.map(r => <option key={r} value={r}>{r}</option>)}
@@ -702,7 +674,6 @@ export default function UserMasterPage() {
           {errors.role && <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>{errors.role}</div>}
         </div>
 
-        {/* Row 4 */}
         <div className="pr-field">
           <label className="pr-label">USER ROLE GROUP</label>
           <select name="userRoleGroup" value={form.userRoleGroup} onChange={handleChange} className="pr-select">
@@ -710,7 +681,8 @@ export default function UserMasterPage() {
           </select>
         </div>
 
-        <div className="pr-field">
+        {/* Row 3 */}
+        <div className="pr-field" style={{ gridColumn: 'span 2' }}>
           <label className="pr-label">LANDING PAGE (Post Login)</label>
           <select name="landingPage" value={form.landingPage} onChange={handleChange} className="pr-select">
             {LANDING_PAGES.map(p => <option key={p} value={p}>{p}</option>)}
@@ -803,177 +775,313 @@ export default function UserMasterPage() {
       {/* Page Header Bar */}
       <div className="pr-page-header">
         <div className="pr-header-titles">
-          <h1 className="pr-main-title">User Master</h1>
+          <h1 className="pr-main-title">
+            {currentView === 'form' 
+              ? (editingUserId ? 'Edit System User' : 'User Master') 
+              : 'User Accounts Registry'}
+          </h1>
           <p className="pr-sub-title">
-            Comprehensive system user management: assign roles, employee details, security passwords, signatures, and themes.
+            {currentView === 'form'
+              ? 'Comprehensive system user management: assign roles, employee details, security passwords, signatures, and themes.'
+              : 'View, search, edit, and manage all registered system user accounts and permissions.'}
           </p>
         </div>
 
-        <div className="pr-header-actions">
-          <div className="pr-search-bar">
-            <Search size={14} className="pr-search-icon" />
-            <input 
-              type="text" 
-              placeholder="Search by name, ID, code, role..." 
-              value={searchQuery} 
-              onChange={(e) => setSearchQuery(e.target.value)} 
-              className="pr-search-input"
-            />
-            <span className="pr-records-badge">{users.length} users</span>
-          </div>
-        </div>
-      </div>
+        <div className="pr-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {currentView === 'form' ? (
+            <button 
+              type="button" 
+              onClick={() => setCurrentView('list')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 18px',
+                backgroundColor: '#0284c7',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <UserCheck size={16} />
+              <span>User list ({users.length})</span>
+            </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Role Dropdown Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#f8fafc', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                <Filter size={13} style={{ color: '#0284c7' }} />
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Role:</span>
+                <select 
+                  value={selectedRoleFilter} 
+                  onChange={(e) => setSelectedRoleFilter(e.target.value)}
+                  style={{ border: 'none', background: 'transparent', fontSize: '12px', fontWeight: '600', color: '#0f172a', outline: 'none', cursor: 'pointer' }}
+                >
+                  {allAvailableRoles.map(r => {
+                    const cnt = r === 'All' ? users.length : users.filter(u => (u.role || u.userType || '').toLowerCase() === r.toLowerCase()).length;
+                    return <option key={r} value={r}>{r === 'All' ? 'All Roles' : r} ({cnt})</option>;
+                  })}
+                </select>
+              </div>
 
-      {/* Add User Form Card (Only shown if NOT editing) */}
-      {!editingUserId && (
-        <div className="pr-card-box">
-          <div className="pr-card-header-strip" style={{ backgroundColor: '#0284c7' }}>
-            <UserPlus size={16} />
-            <span>Add New System User</span>
-          </div>
-          <div className="pr-card-body">
-            {renderFormFields(false)}
-          </div>
-        </div>
-      )}
-
-      {/* Edit User Modal */}
-      {editingUserId && (
-        <div className="modal-overlay no-print" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999
-        }}>
-          <div className="pr-card-box" style={{ 
-            width: '1000px', maxWidth: '96vw', margin: 0, 
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)'
-          }}>
-            <div className="pr-card-header-strip" style={{ backgroundColor: '#6366f1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Pencil size={16} />
-                <span>Edit User Details: {editingUserId}</span>
+              <div className="pr-search-bar">
+                <Search size={14} className="pr-search-icon" />
+                <input 
+                  type="text" 
+                  placeholder="Search by name, ID, code, role..." 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  className="pr-search-input"
+                />
+                <span className="pr-records-badge">{filteredUsers.length} users</span>
               </div>
               <button 
-                onClick={handleClear} 
-                style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}
-                title="Close"
+                type="button" 
+                onClick={() => { handleClear(); setCurrentView('form'); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
+                  whiteSpace: 'nowrap'
+                }}
               >
-                ×
+                <UserPlus size={16} />
+                <span>+ Add New User</span>
               </button>
             </div>
-            <div className="pr-card-body" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
-              {renderFormFields(true)}
+          )}
+        </div>
+      </div>
+
+      {/* VIEW 1: Form Card (Add or Edit) */}
+      {currentView === 'form' && (
+        <div className="pr-card-box">
+          <div className="pr-card-header-strip" style={{ backgroundColor: editingUserId ? '#6366f1' : '#0284c7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {editingUserId ? <Pencil size={16} /> : <UserPlus size={16} />}
+              <span>{editingUserId ? `Edit User Details: ${editingUserId}` : 'Add New System User'}</span>
             </div>
+            {editingUserId && (
+              <button 
+                type="button"
+                onClick={() => { handleClear(); setCurrentView('list'); }} 
+                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', cursor: 'pointer', padding: '4px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' }}
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
+          <div className="pr-card-body">
+            {renderFormFields(!!editingUserId)}
           </div>
         </div>
       )}
 
-      {/* User Accounts Registry Table */}
-      <div className="pr-card-box pr-table-card">
-        <div className="pr-table-header-strip">
-          <h3 className="pr-table-title">User Accounts Registry</h3>
-          <span className="pr-page-count">Showing {filteredUsers.length} of {users.length} Records</span>
-        </div>
+      {/* VIEW 2: User Accounts Registry Table Card */}
+      {currentView === 'list' && (
+        <div className="pr-card-box pr-table-card">
+          <div className="pr-table-header-strip" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <h3 className="pr-table-title" style={{ margin: 0 }}>User Accounts Registry</h3>
+              <span className="pr-page-count">Showing {filteredUsers.length} of {users.length} Records</span>
+            </div>
 
-        <div className="pr-table-responsive">
-          <table className="pr-data-table">
-            <thead>
-              <tr>
-                <th>PHOTO</th>
-                <th>USER ID</th>
-                <th>USER NAME</th>
-                <th>EMP CODE / NAME</th>
-                <th>ROLE & GROUP</th>
-                <th>DEPARTMENT</th>
-                <th>BRANCH</th>
-                <th>SIGNATURE</th>
-                <th>STATUS</th>
-                <th className="text-center no-print">ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.length === 0 ? (
+            {/* Quick Role Filter Pills */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {allAvailableRoles.map((roleName) => {
+                const count = roleName === 'All' 
+                  ? users.length 
+                  : users.filter(u => (u.role || u.userType || '').toLowerCase() === roleName.toLowerCase()).length;
+                const isSelected = selectedRoleFilter.toLowerCase() === roleName.toLowerCase();
+                
+                if (roleName !== 'All' && count === 0 && !['Admin', 'Doctor', 'Nurse'].includes(roleName)) return null;
+
+                return (
+                  <button
+                    key={roleName}
+                    type="button"
+                    onClick={() => setSelectedRoleFilter(roleName)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '16px',
+                      border: isSelected ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
+                      backgroundColor: isSelected ? '#0284c7' : '#ffffff',
+                      color: isSelected ? '#ffffff' : '#334155',
+                      fontSize: '11px',
+                      fontWeight: isSelected ? '700' : '600',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: 'all 0.15s ease',
+                      boxShadow: isSelected ? '0 2px 4px rgba(2, 132, 199, 0.25)' : 'none'
+                    }}
+                  >
+                    <span>{roleName}</span>
+                    <span style={{
+                      backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                      color: isSelected ? '#ffffff' : '#64748b',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      padding: '0 5px',
+                      borderRadius: '8px'
+                    }}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="pr-table-responsive">
+            <table className="pr-data-table">
+              <thead>
                 <tr>
-                  <td colSpan={10} className="pr-empty-cell">
-                    No users found matching search criteria.
-                  </td>
+                  <th>PHOTO</th>
+                  <th>USER ID</th>
+                  <th>USER NAME</th>
+                  <th>EMP CODE / NAME</th>
+                  <th>ROLE & GROUP</th>
+                  <th>LANDING PAGE</th>
+                  <th>SIGNATURE</th>
+                  <th>STATUS</th>
+                  <th className="text-center no-print">ACTIONS</th>
                 </tr>
-              ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user.userId}>
-                    <td>
-                      {user.photo ? (
-                        <img src={user.photo} alt="Photo" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #0284c7' }} />
-                      ) : (
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e2e8f0', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
-                          {(user.userName || 'U').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </td>
-                    <td className="font-bold-ip">{user.userId}</td>
-                    <td className="font-semibold-name">{user.userName}</td>
-                    <td>
-                      <div style={{ fontWeight: '600', color: '#0f172a' }}>{user.empName || user.userName}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>{user.empCode || '—'}</div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: '600' }}>{user.role || user.userType || '—'}</div>
-                      <div style={{ fontSize: '10px', color: '#0284c7' }}>{user.userRoleGroup || 'Default Group'}</div>
-                    </td>
-                    <td>{user.department || '—'}</td>
-                    <td>{user.branch || '—'}</td>
-                    <td>
-                      {user.signature || user.signatureImage ? (
-                        <img 
-                          src={user.signature || user.signatureImage} 
-                          alt="signature" 
-                          style={{ height: '24px', maxWidth: '80px', objectFit: 'contain', border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px', backgroundColor: '#ffffff' }} 
-                        />
-                      ) : (
-                        <span style={{ fontStyle: 'italic', color: '#94a3b8', fontSize: '10px' }}>No signature</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`badge-ins-sm ${user.status === 'Active' ? 'ins-yes' : 'ins-no'}`} style={{ backgroundColor: user.status === 'Active' ? '#dcfce7' : '#fee2e2', color: user.status === 'Active' ? '#15803d' : '#b91c1c' }}>
-                        {user.status}
-                      </span>
-                    </td>
-                    <td className="text-center no-print">
-                      <div className="tbl-action-btns" style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                        <button 
-                          type="button" 
-                          style={{ borderColor: '#3b82f6', color: '#3b82f6', padding: '4px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid' }}
-                          onClick={() => setViewRecord(user)}
-                          title="View Full Profile"
-                        >
-                          <Eye size={14} />
-                        </button>
-                        <button 
-                          type="button" 
-                          style={{ borderColor: '#f97316', color: '#f97316', padding: '4px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid' }}
-                          onClick={() => handleEditClick(user)}
-                          title="Edit User"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button 
-                          type="button" 
-                          style={{ borderColor: '#ef4444', color: '#ef4444', padding: '4px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid' }}
-                          onClick={() => handleDelete(user.userId)}
-                          title="Delete User"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="pr-empty-cell" style={{ textAlign: 'center', padding: '30px 10px' }}>
+                      <div style={{ color: '#64748b', fontSize: '14px', marginBottom: '8px' }}>
+                        No users found {selectedRoleFilter !== 'All' ? `with role "${selectedRoleFilter}"` : ''} matching search criteria.
                       </div>
+                      {selectedRoleFilter !== 'All' && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRoleFilter('All')}
+                          style={{ padding: '4px 12px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}
+                        >
+                          Clear Role Filter
+                        </button>
+                      )}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <tr key={user.userId}>
+                      <td>
+                        {user.photo ? (
+                          <img src={user.photo} alt="Photo" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #0284c7' }} />
+                        ) : (
+                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e2e8f0', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                            {(user.userName || 'U').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </td>
+                      <td className="font-bold-ip">{user.userId}</td>
+                      <td className="font-semibold-name">{user.userName}</td>
+                      <td>
+                        <div style={{ fontWeight: '600', color: '#0f172a' }}>{user.empName || user.userName}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>{user.empCode || '—'}</div>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRoleFilter(user.role || user.userType || 'All')}
+                          title={`Click to filter by role: ${user.role || user.userType || '—'}`}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            color: 'inherit'
+                          }}
+                        >
+                          <span style={{ 
+                            fontWeight: '700', 
+                            color: (user.role || '').toLowerCase() === 'admin' ? '#7c3aed' : (user.role || '').toLowerCase() === 'doctor' ? '#0284c7' : '#059669',
+                            backgroundColor: (user.role || '').toLowerCase() === 'admin' ? '#f5f3ff' : (user.role || '').toLowerCase() === 'doctor' ? '#f0f9ff' : '#ecfdf5',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            display: 'inline-block',
+                            marginBottom: '2px'
+                          }}>
+                            {user.role || user.userType || '—'}
+                          </span>
+                        </button>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>{user.userRoleGroup || 'Default Group'}</div>
+                      </td>
+                      <td>{user.landingPage || '—'}</td>
+                      <td>
+                        {user.signature || user.signatureImage ? (
+                          <img 
+                            src={user.signature || user.signatureImage} 
+                            alt="signature" 
+                            style={{ height: '24px', maxWidth: '80px', objectFit: 'contain', border: '1px solid #cbd5e1', borderRadius: '2px', padding: '1px', backgroundColor: '#ffffff' }} 
+                          />
+                        ) : (
+                          <span style={{ fontStyle: 'italic', color: '#94a3b8', fontSize: '10px' }}>No signature</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge-ins-sm ${user.status === 'Active' ? 'ins-yes' : 'ins-no'}`} style={{ backgroundColor: user.status === 'Active' ? '#dcfce7' : '#fee2e2', color: user.status === 'Active' ? '#15803d' : '#b91c1c' }}>
+                          {user.status}
+                        </span>
+                      </td>
+                      <td className="text-center no-print">
+                        <div className="tbl-action-btns" style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button 
+                            type="button" 
+                            style={{ borderColor: '#3b82f6', color: '#3b82f6', padding: '4px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid' }}
+                            onClick={() => setViewRecord(user)}
+                            title="View Full Profile"
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <button 
+                            type="button" 
+                            style={{ borderColor: '#f97316', color: '#f97316', padding: '4px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid' }}
+                            onClick={() => handleEditClick(user)}
+                            title="Edit User"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button 
+                            type="button" 
+                            style={{ borderColor: '#ef4444', color: '#ef4444', padding: '4px', borderRadius: '4px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid' }}
+                            onClick={() => handleDelete(user.userId)}
+                            title="Delete User"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* VIEW RECORD DETAILS MODAL */}
       {viewRecord && (
@@ -990,7 +1098,7 @@ export default function UserMasterPage() {
                 )}
                 <div>
                   <div style={{ fontSize: '18px', fontWeight: '700' }}>{viewRecord.userName}</div>
-                  <div style={{ fontSize: '12px', opacity: 0.85 }}>{viewRecord.designation || viewRecord.role} • {viewRecord.empCode}</div>
+                  <div style={{ fontSize: '12px', opacity: 0.85 }}>{viewRecord.role || 'User'} • {viewRecord.empCode}</div>
                 </div>
               </div>
               <button onClick={() => setViewRecord(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: '#fff', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
@@ -1002,11 +1110,6 @@ export default function UserMasterPage() {
                   { label: 'User Name', value: viewRecord.userName },
                   { label: 'Employee Name', value: viewRecord.empName || viewRecord.userName },
                   { label: 'Employee Code', value: viewRecord.empCode },
-                  { label: 'Department', value: viewRecord.department },
-                  { label: 'Designation', value: viewRecord.designation },
-                  { label: 'Qualification', value: viewRecord.qualification },
-                  { label: 'Mobile Number', value: viewRecord.mobileNumber || viewRecord.contact },
-                  { label: 'Hospital Branch', value: viewRecord.branch },
                   { label: 'Role', value: viewRecord.role || viewRecord.userType },
                   { label: 'Role Group', value: viewRecord.userRoleGroup },
                   { label: 'Landing Page', value: viewRecord.landingPage },

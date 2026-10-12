@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, Plus, Trash2 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
-import { findPatientByIpNo } from '../utils/patientRegistry';
+import { findPatientByIpNo, updatePatientWardTransfer } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 
 const PERSIST_KEY = 'internal_transfer_form';
@@ -141,6 +141,10 @@ export default function InternalTransferFormPage({ onNavigate, editData, editRec
     const hasValidIp = patient.ipNo && patient.ipNo.trim() !== '';
     const ip = patient.ipNo || patient.uhidNo || 'UNASSIGNED';
     const forceDraft = !hasValidIp;
+
+    if (ip && ip !== 'UNASSIGNED' && formDetails.toWard) {
+      updatePatientWardTransfer(ip, [{ to: formDetails.toWard, ward: formDetails.toWard, date: formDetails.transferDateTime }], { ward: formDetails.toWard, bedNo: patient.bedNo });
+    }
     
     const saved = upsertFormRecord(recordId, 'Internal Transfer Form', ip, { patient, formDetails, handingOver }, null, forceDraft);
     setRecordId(saved.id);

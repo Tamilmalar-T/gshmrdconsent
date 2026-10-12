@@ -19,18 +19,75 @@ import {
 } from 'lucide-react';
 import { getRegisteredPatients, deleteRegisteredPatient } from '../utils/patientRegistry';
 
-const CATEGORIES = ['Ward', 'Room', 'Bed', 'Facility'];
+const CATEGORIES = ['Floor', 'Ward', 'Room', 'Bed', 'Facility'];
+
+const DEFAULT_FLOORS_DATA = [
+  { id: 'FL-GF', floorCode: 'GF', floorName: 'Ground Floor', block: 'Main Block', isActive: 'Yes', createdBy: 'Admin', createdOn: new Date().toISOString() },
+  { id: 'FL-1F', floorCode: '1F', floorName: '1st Floor', block: 'Main Block', isActive: 'Yes', createdBy: 'Admin', createdOn: new Date().toISOString() },
+  { id: 'FL-2F', floorCode: '2F', floorName: '2nd Floor', block: 'Main Block', isActive: 'Yes', createdBy: 'Admin', createdOn: new Date().toISOString() },
+  { id: 'FL-3F', floorCode: '3F', floorName: '3rd Floor', block: 'Main Block', isActive: 'Yes', createdBy: 'Admin', createdOn: new Date().toISOString() },
+  { id: 'FL-ICU', floorCode: 'ICU', floorName: 'ICU Floor', block: 'Emergency Wing', isActive: 'Yes', createdBy: 'Admin', createdOn: new Date().toISOString() },
+  { id: 'FL-BM', floorCode: 'BM', floorName: 'Basement', block: 'Main Block', isActive: 'Yes', createdBy: 'Admin', createdOn: new Date().toISOString() }
+];
+
+const DEFAULT_WARDS = [
+  { id: 'W01', wardCode: 'W01', wardName: 'ICU', floor: '1F', dayCharge: 2500, isActive: 'Yes' },
+  { id: 'W02', wardCode: 'W02', wardName: 'General', floor: 'GF', dayCharge: 1000, isActive: 'Yes' },
+  { id: 'W03', wardCode: 'W03', wardName: 'Special', floor: '2F', dayCharge: 2000, isActive: 'Yes' },
+  { id: 'W04', wardCode: 'W04', wardName: 'Emergency', floor: 'GF', dayCharge: 1500, isActive: 'Yes' },
+  { id: 'W05', wardCode: 'W05', wardName: 'Pediatric', floor: '3F', dayCharge: 1200, isActive: 'Yes' },
+  { id: 'W06', wardCode: 'W06', wardName: 'Maternity', floor: '2F', dayCharge: 1800, isActive: 'Yes' },
+  { id: 'W07', wardCode: 'W07', wardName: 'Surgical', floor: '3F', dayCharge: 2200, isActive: 'Yes' },
+  { id: 'W08', wardCode: 'W08', wardName: 'Post Operative', floor: '1F', dayCharge: 2000, isActive: 'Yes' }
+];
+
+const DEFAULT_ROOMS = [
+  { id: 'R101', roomId: 'R101', roomNo: 'Room 101', wardId: 'W01', ward: 'ICU', isActive: 'Yes' },
+  { id: 'R102', roomId: 'R102', roomNo: 'Room 102', wardId: 'W01', ward: 'ICU', isActive: 'Yes' },
+  { id: 'R201', roomId: 'R201', roomNo: 'Room 201', wardId: 'W02', ward: 'General', isActive: 'Yes' },
+  { id: 'R202', roomId: 'R202', roomNo: 'Room 202', wardId: 'W02', ward: 'General', isActive: 'Yes' },
+  { id: 'R301', roomId: 'R301', roomNo: 'Room 301', wardId: 'W03', ward: 'Special', isActive: 'Yes' },
+  { id: 'R401', roomId: 'R401', roomNo: 'Room 401', wardId: 'W04', ward: 'Emergency', isActive: 'Yes' }
+];
+
+const DEFAULT_BEDS = [
+  { id: 'B101', bedNo: 'Bed 101', roomId: 'R101', wardId: 'W01', status: 'Available', isActive: 'Yes' },
+  { id: 'B102', bedNo: 'Bed 102', roomId: 'R101', wardId: 'W01', status: 'Available', isActive: 'Yes' },
+  { id: 'B201', bedNo: 'Bed 201', roomId: 'R201', wardId: 'W02', status: 'Available', isActive: 'Yes' },
+  { id: 'B202', bedNo: 'Bed 202', roomId: 'R201', wardId: 'W02', status: 'Available', isActive: 'Yes' },
+  { id: 'B301', bedNo: 'Bed 301', roomId: 'R301', wardId: 'W03', status: 'Available', isActive: 'Yes' },
+  { id: 'B401', bedNo: 'Bed 401', roomId: 'R401', wardId: 'W04', status: 'Available', isActive: 'Yes' }
+];
 
 export default function WardMasterPage() {
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
+  const [floors, setFloors] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('masters_floors'));
+      if (stored && Array.isArray(stored) && stored.length > 0) return stored;
+      return DEFAULT_FLOORS_DATA;
+    } catch { return DEFAULT_FLOORS_DATA; }
+  });
   const [wards, setWards] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('masters_wards')) || []; } catch { return []; }
+    try {
+      const stored = JSON.parse(localStorage.getItem('masters_wards'));
+      if (stored && Array.isArray(stored) && stored.length > 0) return stored;
+      return DEFAULT_WARDS;
+    } catch { return DEFAULT_WARDS; }
   });
   const [rooms, setRooms] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('masters_rooms')) || []; } catch { return []; }
+    try {
+      const stored = JSON.parse(localStorage.getItem('masters_rooms'));
+      if (stored && Array.isArray(stored) && stored.length > 0) return stored;
+      return DEFAULT_ROOMS;
+    } catch { return DEFAULT_ROOMS; }
   });
   const [beds, setBeds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('masters_beds')) || []; } catch { return []; }
+    try {
+      const stored = JSON.parse(localStorage.getItem('masters_beds'));
+      if (stored && Array.isArray(stored) && stored.length > 0) return stored;
+      return DEFAULT_BEDS;
+    } catch { return DEFAULT_BEDS; }
   });
   const [availableFacilities, setAvailableFacilities] = useState(() => {
     try { 
@@ -48,7 +105,7 @@ export default function WardMasterPage() {
     } catch { return []; }
   });
   
-  const [form, setForm] = useState(getInitialFormState('Ward'));
+  const [form, setForm] = useState(getInitialFormState('Floor'));
   const [isEditing, setIsEditing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -57,11 +114,12 @@ export default function WardMasterPage() {
 
   // Save to local storage whenever state changes
   useEffect(() => {
+    localStorage.setItem('masters_floors', JSON.stringify(floors));
     localStorage.setItem('masters_wards', JSON.stringify(wards));
     localStorage.setItem('masters_rooms', JSON.stringify(rooms));
     localStorage.setItem('masters_beds', JSON.stringify(beds));
     localStorage.setItem('masters_facilities', JSON.stringify(availableFacilities));
-  }, [wards, rooms, beds, availableFacilities]);
+  }, [floors, wards, rooms, beds, availableFacilities]);
 
   // When category changes, reset form & scroll to top
   useEffect(() => {
@@ -81,6 +139,18 @@ export default function WardMasterPage() {
       } catch(e) {}
     }
 
+    if (category === 'Floor') {
+      return {
+        id: null,
+        floorCode: '',
+        floorName: '',
+        block: 'Main Block',
+        description: '',
+        isActive: 'Yes',
+        createdBy: username
+      };
+    }
+
     if (category === 'Facility') {
       return { id: null, facilityName: '', icon: null, isActive: 'Yes', createdBy: username };
     }
@@ -90,6 +160,7 @@ export default function WardMasterPage() {
         id: null, 
         wardCode: '', 
         wardName: '', 
+        floor: '',
         dayCharge: '', 
         halfDayCharge: '', 
         isActive: 'Yes', 
@@ -198,7 +269,13 @@ export default function WardMasterPage() {
     setSuccessMsg('');
 
     // Validation & Uniqueness
-    if (activeCategory === 'Ward') {
+    if (activeCategory === 'Floor') {
+      if (!form.floorCode?.trim() || !form.floorName?.trim()) {
+        setErrorMsg('Floor Code and Floor Name are required.'); return;
+      }
+      const duplicate = floors.find(f => f.floorCode?.toLowerCase() === form.floorCode?.trim().toLowerCase() && f.id !== form.id);
+      if (duplicate) { setErrorMsg('Floor Code must be unique.'); return; }
+    } else if (activeCategory === 'Ward') {
       if (!form.wardCode || !form.wardName) {
         setErrorMsg('Ward Code and Ward Name are required.'); return;
       }
@@ -230,7 +307,9 @@ export default function WardMasterPage() {
     const payload = { ...form, createdOn: form.createdOn || new Date().toISOString() };
 
     if (isEditing) {
-      if (activeCategory === 'Ward') {
+      if (activeCategory === 'Floor') {
+        setFloors(floors.map(f => f.id === form.id ? payload : f));
+      } else if (activeCategory === 'Ward') {
         setWards(wards.map(w => w.id === form.id ? payload : w));
       } else if (activeCategory === 'Room') {
         setRooms(rooms.map(r => r.id === form.id ? payload : r));
@@ -242,7 +321,9 @@ export default function WardMasterPage() {
       setSuccessMsg(`${activeCategory} updated successfully!`);
     } else {
       payload.id = Date.now().toString();
-      if (activeCategory === 'Ward') {
+      if (activeCategory === 'Floor') {
+        setFloors([...floors, payload]);
+      } else if (activeCategory === 'Ward') {
         setWards([...wards, payload]);
       } else if (activeCategory === 'Room') {
         setRooms([...rooms, payload]);
@@ -267,7 +348,9 @@ export default function WardMasterPage() {
   const handleDelete = (id) => {
     if (!window.confirm(`Are you sure you want to delete this ${activeCategory}?`)) return;
     
-    if (activeCategory === 'Ward') {
+    if (activeCategory === 'Floor') {
+      setFloors(floors.filter(f => f.id !== id));
+    } else if (activeCategory === 'Ward') {
       const ward = wards.find(w => w.id === id);
       if (ward) {
         const dependentRooms = rooms.filter(r => r.wardId === ward.wardCode);
@@ -293,6 +376,7 @@ export default function WardMasterPage() {
 
   const getFilteredList = () => {
     let list = [];
+    if (activeCategory === 'Floor') list = floors;
     if (activeCategory === 'Ward') list = wards;
     if (activeCategory === 'Room') list = rooms;
     if (activeCategory === 'Bed') list = beds;
@@ -306,6 +390,36 @@ export default function WardMasterPage() {
   };
 
   const renderFormFields = () => {
+    if (activeCategory === 'Floor') {
+      return (
+        <>
+          <div className="pr-field">
+            <label className="pr-label">Floor Code <span className="req-star">*</span></label>
+            <input type="text" name="floorCode" value={form.floorCode || ''} onChange={handleChange} className="pr-input" placeholder="e.g. GF, 1F, ICU" />
+          </div>
+          <div className="pr-field">
+            <label className="pr-label">Floor Name <span className="req-star">*</span></label>
+            <input type="text" name="floorName" value={form.floorName || ''} onChange={handleChange} className="pr-input" placeholder="e.g. Ground Floor, 1st Floor" />
+          </div>
+          <div className="pr-field">
+            <label className="pr-label">Block / Wing</label>
+            <input type="text" name="block" value={form.block || ''} onChange={handleChange} className="pr-input" placeholder="e.g. Main Block, Emergency Wing" />
+          </div>
+          <div className="pr-field">
+            <label className="pr-label">Description</label>
+            <input type="text" name="description" value={form.description || ''} onChange={handleChange} className="pr-input" placeholder="e.g. Inpatient & ICU ward area" />
+          </div>
+          <div className="pr-field">
+            <label className="pr-label">Active</label>
+            <select name="isActive" value={form.isActive || 'Yes'} onChange={handleChange} className="pr-select">
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+          </div>
+        </>
+      );
+    }
+
     if (activeCategory === 'Ward') {
       return (
         <>
@@ -316,6 +430,15 @@ export default function WardMasterPage() {
           <div className="pr-field">
             <label className="pr-label">Ward Name <span className="req-star">*</span></label>
             <input type="text" name="wardName" value={form.wardName || ''} onChange={handleChange} className="pr-input" placeholder="e.g. General Ward" />
+          </div>
+          <div className="pr-field">
+            <label className="pr-label">Assigned Floor</label>
+            <select name="floor" value={form.floor || ''} onChange={handleChange} className="pr-select">
+              <option value="">Select Floor</option>
+              {floors.filter(f => f.isActive === 'Yes').map(f => (
+                <option key={f.id} value={f.floorName || f.floorCode}>{f.floorName} ({f.floorCode})</option>
+              ))}
+            </select>
           </div>
           <div className="pr-field">
             <label className="pr-label">Day Charge</label>
@@ -496,11 +619,23 @@ export default function WardMasterPage() {
   };
 
   const renderTableHeaders = () => {
-    if (activeCategory === 'Ward') {
+    if (activeCategory === 'Floor') {
+      return (
+        <tr>
+          <th>FLOOR CODE</th>
+          <th>FLOOR NAME</th>
+          <th>BLOCK / WING</th>
+          <th>DESCRIPTION</th>
+          <th>STATUS</th>
+          <th className="text-center">ACTIONS</th>
+        </tr>
+      );
+    } else if (activeCategory === 'Ward') {
       return (
         <tr>
           <th>WARD CODE</th>
           <th>WARD NAME</th>
+          <th>ASSIGNED FLOOR</th>
           <th>DAY CHARGE</th>
           <th>STATUS</th>
           <th className="text-center">ACTIONS</th>
@@ -571,11 +706,41 @@ export default function WardMasterPage() {
     };
 
     return list.map(item => {
-      if (activeCategory === 'Ward') {
+      if (activeCategory === 'Floor') {
+        return (
+          <tr key={item.id}>
+            <td className="font-semibold-name">{item.floorCode}</td>
+            <td><strong>{item.floorName}</strong></td>
+            <td>{item.block || '—'}</td>
+            <td>{item.description || '—'}</td>
+            <td>
+              <span className={`badge-ins-sm ${item.isActive === 'Yes' ? 'ins-yes' : 'ins-no'}`}>
+                {item.isActive}
+              </span>
+            </td>
+            <td className="text-center">
+              <div className="tbl-action-btns">
+                <button type="button" className="btn-tbl-action-view" onClick={() => setViewRecord(item)}><Eye size={13} /></button>
+                <button type="button" className="btn-tbl-action-edit" onClick={() => handleEdit(item)} style={{ background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', marginLeft: '6px' }}><Pencil size={13} /></button>
+                <button type="button" className="btn-tbl-action-delete" onClick={() => handleDelete(item.id)} style={{ marginLeft: '6px' }}><Trash2 size={13} /></button>
+              </div>
+            </td>
+          </tr>
+        );
+      } else if (activeCategory === 'Ward') {
         return (
           <tr key={item.id}>
             <td className="font-semibold-name">{item.wardCode}</td>
             <td>{item.wardName}</td>
+            <td>
+              {item.floor ? (
+                <span style={{ backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', color: '#475569' }}>
+                  {item.floor}
+                </span>
+              ) : (
+                <span style={{ color: '#94a3b8' }}>—</span>
+              )}
+            </td>
             <td>{item.dayCharge || '-'}</td>
             <td>
               <span className={`badge-ins-sm ${item.isActive === 'Yes' ? 'ins-yes' : 'ins-no'}`}>
@@ -1038,6 +1203,15 @@ export function IPListPage({ onNavigate, onEditRecord }) {
                   <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>
                     <span className={`badge-ins-sm ${viewPatient.paymentDetails === 'Insurance' ? 'ins-yes' : 'ins-no'}`} style={{ display: 'inline-block', marginTop: '4px' }}>
                       {viewPatient.paymentDetails || 'Self'}
+                    </span>
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>MLC</span>
+                  <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '700' }}>
+                    <span style={{ display: 'inline-block', marginTop: '4px', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', background: (viewPatient.isMlc === 'Yes' || viewPatient.isMlc === 'yes' || viewPatient.mlc === 'Yes') ? '#fee2e2' : '#f1f5f9', color: (viewPatient.isMlc === 'Yes' || viewPatient.isMlc === 'yes' || viewPatient.mlc === 'Yes') ? '#dc2626' : '#475569' }}>
+                      {(viewPatient.isMlc === 'Yes' || viewPatient.isMlc === 'yes' || viewPatient.mlc === 'Yes') ? 'Yes' : 'No'}
                     </span>
                   </span>
                 </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, RotateCcw, Trash2, FileText } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -264,7 +264,7 @@ export default function PreOperativeChecklistPage({ onNavigate, editData, editRe
             </div>
             <div style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>DOA :</span>
-              <input type="date" name="doa" value={form.doa} onChange={handleChange} style={{ flex: 1, borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: 'none', outline: 'none', fontSize: '11px', background: 'transparent' }} />
+              <input type="date" name="doa" value={form.doa} onChange={handleChange} style={{ flex: 1, borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: 'none', outline: 'none', fontSize: '11px', background: 'transparent' }} min={new Date().toISOString().split('T')[0]} />
             </div>
           </div>
 

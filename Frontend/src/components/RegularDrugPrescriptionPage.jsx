@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Printer, CheckCircle2, FolderCheck, Plus, Trash2 } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -319,7 +319,7 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
                 <td colSpan={2}>
                   <div className="info-field-inline">
                     <span className="info-lbl-bold">DOA :</span>
-                    <input type="date" name="doa" value={patient.doa} onChange={handlePatientChange} className="info-input-plain" />
+                    <input type="date" name="doa" value={patient.doa} onChange={handlePatientChange} className="info-input-plain" min={new Date().toISOString().split('T')[0]} />
                   </div>
                 </td>
               </tr>
@@ -392,7 +392,7 @@ export default function RegularDrugPrescriptionPage({ onNavigate, editData, edit
                             className="table-input date-picker-input"
                             value={dh}
                             onChange={(e) => updateDateHeader(block.id, cIdx, e.target.value)}
-                          />
+                           min={new Date().toISOString().split('T')[0]} />
                         </td>
                       ))}
                     </tr>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
@@ -669,7 +669,7 @@ export default function ProgressReassessmentRecordPage() {
                   name="recordDate" 
                   value={soap.recordDate} 
                   onChange={handleSoapChange} 
-                  className="box-in"
+                  className="box-in" min={new Date().toISOString().split('T')[0]}
                 />
               </td>
               <td className="foot-cell">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Printer, Save, CheckCircle2, FolderCheck, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 import { findPatientByIpNo } from '../utils/patientRegistry';
@@ -309,7 +309,7 @@ export default function InvestigationChartPage({ onNavigate, editData, editRecor
                         className="investigation-date-input"
                         value={date}
                         onChange={(e) => handleDateChange(colIndex, e.target.value)}
-                      />
+                       min={new Date().toISOString().split('T')[0]} />
                     </th>
                   ))}
                 </tr>

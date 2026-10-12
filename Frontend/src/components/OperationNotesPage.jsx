@@ -490,7 +490,7 @@ export default function OperationNotesPage({ onNavigate, editData, editRecordId 
                       value={patient.dateOfOperation}
                       onChange={handlePatientChange}
                       className="op-notes-input"
-                      style={{ flex: 1 }}
+                      style={{ flex: 1 }} min={new Date().toISOString().split('T')[0]}
                     />
                   </div>
                 </td>
@@ -767,7 +767,7 @@ export default function OperationNotesPage({ onNavigate, editData, editRecordId 
                   value={surgeonDetails.date || ''}
                   onChange={handleSurgeonDetailsChange}
                   className="op-notes-input"
-                  style={{ flex: 1, fontWeight: '600' }}
+                  style={{ flex: 1, fontWeight: '600' }} min={new Date().toISOString().split('T')[0]}
                 />
               </div>
               <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -850,9 +850,23 @@ export default function OperationNotesPage({ onNavigate, editData, editRecordId 
           <ChevronLeft size={18} /> Previous
         </button>
 
-        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>
-          Page {currentPage} of 2
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {[1, 2].map(p => (
+              <button
+                key={p}
+                type="button"
+                className={`page-number-btn ${currentPage === p ? 'active' : ''}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155', marginLeft: '4px' }}>
+            Page {currentPage} of 2
+          </span>
+        </div>
 
         <button
           type="button"

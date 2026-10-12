@@ -163,8 +163,16 @@ export default function ExternalTransferFormPage({ onNavigate, editData, editRec
         ipNo: found.ipNo || prev.ipNo,
         ward: found.ward || prev.ward,
         bedNo: found.bedNo || prev.bed || prev.bedNo || '',
-        doctor: found.doctorName || found.consultantName || prev.doctor
+        doctor: found.doctorName || found.consultantName || prev.doctor,
+        isMlc: found.isMlc || prev.isMlc,
+        mlc: found.mlc || prev.mlc
       }));
+      if (found.isMlc === 'yes' || found.mlc === 'Yes') {
+        setTransferDetails(prev => ({
+          ...prev,
+          mlcInitiated: 'Yes'
+        }));
+      }
     }
   };
 
@@ -199,7 +207,11 @@ export default function ExternalTransferFormPage({ onNavigate, editData, editRec
 
   const handleDoctorInfoChange = (e) => {
     const { name, value } = e.target;
-    setDoctorInfo(prev => ({ ...prev, [name]: value }));
+    let finalVal = value;
+    if (name === 'doctorName' && typeof value === 'string') {
+      finalVal = value.toUpperCase();
+    }
+    setDoctorInfo(prev => ({ ...prev, [name]: finalVal }));
   };
 
   const handlePrint = () => window.print();
@@ -372,7 +384,7 @@ export default function ExternalTransferFormPage({ onNavigate, editData, editRec
         <div className="inner-vitals-form-box external-transfer-form-sheet" style={{ padding: '25px 35px', backgroundColor: '#fff' }}>
           
           {/* Top Header */}
-          <HospitalPaperHeader />
+          <HospitalPaperHeader isMlc={transferDetails.mlcInitiated === 'Yes' || patient.isMlc === 'yes' || patient.mlc === 'Yes'} />
 
           <h3 style={{
             textAlign: 'center',
@@ -517,7 +529,7 @@ export default function ExternalTransferFormPage({ onNavigate, editData, editRec
                       name="date"
                       value={transferDetails.date}
                       onChange={handleTransferChange}
-                      style={{ border: 'none', borderBottom: '1px dotted #64748b', outline: 'none', flex: 1 }}
+                      style={{ border: 'none', borderBottom: '1px dotted #64748b', outline: 'none', flex: 1 }} min={new Date().toISOString().split('T')[0]}
                     />
                   </div>
 
@@ -1048,7 +1060,7 @@ export default function ExternalTransferFormPage({ onNavigate, editData, editRec
                 value={doctorInfo.doctorName}
                 onChange={handleDoctorInfoChange}
                 placeholder="Doctor Name"
-                style={{ width: '100%', border: 'none', borderBottom: '1px solid #334155', outline: 'none', padding: '4px 0' }}
+                style={{ width: '100%', border: 'none', borderBottom: '1px solid #334155', outline: 'none', padding: '4px 0', textTransform: 'uppercase' }}
               />
             </div>
             <div>

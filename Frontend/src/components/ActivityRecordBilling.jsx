@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Printer, FolderCheck, Trash2, Save, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { findPatientByIpNo } from '../utils/patientRegistry';
+import { findPatientByIpNo, updatePatientWardTransfer, getWardName } from '../utils/patientRegistry';
 import { upsertFormRecord, autoSaveFormDraft } from '../utils/savedRecordsDB';
 import { persistForm, restoreForm, clearPersistedForm } from '../utils/formPersist';
 
@@ -154,7 +154,7 @@ const TimeClickBox = ({ className, style }) => {
 };
 
 const renderInput = (type, defaultValue = '') => {
-  if (type === 'date') return <input type="date" className="arb-value-input" defaultValue={defaultValue} onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ fontFamily: 'inherit' }} />;
+  if (type === 'date') return <input type="date" className="arb-value-input" defaultValue={defaultValue} onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ fontFamily: 'inherit' }}  min={new Date().toISOString().split('T')[0]} />;
   if (type === 'time') {
     return (
       <input 
@@ -199,7 +199,7 @@ const renderInput = (type, defaultValue = '') => {
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
-        if (user.userName) userName = user.userName;
+        userName = user.userName || user.name || user.username || user.fullName || userName;
         if (user.signatureImage) sigImg = user.signatureImage;
       } catch (err) { }
     }
@@ -221,6 +221,7 @@ const renderInput = (type, defaultValue = '') => {
       <option value="6 Liters">6 Liters</option>
     </select>
   );
+  if (type === 'ward') return <AutoExpandingTextarea className="arb-value-input arb-ward-input" defaultValue={getWardName(defaultValue)} />;
   return <AutoExpandingTextarea className="arb-value-input" defaultValue={defaultValue} />;
 };
 
@@ -267,6 +268,43 @@ const AddRowBtn = ({ onClick, onSave }) => (
   </div>
 );
 
+const toISODateString = (val) => {
+  if (!val) return '';
+  const s = String(val).trim();
+  if (!s) return '';
+  const dmyMatch = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+  const ymdMatch = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return s;
+};
+
+const to24HourTime = (timeStr) => {
+  if (!timeStr) return '';
+  const trimmed = String(timeStr).trim();
+  if (!trimmed) return '';
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+  if (!match) return trimmed;
+  let [_, hours, minutes, modifier] = match;
+  let h = parseInt(hours, 10);
+  if (modifier) {
+    const mod = modifier.toUpperCase();
+    if (mod === 'PM' && h < 12) h += 12;
+    if (mod === 'AM' && h === 12) h = 0;
+  }
+  return `${String(h).padStart(2, '0')}:${minutes}`;
+};
+
 export default function ActivityRecordBilling({ onNavigate, editData, editRecordId }) {
   const handlePrint = () => window.print();
 
@@ -277,7 +315,6 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
     visits1_2: generateIds(4),
     visits2_1: generateIds(4),
     visits2_2: generateIds(4),
-    wardTransfers: generateIds(4),
     nebulization: generateIds(4),
     grbs: generateIds(4),
     abg: generateIds(4),
@@ -291,17 +328,113 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
     oxygen: generateIds(4),
     lab: generateIds(4),
     radiology: generateIds(4),
-    misc: generateIds(4)
+    alphaBed: generateIds(4)
   };
 
-  const [currentUserName] = useState(() => {
+  const [wardTransfers, setWardTransfers] = useState([
+    { id: 'wt_1', date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' },
+    { id: 'wt_2', date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' },
+    { id: 'wt_3', date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' },
+    { id: 'wt_4', date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' }
+  ]);
+
+  const handleWardTransferChange = (index, field, value) => {
+    setWardTransfers(prev => {
+      const next = [...prev];
+      if (!next[index]) return prev;
+      const oldVal = next[index][field];
+      next[index] = { ...next[index], [field]: value };
+
+      // When TO ward is entered/updated in a row, automatically fill next row's FROM with this ward
+      if (field === 'to' && next[index + 1]) {
+        if (!next[index + 1].from || next[index + 1].from === '' || next[index + 1].from === oldVal) {
+          next[index + 1] = {
+            ...next[index + 1],
+            from: value
+          };
+        }
+      }
+
+      let latestWard = '';
+      let latestRoom = '';
+      let latestBed = '';
+      for (let i = next.length - 1; i >= 0; i--) {
+        const row = next[i];
+        if (row.to && row.to.trim() !== '') {
+          latestWard = row.to.trim();
+          latestRoom = row.roomNo || '';
+          latestBed = row.bedNo || '';
+          break;
+        }
+      }
+
+      const ip = document.getElementById('arb-ip-no')?.value;
+      const uhid = document.getElementById('arb-hospital-no')?.value;
+      if (ip || uhid) {
+        updatePatientWardTransfer(ip || uhid, next, latestWard ? { ward: latestWard, roomNo: latestRoom, bedNo: latestBed } : null);
+      }
+      if (latestWard) {
+        const resolvedName = getWardName(latestWard);
+        const wardInput = document.getElementById('arb-ward');
+        if (wardInput) wardInput.value = resolvedName;
+        const roomBedInput = document.getElementById('arb-room-bed');
+        if (roomBedInput && latestBed) roomBedInput.value = latestRoom ? `${latestRoom} / ${latestBed}` : latestBed;
+        setCurrentWard(resolvedName);
+      }
+
+      return next;
+    });
+  };
+
+  const addWardTransferRow = () => {
+    setWardTransfers(prev => {
+      let lastTo = '';
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].to && prev[i].to.trim() !== '') {
+          lastTo = prev[i].to.trim();
+          break;
+        }
+      }
+      return [
+        ...prev,
+        { id: Math.random().toString(36).substr(2, 9), date: '', time: '', from: lastTo, to: '', roomNo: '', bedNo: '', nurse: '' }
+      ];
+    });
+  };
+
+  const removeWardTransferRow = (index) => {
+    setWardTransfers(prev => {
+      if (prev.length <= 1) {
+        return [{ id: Math.random().toString(36).substr(2, 9), date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' }];
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const getCurrentLoggedInUserName = () => {
     try {
-      const user = JSON.parse(localStorage.getItem('logged_in_user'));
-      return user?.userName || '';
-    } catch {
-      return '';
-    }
-  });
+      const userStr = localStorage.getItem('logged_in_user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        return u.userName || u.name || u.username || u.fullName || u.user_name || u.employeeName || u.userId || '';
+      }
+    } catch (e) {}
+    return '';
+  };
+
+  const [currentUserName, setCurrentUserName] = useState(getCurrentLoggedInUserName);
+
+  useEffect(() => {
+    const updateUserName = () => {
+      const name = getCurrentLoggedInUserName();
+      if (name) setCurrentUserName(name);
+    };
+    updateUserName();
+    window.addEventListener('storage', updateUserName);
+    return () => window.removeEventListener('storage', updateUserName);
+  }, []);
+
+  const [currentWard, setCurrentWard] = useState('');
 
   const [currentPage, setCurrentPage] = useState(() => {
     const saved = sessionStorage.getItem('arbCurrentPage');
@@ -370,6 +503,18 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
         if (saved.data.rowIds) setRowIds(saved.data.rowIds);
         if (saved.data.visitTableKeys) setVisitTableKeys(saved.data.visitTableKeys);
         if (saved.data.operationTableKeys) setOperationTableKeys(saved.data.operationTableKeys);
+        if (saved.data.wardTransfers && Array.isArray(saved.data.wardTransfers) && saved.data.wardTransfers.length > 0) {
+          setWardTransfers(saved.data.wardTransfers.map((wt, idx) => ({
+            id: wt.id || `wt_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+            date: wt.date || '',
+            time: wt.time || '',
+            from: wt.from || '',
+            to: wt.to || wt.ward || '',
+            roomNo: wt.roomNo || '',
+            bedNo: wt.bedNo || '',
+            nurse: wt.nurse || ''
+          })));
+        }
         setRestoredData(saved.data);
       }
 
@@ -386,7 +531,8 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           setVal('arb-hospital-no', saved.patient.uhidNo);
           setVal('arb-ip-no', saved.patient.ipNo);
           setVal('arb-dept', saved.patient.consultant);
-          setVal('arb-ward', saved.patient.ward);
+          setVal('arb-ward', getWardName(saved.patient.ward));
+          if (saved.patient.ward) setCurrentWard(getWardName(saved.patient.ward));
           setVal('arb-room-bed', saved.patient.bedNo);
           setVal('arb-doa', saved.patient.doa);
           setVal('arb-dod', saved.patient.dod);
@@ -439,6 +585,10 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
     return () => clearInterval(interval);
   }, [restoredData, rowIds, visitTableKeys, operationTableKeys]);
 
+  const getStructuredWardTransfers = () => {
+    return wardTransfers;
+  };
+
   useEffect(() => {
     const handleInput = () => {
       const root = document.querySelector('.arb-page-wrapper');
@@ -465,8 +615,21 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
         dodTime: document.getElementById('arb-dod-time')?.value
       };
 
-      const dataToSave = { rowIds, visitTableKeys, operationTableKeys, inputValues, tickValues, patient: currentPatient };
+      const dataToSave = { rowIds, visitTableKeys, operationTableKeys, inputValues, tickValues, wardTransfers, patient: currentPatient };
       persistForm(PERSIST_KEY, { patient: currentPatient, data: dataToSave, recordId });
+
+      if (ip) {
+        const clean = ip.replace(/[^A-Z0-9]/g, '').toUpperCase();
+        if (clean) {
+          try { localStorage.setItem('patient_ward_transfers_' + clean, JSON.stringify(wardTransfers)); } catch (e) {}
+        }
+      }
+      if (uhid) {
+        const cleanU = uhid.replace(/[^A-Z0-9]/g, '').toUpperCase();
+        if (cleanU) {
+          try { localStorage.setItem('patient_ward_transfers_' + cleanU, JSON.stringify(wardTransfers)); } catch (e) {}
+        }
+      }
 
       const hasContent = inputValues.some(v => v.trim() !== '') || tickValues.some(v => v !== '');
       if (hasContent) {
@@ -483,7 +646,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
         root.removeEventListener('click', handleInput);
       };
     }
-  }, [rowIds, visitTableKeys, operationTableKeys, recordId]);
+  }, [rowIds, visitTableKeys, operationTableKeys, wardTransfers, recordId]);
 
   const handleClearForm = () => {
     if (window.confirm("Are you sure you want to clear this entire form? All typed data will be lost.")) {
@@ -497,6 +660,12 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
       setRowIds(initialRowIds);
       setVisitTableKeys(['visits1_1']);
       setOperationTableKeys(['ops_1']);
+      setWardTransfers([
+        { id: 'wt_1', date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' },
+        { id: 'wt_2', date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' },
+        { id: 'wt_3', date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' },
+        { id: 'wt_4', date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' }
+      ]);
       setToastMsg('Form cleared.');
       setTimeout(() => setToastMsg(''), 2000);
     }
@@ -526,7 +695,23 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
       dodTime: document.getElementById('arb-dod-time')?.value
     };
 
-    const dataToSave = { rowIds, visitTableKeys, operationTableKeys, inputValues, tickValues, patient: currentPatient };
+    const dataToSave = { rowIds, visitTableKeys, operationTableKeys, inputValues, tickValues, wardTransfers, patient: currentPatient };
+
+    if (ip && ip !== 'UNASSIGNED') {
+      let latestWard = '';
+      let latestRoom = '';
+      let latestBed = '';
+      for (let i = wardTransfers.length - 1; i >= 0; i--) {
+        const row = wardTransfers[i];
+        if (row.to && row.to.trim() !== '') {
+          latestWard = row.to.trim();
+          latestRoom = row.roomNo || '';
+          latestBed = row.bedNo || '';
+          break;
+        }
+      }
+      updatePatientWardTransfer(ip, wardTransfers, latestWard ? { ward: latestWard, roomNo: latestRoom, bedNo: latestBed } : null);
+    }
 
     const saved = upsertFormRecord(recordId, 'Activity Record Billing', ip, dataToSave, null, forceDraft);
     setRecordId(saved.id);
@@ -542,100 +727,156 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
   const handleWardTransferSave = () => {
     handleSave();
 
-    const table = document.getElementById('ward-transfers-table');
-    let lastToValue = '';
-    let emptyRowIndex = -1;
-    let needsNewRow = false;
-
-    if (table) {
-      const rows = table.querySelectorAll('tbody tr');
-
-      for (let i = rows.length - 1; i >= 0; i--) {
-        const inputs = rows[i].querySelectorAll('input, textarea');
-        if (inputs.length >= 4 && inputs[3].value.trim() !== '') {
-          lastToValue = inputs[3].value;
-          emptyRowIndex = i + 1;
+    setWardTransfers(prev => {
+      const next = [...prev];
+      let lastFilledIdx = -1;
+      for (let i = next.length - 1; i >= 0; i--) {
+        if (next[i].to && next[i].to.trim() !== '') {
+          lastFilledIdx = i;
           break;
         }
       }
 
-      if (lastToValue !== '') {
-        if (emptyRowIndex < rows.length) {
-          const newInputs = rows[emptyRowIndex].querySelectorAll('input, textarea');
-          if (newInputs.length >= 3) {
-            newInputs[2].value = lastToValue;
-            newInputs[2].classList.add('has-value');
-            newInputs[2].dispatchEvent(new Event('input', { bubbles: true }));
-          }
+      if (lastFilledIdx >= 0) {
+        const lastRow = next[lastFilledIdx];
+        const fromText = lastRow.to || '';
+        const nextIdx = lastFilledIdx + 1;
+        if (nextIdx < next.length) {
+          next[nextIdx] = {
+            ...next[nextIdx],
+            from: fromText
+          };
         } else {
-          needsNewRow = true;
+          next.push({
+            id: Math.random().toString(36).substr(2, 9),
+            date: '',
+            time: '',
+            from: fromText,
+            to: '',
+            roomNo: '',
+            bedNo: '',
+            nurse: ''
+          });
         }
-      } else {
-        needsNewRow = true;
       }
-    }
-
-    if (needsNewRow) {
-      addRow('wardTransfers');
-      if (lastToValue !== '') {
-        setTimeout(() => {
-          const updatedTable = document.getElementById('ward-transfers-table');
-          if (updatedTable) {
-            const updatedRows = updatedTable.querySelectorAll('tbody tr');
-            if (updatedRows.length > 0) {
-              const newLastRow = updatedRows[updatedRows.length - 1];
-              const newInputs = newLastRow.querySelectorAll('input, textarea');
-              if (newInputs.length >= 3) {
-                newInputs[2].value = lastToValue;
-                newInputs[2].classList.add('has-value');
-                newInputs[2].dispatchEvent(new Event('input', { bubbles: true }));
-              }
-            }
-          }
-        }, 50);
-      }
-    }
+      return next;
+    });
   };
 
-  const triggerAutofill = (ipValue) => {
-    if (!ipValue || !ipValue.trim()) return;
-    const found = findPatientByIpNo(ipValue);
-    if (found) {
-      const setVal = (id, val) => {
-        const el = document.getElementById(id);
-        if (el && val) {
-          el.value = val;
-          el.classList.add('has-value');
-        }
-      };
-      setVal('arb-name', found.patientName);
-      setVal('arb-hospital-no', found.uhidNo);
-      setVal('arb-dept', found.consultant);
-      setVal('arb-ward', found.ward);
-      setVal('arb-room-bed', found.bedNo || found.bed);
-      setVal('arb-address', found.address || found.contactNo);
+  const triggerAutofill = async (ipValue) => {
+    if (!ipValue || !String(ipValue).trim()) return;
+    const searchVal = String(ipValue).trim().toUpperCase();
+    const cleanSearch = searchVal.replace(/[^A-Z0-9]/g, '');
 
-      // Format date from DD/MM/YYYY to YYYY-MM-DD for <input type="date">
-      if (found.doa) {
-        const parts = found.doa.split('/');
-        if (parts.length === 3) {
-          setVal('arb-doa', `${parts[2]}-${parts[1]}-${parts[0]}`);
-        } else {
-          setVal('arb-doa', found.doa);
-        }
-      }
-      if (found.dod) {
-        const parts = found.dod.split('/');
-        if (parts.length === 3) {
-          setVal('arb-dod', `${parts[2]}-${parts[1]}-${parts[0]}`);
-        } else {
-          setVal('arb-dod', found.dod);
-        }
-      }
+    // 1. Local patient registry lookup
+    let found = findPatientByIpNo(ipValue);
 
-      if (found.doaTime) setVal('arb-doa-time', found.doaTime);
-      if (found.dodTime) setVal('arb-dod-time', found.dodTime);
+    // 2. Fetch backend patients to ensure newly registered patients are found
+    let backendMatch = null;
+    try {
+      const res = await fetch('http://localhost:5000/api/patients');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        backendMatch = data.data.find(p => {
+          const pIp = (p.ip_no || '').toUpperCase();
+          const pUhid = (p.uhid_no || '').toUpperCase();
+          const pCleanIp = pIp.replace(/[^A-Z0-9]/g, '');
+          const pCleanUhid = pUhid.replace(/[^A-Z0-9]/g, '');
+          if (pIp === searchVal || pUhid === searchVal) return true;
+          if (cleanSearch && (pCleanIp === cleanSearch || pCleanUhid === cleanSearch)) return true;
+          return false;
+        });
+      }
+    } catch (err) {}
+
+    let backendRegData = {};
+    if (backendMatch?.registration_data) {
+      try {
+        backendRegData = typeof backendMatch.registration_data === 'string'
+          ? JSON.parse(backendMatch.registration_data)
+          : backendMatch.registration_data;
+      } catch (e) {}
     }
+
+    const patientData = {
+      patientName: found?.patientName || found?.name || backendMatch?.name || (backendRegData.firstName ? `${backendRegData.title ? backendRegData.title + ' ' : ''}${backendRegData.firstName}`.trim() : ''),
+      uhidNo: found?.uhidNo || found?.uhid_no || backendMatch?.uhid_no || backendRegData.uhidNo || backendRegData.patientId || '',
+      ipNo: found?.ipNo || found?.ip_no || backendMatch?.ip_no || searchVal,
+      consultant: found?.consultant || found?.consultantName || found?.doctorName || backendMatch?.doctor || backendRegData.consultantDr || '',
+      ward: found?.ward || found?.wardType || backendMatch?.ward || backendRegData.ward || '',
+      roomNo: found?.roomNo || found?.room || backendRegData.room || backendMatch?.room || '',
+      bedNo: found?.bedNo || found?.bed || backendMatch?.bed_no || backendRegData.bedNo || '',
+      address: found?.address || backendMatch?.address || backendRegData.presentAddress || found?.contactNo || '',
+      doa: found?.doa || backendMatch?.doa || backendRegData.doa || backendRegData.admissionDate || found?.regDate || backendRegData.regDate || '',
+      dod: found?.dod || backendMatch?.dod || backendRegData.dod || '',
+      doaTime: found?.doaTime || backendMatch?.doaTime || backendRegData.doaTime || backendRegData.admissionTime || '',
+      dodTime: found?.dodTime || backendMatch?.dodTime || backendRegData.dodTime || '',
+      refBy: found?.referral || backendRegData.referenceNo || ''
+    };
+
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== null && String(val).trim() !== '') {
+        el.value = val;
+        el.classList.add('has-value');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    };
+
+    if (patientData.patientName) setVal('arb-name', patientData.patientName);
+    if (patientData.uhidNo) setVal('arb-hospital-no', patientData.uhidNo);
+    if (patientData.consultant) setVal('arb-dept', patientData.consultant);
+    const resolvedWard = getWardName(patientData.ward);
+    if (resolvedWard) {
+      setVal('arb-ward', resolvedWard);
+      setCurrentWard(resolvedWard);
+    }
+    const roomBedStr = (patientData.roomNo ? `Room ${patientData.roomNo}, ` : '') + (patientData.bedNo || '');
+    if (roomBedStr) setVal('arb-room-bed', roomBedStr);
+    if (patientData.address) setVal('arb-address', patientData.address);
+    if (patientData.refBy) setVal('arb-ref-by', patientData.refBy);
+
+    const formattedDoa = toISODateString(patientData.doa);
+    if (formattedDoa) {
+      setVal('arb-doa', formattedDoa);
+    }
+    if (patientData.dod) {
+      const formattedDod = toISODateString(patientData.dod);
+      if (formattedDod) setVal('arb-dod', formattedDod);
+    }
+
+    const formattedDoaTime = to24HourTime(patientData.doaTime);
+    if (formattedDoaTime) setVal('arb-doa-time', formattedDoaTime);
+    if (patientData.dodTime) setVal('arb-dod-time', to24HourTime(patientData.dodTime) || patientData.dodTime);
+
+    // Auto-populate admitted ward, room, and bed details into Ward Transfers table (Row 1)
+    const cleanWard = (patientData.ward || '').trim();
+    const cleanRoom = (patientData.roomNo || '').replace(/^Room:\s*/i, '').replace(/^Room\s*/i, '').trim();
+    const cleanBed = (patientData.bedNo || '').trim();
+
+    setWardTransfers(prev => {
+      const next = [...prev];
+      while (next.length < 2) {
+        next.push({ id: Math.random().toString(36).substr(2, 9), date: '', time: '', from: '', to: '', roomNo: '', bedNo: '', nurse: '' });
+      }
+      next[0] = {
+        ...next[0],
+        date: formattedDoa || next[0].date || new Date().toISOString().split('T')[0],
+        time: formattedDoaTime || next[0].time,
+        from: next[0].from && next[0].from !== '' ? next[0].from : 'Admission',
+        to: cleanWard || next[0].to,
+        roomNo: cleanRoom || next[0].roomNo,
+        bedNo: cleanBed || next[0].bedNo
+      };
+      // Next row automatically fills with current ward name in FROM
+      if (cleanWard) {
+        next[1] = {
+          ...next[1],
+          from: (!next[1].from || next[1].from === '' || next[1].from === 'Admission') ? cleanWard : next[1].from
+        };
+      }
+      return next;
+    });
   };
 
   const handleIpKeyDown = (e) => {
@@ -669,6 +910,31 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
     setOperationTableKeys(prev => prev.filter(k => k !== key));
   };
 
+  useEffect(() => {
+    if (currentWard) {
+      const wardName = getWardName(currentWard);
+      document.querySelectorAll('.arb-ward-input').forEach(el => {
+        if (!el.value || el.dataset.autofilled === 'true' || el.value !== wardName) {
+          el.value = wardName;
+          el.dataset.autofilled = 'true';
+          el.classList.add('has-value');
+        }
+      });
+    }
+  }, [currentWard, rowIds, visitTableKeys, operationTableKeys]);
+
+  useEffect(() => {
+    if (currentUserName) {
+      document.querySelectorAll('.arb-consultant-input').forEach(el => {
+        if (!el.value || el.dataset.autofilled === 'true' || el.value === '') {
+          el.value = currentUserName;
+          el.dataset.autofilled = 'true';
+          el.classList.add('has-value');
+        }
+      });
+    }
+  }, [currentUserName, rowIds, visitTableKeys]);
+
   const handleVentilatorInput = (e) => {
     const tbody = e.target.closest('tbody');
     if (!tbody) return;
@@ -677,14 +943,14 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
     let lastConnecting = null;
 
     rows.forEach(tr => {
-      const inputs = tr.querySelectorAll('input');
-      const textareas = tr.querySelectorAll('textarea');
-      if (inputs.length < 3 || textareas.length < 1) return;
+      const inputs = tr.querySelectorAll('input[type="date"], input[type="time"]');
+      if (inputs.length < 3) return;
 
-      const dateVal = inputs[0].value;
-      const connVal = inputs[1].value;
-      const discVal = inputs[2].value;
-      const totalInput = textareas[0];
+      const dateVal = inputs[0]?.value || '';
+      const connVal = inputs[1]?.value || '';
+      const discVal = inputs[2]?.value || '';
+      const totalInput = tr.cells[4]?.querySelector('textarea') || tr.cells[5]?.querySelector('input, textarea');
+      if (!totalInput) return;
 
       let calculated = false;
 
@@ -803,7 +1069,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                           <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Bill No.</span><input type="text" className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
                         </td>
                         <td style={{ border: 'none', borderRight: '1px solid #000', borderBottom: '1px solid #000', width: '25%', padding: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Date :</span><input type="date" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }} /></div>
+                          <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Date :</span><input type="date" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }}  min={new Date().toISOString().split('T')[0]} /></div>
                         </td>
                         <td style={{ border: 'none', borderBottom: '1px solid #000', width: '25%', padding: '4px' }}>
                           <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Total Amount</span><input type="text" className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
@@ -838,7 +1104,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                   <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '12px', fontWeight: 'bold' }}>No.</span><input type="text" className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
                 </td>
                 <td colSpan={2} style={{ width: '50%', padding: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '12px', fontWeight: 'bold' }}>Hospital No.</span><input type="text" id="arb-hospital-no" className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '12px', fontWeight: 'bold' }}>Hospital No.</span><input type="text" id="arb-hospital-no" onBlur={handleIpBlur} onKeyDown={handleIpKeyDown} onChange={(e) => { const v = e.target.value.trim(); if (v.length >= 1) triggerAutofill(v); }} className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
                 </td>
               </tr>
               <tr>
@@ -850,7 +1116,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                     <tbody>
                       <tr>
                         <td style={{ border: 'none', borderRight: '1px solid #000', borderBottom: '1px solid #000', width: '50%', padding: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '12px', fontWeight: 'bold' }}>I.P. No. :</span><input type="text" id="arb-ip-no" onBlur={handleIpBlur} onKeyDown={handleIpKeyDown} className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
+                          <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '12px', fontWeight: 'bold' }}>I.P. No. :</span><input type="text" id="arb-ip-no" onBlur={handleIpBlur} onKeyDown={handleIpKeyDown} onChange={(e) => { const v = e.target.value.trim(); if (v.length >= 1) triggerAutofill(v); }} className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
                         </td>
                         <td style={{ border: 'none', borderBottom: '1px solid #000', width: '50%', padding: '4px' }}>
                           <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '12px', fontWeight: 'bold' }}>Dept. :</span><input type="text" id="arb-dept" className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
@@ -872,7 +1138,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               </tr>
               <tr>
                 <td style={{ width: '25%', padding: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Date of Admission :</span><input type="date" id="arb-doa" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }} /></div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Date of Admission :</span><input type="date" id="arb-doa" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }}  min={new Date().toISOString().split('T')[0]} /></div>
                 </td>
                 <td style={{ width: '25%', padding: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Time :</span><input type="time" id="arb-doa-time" className="arb-value-input no-icon-time auto-green-time" onClick={e => { if (!e.target.value) { const now = new Date(); e.target.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`; e.target.classList.add('has-value'); e.target.dispatchEvent(new Event('input', { bubbles: true })); } try { e.target.showPicker(); } catch (err) {} }} onDoubleClick={e => { e.preventDefault(); e.stopPropagation(); e.target.value = ''; e.target.classList.remove('has-value'); e.target.dispatchEvent(new Event('input', { bubbles: true })); }} onChange={e => { if (e.target.value) e.target.classList.add('has-value'); else e.target.classList.remove('has-value'); }} style={{ flex: 1, textAlign: 'left', backgroundColor: 'transparent', border: 'none', outline: 'none' }} /></div>
@@ -881,12 +1147,12 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                   <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Room/Bed No. :</span><input type="text" id="arb-room-bed" className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
                 </td>
                 <td style={{ width: '25%', padding: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Ward:</span><input type="text" id="arb-ward" className="arb-value-input" style={{ flex: 1, textAlign: 'left' }} /></div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Ward:</span><input type="text" id="arb-ward" className="arb-value-input" onChange={(e) => setCurrentWard(getWardName(e.target.value))} style={{ flex: 1, textAlign: 'left' }} /></div>
                 </td>
               </tr>
               <tr>
                 <td style={{ padding: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Date of Discharge :</span><input type="date" id="arb-dod" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }} /></div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Date of Discharge :</span><input type="date" id="arb-dod" className="arb-value-input" onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ flex: 1, textAlign: 'left' }}  min={new Date().toISOString().split('T')[0]} /></div>
                 </td>
                 <td style={{ padding: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ whiteSpace: 'nowrap', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>Time :</span><input type="time" id="arb-dod-time" className="arb-value-input no-icon-time auto-green-time" onClick={e => { if (!e.target.value) { const now = new Date(); e.target.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`; e.target.classList.add('has-value'); e.target.dispatchEvent(new Event('input', { bubbles: true })); } try { e.target.showPicker(); } catch (err) {} }} onDoubleClick={e => { e.preventDefault(); e.stopPropagation(); e.target.value = ''; e.target.classList.remove('has-value'); e.target.dispatchEvent(new Event('input', { bubbles: true })); }} onChange={e => { if (e.target.value) e.target.classList.add('has-value'); else e.target.classList.remove('has-value'); }} style={{ flex: 1, textAlign: 'left', backgroundColor: 'transparent', border: 'none', outline: 'none' }} /></div>
@@ -918,23 +1184,20 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               <table className="arb-table">
                 <colgroup>
                   <col style={{ width: '3%' }} />
-                  <col style={{ width: '15%' }} />
-                  {Array.from({ length: 10 }).map((_, i) => <col key={i} style={{ width: '8.2%' }} />)}
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '13%' }} />
+                  {Array.from({ length: 10 }).map((_, i) => <col key={i} style={{ width: '7.2%' }} />)}
                 </colgroup>
                 <thead>
                   <tr>
-                    <th colSpan={12} className="arb-section-title">
+                    <th colSpan={13} className="arb-section-title">
                       NO. OF VISITS
                     </th>
                   </tr>
                   <tr>
-                    <th rowSpan={2}></th>
-                    <th className="arb-col-header">DATES</th>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <th key={i} colSpan={2} className="arb-value-cell" style={{ backgroundColor: '#f8fafc' }}>
-                        <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} style={{ fontFamily: 'inherit' }} />
-                      </th>
-                    ))}
+                    <th rowSpan={2}>#</th>
+                    <th className="arb-col-header" rowSpan={2}>WARD</th>
+                    <th className="arb-col-header" colSpan={10}>DATES</th>
                   </tr>
                   <tr>
                     <th className="arb-col-header">CONSULTANTS</th>
@@ -950,10 +1213,13 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                   {(rowIds[tableKey] || []).map((id, i) => (
                     <tr key={id}>
                       <td className="arb-value-cell" style={{ textAlign: 'center' }}>{i + 1}</td>
+                      <td className="arb-value-cell">
+                        <AutoExpandingTextarea className="arb-value-input arb-ward-input" defaultValue={currentWard} style={{ width: '100%', height: '100%', border: 'none', textAlign: 'center', backgroundColor: 'transparent' }} />
+                      </td>
                       {Array.from({ length: 11 }).map((_, j) => (
                         <td key={j} className="arb-value-cell" style={{ position: 'relative' }}>
                           {j === 0 ? (
-                            <input type="text" className="arb-value-input" list="consultant-options-list" defaultValue={currentUserName} style={{ width: '100%', height: '100%', border: 'none', textAlign: 'center', backgroundColor: 'transparent' }} />
+                            <input type="text" className="arb-value-input arb-consultant-input" list="consultant-options-list" defaultValue={currentUserName} style={{ width: '100%', height: '100%', border: 'none', textAlign: 'center', backgroundColor: 'transparent' }} />
                           ) : (
                             <TimeClickBox className="arb-value-input" style={{ width: '100%', height: '100%' }} />
                           )}
@@ -994,21 +1260,107 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table" id="ward-transfers-table">
             <thead>
               <tr>
-                <th colSpan={5} className="arb-section-title">WARD TRANSFERS</th>
+                <th colSpan={7} className="arb-section-title">WARD TRANSFERS</th>
               </tr>
               <tr>
-                <th className="arb-col-header">DATE</th>
-                <th className="arb-col-header">TIME</th>
-                <th className="arb-col-header">FROM</th>
-                <th className="arb-col-header">TO</th>
-                <th className="arb-col-header">SIGNATURE OF NURSE</th>
+                <th className="arb-col-header" style={{ width: '13%' }}>DATE</th>
+                <th className="arb-col-header" style={{ width: '10%' }}>TIME</th>
+                <th className="arb-col-header" style={{ width: '18%' }}>FROM</th>
+                <th className="arb-col-header" style={{ width: '18%' }}>TO</th>
+                <th className="arb-col-header" style={{ width: '13%' }}>ROOM NO</th>
+                <th className="arb-col-header" style={{ width: '13%' }}>BED NO</th>
+                <th className="arb-col-header" style={{ width: '15%' }}>SIGNATURE OF NURSE</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.wardTransfers} tableKey="wardTransfers" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'text', 'text', 'nurse-signature']} />
+              {wardTransfers.map((row, rowIndex) => (
+                <tr key={row.id || rowIndex}>
+                  <td className="arb-value-cell">
+                    <input
+                      type="date"
+                      className={`arb-value-input ${row.date ? 'has-value' : ''}`}
+                      value={row.date || ''}
+                      onChange={(e) => handleWardTransferChange(rowIndex, 'date', e.target.value)}
+                      onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                      style={{ fontFamily: 'inherit' }}
+                    />
+                  </td>
+                  <td className="arb-value-cell">
+                    <input
+                      type="time"
+                      className={`arb-value-input no-icon-time auto-green-time ${row.time ? 'has-value' : ''}`}
+                      value={row.time || ''}
+                      onChange={(e) => handleWardTransferChange(rowIndex, 'time', e.target.value)}
+                      onClick={(e) => {
+                        if (!row.time) {
+                          const now = new Date();
+                          const hours = now.getHours().toString().padStart(2, '0');
+                          const minutes = now.getMinutes().toString().padStart(2, '0');
+                          handleWardTransferChange(rowIndex, 'time', `${hours}:${minutes}`);
+                        }
+                        try { e.target.showPicker(); } catch (err) {}
+                      }}
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleWardTransferChange(rowIndex, 'time', '');
+                      }}
+                      style={{ fontFamily: 'inherit', width: '100%', height: '100%', border: 'none', textAlign: 'center', backgroundColor: 'transparent' }}
+                    />
+                  </td>
+                  <td className="arb-value-cell">
+                    <AutoExpandingTextarea
+                      className={`arb-value-input ${row.from ? 'has-value' : ''}`}
+                      value={row.from || ''}
+                      onChange={(e) => handleWardTransferChange(rowIndex, 'from', e.target.value)}
+                    />
+                  </td>
+                  <td className="arb-value-cell">
+                    <AutoExpandingTextarea
+                      className={`arb-value-input ${row.to ? 'has-value' : ''}`}
+                      value={row.to || ''}
+                      onChange={(e) => handleWardTransferChange(rowIndex, 'to', e.target.value)}
+                    />
+                  </td>
+                  <td className="arb-value-cell">
+                    <AutoExpandingTextarea
+                      className={`arb-value-input ${row.roomNo ? 'has-value' : ''}`}
+                      value={row.roomNo || ''}
+                      onChange={(e) => handleWardTransferChange(rowIndex, 'roomNo', e.target.value)}
+                    />
+                  </td>
+                  <td className="arb-value-cell">
+                    <AutoExpandingTextarea
+                      className={`arb-value-input ${row.bedNo ? 'has-value' : ''}`}
+                      value={row.bedNo || ''}
+                      onChange={(e) => handleWardTransferChange(rowIndex, 'bedNo', e.target.value)}
+                    />
+                  </td>
+                  <td className="arb-value-cell" style={{ position: 'relative' }}>
+                    <DatalistInput
+                      type="text"
+                      className={`arb-value-input ${row.nurse ? 'has-value' : ''}`}
+                      listId="nurse-signatures-list"
+                      value={row.nurse || ''}
+                      onChange={(e) => handleWardTransferChange(rowIndex, 'nurse', e.target.value)}
+                    />
+                    {wardTransfers.length > 1 && (
+                      <button
+                        type="button"
+                        className="no-print"
+                        onClick={() => removeWardTransferRow(rowIndex)}
+                        style={{ position: 'absolute', right: '-22px', top: '50%', transform: 'translateY(-50%)', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px', opacity: 0.3, zIndex: 10 }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                        onMouseLeave={e => e.currentTarget.style.opacity = 0.3}
+                        title="Delete Row"
+                      >✕</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-          <AddRowBtn onSave={handleWardTransferSave} onClick={() => addRow('wardTransfers')} />
+          <AddRowBtn onSave={handleWardTransferSave} onClick={addWardTransferRow} />
 
           <div className="arb-spacer"></div>
 
@@ -1036,7 +1388,8 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
                     <td colSpan={2} style={{ padding: '8px 16px' }}>
                       <strong>1. SURGERY DETAILS : OPERATION :</strong> <AutoExpandingTextarea className="arb-value-input" style={{ width: '300px', display: 'inline-block', borderBottom: '1px dashed #000' }} /><br /><br />
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Date : <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} style={{ width: '110px', display: 'inline-block', borderBottom: '1px dashed #000', fontFamily: 'inherit' }} /></span>
+                        <span>Ward : <AutoExpandingTextarea className="arb-value-input arb-ward-input" defaultValue={currentWard} style={{ width: '120px', display: 'inline-block', borderBottom: '1px dashed #000' }} /></span>
+                        <span>Date : <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} style={{ width: '110px', display: 'inline-block', borderBottom: '1px dashed #000', fontFamily: 'inherit' }}  min={new Date().toISOString().split('T')[0]} /></span>
                         <span>Duration : <AutoExpandingTextarea className="arb-value-input" style={{ width: '100px', display: 'inline-block', borderBottom: '1px dashed #000' }} /></span>
                         <span>ICD : <AutoExpandingTextarea className="arb-value-input" style={{ width: '100px', display: 'inline-block', borderBottom: '1px dashed #000' }} /></span>
                       </div>
@@ -1083,15 +1436,16 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={10} className="arb-section-title">NEBULIZATION</th>
+                <th colSpan={12} className="arb-section-title">NEBULIZATION</th>
               </tr>
               <tr>
                 <th className="arb-col-header" colSpan={2}>Date</th>
+                <th className="arb-col-header" colSpan={2}>Ward</th>
                 <th className="arb-col-header" colSpan={8}>Time</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.nebulization} tableKey="nebulization" onRemove={removeRow} cols={9} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} />
+              <EmptyRows ids={rowIds.nebulization} tableKey="nebulization" onRemove={removeRow} cols={10} colSpans={[2, 2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'ward', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} defaultValues={['', currentWard, '', '', '', '', '', '', '', '']} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('nebulization')} />
@@ -1101,15 +1455,16 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={10} className="arb-section-title">GRBS CHART</th>
+                <th colSpan={12} className="arb-section-title">GRBS CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header" colSpan={2}>Date</th>
+                <th className="arb-col-header" colSpan={2}>Ward</th>
                 <th className="arb-col-header" colSpan={8}>Time</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.grbs} tableKey="grbs" onRemove={removeRow} cols={9} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} />
+              <EmptyRows ids={rowIds.grbs} tableKey="grbs" onRemove={removeRow} cols={10} colSpans={[2, 2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'ward', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} defaultValues={['', currentWard, '', '', '', '', '', '', '', '']} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('grbs')} />
@@ -1119,15 +1474,16 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table" style={{ borderBottom: 'none' }}>
             <thead>
               <tr>
-                <th colSpan={10} className="arb-section-title">ABG CHART</th>
+                <th colSpan={12} className="arb-section-title">ABG CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header" colSpan={2}>Date</th>
+                <th className="arb-col-header" colSpan={2}>Ward</th>
                 <th className="arb-col-header" colSpan={8}>Time</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.abg} tableKey="abg" onRemove={removeRow} cols={9} colSpans={[2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} />
+              <EmptyRows ids={rowIds.abg} tableKey="abg" onRemove={removeRow} cols={10} colSpans={[2, 2, 1, 1, 1, 1, 1, 1, 1, 1]} colTypes={['date', 'ward', 'time', 'time', 'time', 'time', 'time', 'time', 'time', 'time']} defaultValues={['', currentWard, '', '', '', '', '', '', '', '']} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('abg')} />
@@ -1140,16 +1496,17 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={3} className="arb-section-title">VISITS : PHYSIOTHERAPY</th>
+                <th colSpan={4} className="arb-section-title">VISITS : PHYSIOTHERAPY</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">WARD</th>
                 <th className="arb-col-header">TREATMENT</th>
                 <th className="arb-col-header">SIGN.</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.physiotherapy || []} tableKey="physiotherapy" onRemove={removeRow} cols={3} colTypes={['date', 'text', 'user-signature']} defaultValues={['', '', currentUserName]} />
+              <EmptyRows ids={rowIds.physiotherapy || []} tableKey="physiotherapy" onRemove={removeRow} cols={4} colTypes={['date', 'ward', 'text', 'user-signature']} defaultValues={['', currentWard, '', currentUserName]} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('physiotherapy')} />
@@ -1159,16 +1516,17 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={3} className="arb-section-title">VISITS : DIETICIAN</th>
+                <th colSpan={4} className="arb-section-title">VISITS : DIETICIAN</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">WARD</th>
                 <th className="arb-col-header">DIET</th>
                 <th className="arb-col-header">SIGN.</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.dietician || []} tableKey="dietician" onRemove={removeRow} cols={3} colTypes={['date', 'text', 'user-signature']} defaultValues={['', '', currentUserName]} />
+              <EmptyRows ids={rowIds.dietician || []} tableKey="dietician" onRemove={removeRow} cols={4} colTypes={['date', 'ward', 'text', 'user-signature']} defaultValues={['', currentWard, '', currentUserName]} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('dietician')} />
@@ -1178,10 +1536,11 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={5} className="arb-section-title">VENTILATOR CHART</th>
+                <th colSpan={6} className="arb-section-title">VENTILATOR CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">WARD</th>
                 <th className="arb-col-header">CONNECTING<br />TIME</th>
                 <th className="arb-col-header">DISCONNECTING<br />TIME</th>
                 <th className="arb-col-header">TOTAL CONSUMPTION</th>
@@ -1189,7 +1548,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               </tr>
             </thead>
             <tbody onInput={handleVentilatorInput}>
-              <EmptyRows ids={rowIds.ventilator} tableKey="ventilator" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'time', 'text', 'user-signature']} defaultValues={['', '', '', '', currentUserName]} />
+              <EmptyRows ids={rowIds.ventilator} tableKey="ventilator" onRemove={removeRow} cols={6} colTypes={['date', 'ward', 'time', 'time', 'text', 'user-signature']} defaultValues={['', currentWard, '', '', '', currentUserName]} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('ventilator')} />
@@ -1203,22 +1562,24 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
             <colgroup>
               <col style={{ width: '10%' }} />
               <col style={{ width: '8%' }} />
-              <col style={{ width: '58%' }} />
-              <col style={{ width: '24%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '42%' }} />
+              <col style={{ width: '22%' }} />
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={4} className="arb-section-title">NURSES CHART</th>
+                <th colSpan={5} className="arb-section-title">NURSES CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header" style={{ width: '10%' }}>DATE</th>
                 <th className="arb-col-header" style={{ width: '8%' }}>TIME</th>
-                <th className="arb-col-header" style={{ width: '58%' }}>PROCEDURE</th>
-                <th className="arb-col-header" style={{ width: '24%' }}>NAME OF STAFF / SIGNATURE</th>
+                <th className="arb-col-header" style={{ width: '18%' }}>WARD</th>
+                <th className="arb-col-header" style={{ width: '42%' }}>PROCEDURE</th>
+                <th className="arb-col-header" style={{ width: '22%' }}>NAME OF STAFF / SIGNATURE</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.nurses} tableKey="nurses" onRemove={removeRow} cols={4} colTypes={['date', 'time', 'procedure-suggestion', 'user-signature']} defaultValues={['', '', '', currentUserName]} />
+              <EmptyRows ids={rowIds.nurses} tableKey="nurses" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'ward', 'procedure-suggestion', 'user-signature']} defaultValues={['', '', currentWard, '', currentUserName]} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('nurses')} />
@@ -1231,16 +1592,17 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={3} className="arb-section-title">ECG CHART</th>
+                <th colSpan={4} className="arb-section-title">ECG CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">WARD</th>
                 <th className="arb-col-header">NO.</th>
                 <th className="arb-col-header">SIGN</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.ecg} tableKey="ecg" onRemove={removeRow} cols={3} colTypes={['date', 'text', 'user-signature']} />
+              <EmptyRows ids={rowIds.ecg} tableKey="ecg" onRemove={removeRow} cols={4} colTypes={['date', 'ward', 'text', 'user-signature']} defaultValues={['', currentWard, '', currentUserName]} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('ecg')} />
@@ -1250,16 +1612,17 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={3} className="arb-section-title">BLOOD TRANSFUSION CHART</th>
+                <th colSpan={4} className="arb-section-title">BLOOD TRANSFUSION CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">WARD</th>
                 <th className="arb-col-header">NO.</th>
                 <th className="arb-col-header">SIGN</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.blood} tableKey="blood" onRemove={removeRow} cols={3} colTypes={['date', 'text', 'user-signature']} />
+              <EmptyRows ids={rowIds.blood} tableKey="blood" onRemove={removeRow} cols={4} colTypes={['date', 'ward', 'text', 'user-signature']} defaultValues={['', currentWard, '', currentUserName]} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('blood')} />
@@ -1269,10 +1632,11 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
           <table className="arb-table">
             <thead>
               <tr>
-                <th colSpan={6} className="arb-section-title">OXYGEN CHART</th>
+                <th colSpan={7} className="arb-section-title">OXYGEN CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
+                <th className="arb-col-header">WARD</th>
                 <th className="arb-col-header">CONNECTNG<br />TIME</th>
                 <th className="arb-col-header">DISCONNECTING<br />TIME</th>
                 <th className="arb-col-header">FLOW<br />RATE</th>
@@ -1281,7 +1645,7 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
               </tr>
             </thead>
             <tbody onInput={handleVentilatorInput}>
-              <EmptyRows ids={rowIds.oxygen} tableKey="oxygen" onRemove={removeRow} cols={6} colTypes={['date', 'time', 'time', 'flow-rate', 'text', 'user-signature']} />
+              <EmptyRows ids={rowIds.oxygen} tableKey="oxygen" onRemove={removeRow} cols={7} colTypes={['date', 'ward', 'time', 'time', 'flow-rate', 'text', 'user-signature']} defaultValues={['', currentWard, '', '', '', '', currentUserName]} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('oxygen')} />
@@ -1295,22 +1659,24 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
             <colgroup>
               <col style={{ width: '10%' }} />
               <col style={{ width: '8%' }} />
-              <col style={{ width: '67%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '49%' }} />
               <col style={{ width: '15%' }} />
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={4} className="arb-section-title">LAB INVESTIGATION CHART</th>
+                <th colSpan={5} className="arb-section-title">LAB INVESTIGATION CHART</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
                 <th className="arb-col-header">TIME</th>
+                <th className="arb-col-header">WARD</th>
                 <th className="arb-col-header">PARTICULARS</th>
                 <th className="arb-col-header">SIGNATURE</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.lab} tableKey="lab" onRemove={removeRow} cols={4} colTypes={['date', 'time', 'lab-particulars-suggestion', 'user-signature']} />
+              <EmptyRows ids={rowIds.lab} tableKey="lab" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'ward', 'lab-particulars-suggestion', 'user-signature']} defaultValues={['', '', currentWard, '', currentUserName]} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('lab')} />
@@ -1324,56 +1690,77 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
             <colgroup>
               <col style={{ width: '10%' }} />
               <col style={{ width: '8%' }} />
-              <col style={{ width: '67%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '49%' }} />
               <col style={{ width: '15%' }} />
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={4} className="arb-section-title">RADIOLOGY / ULTRA SOUND / ECHO / DOPPLER</th>
+                <th colSpan={5} className="arb-section-title">RADIOLOGY / ULTRA SOUND / ECHO / DOPPLER</th>
               </tr>
               <tr>
                 <th className="arb-col-header">DATE</th>
                 <th className="arb-col-header">TIME</th>
+                <th className="arb-col-header">WARD</th>
                 <th className="arb-col-header">PARTICULARS</th>
                 <th className="arb-col-header">SIGNATURE</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.radiology} tableKey="radiology" onRemove={removeRow} cols={4} colTypes={['date', 'time', 'radiology-suggestion', 'user-signature']} />
+              <EmptyRows ids={rowIds.radiology} tableKey="radiology" onRemove={removeRow} cols={5} colTypes={['date', 'time', 'ward', 'radiology-suggestion', 'user-signature']} defaultValues={['', '', currentWard, '', currentUserName]} />
             </tbody>
           </table>
           <AddRowBtn onSave={handleSave} onClick={() => addRow('radiology')} />
 
           <div className="arb-spacer"></div>
 
+          {/* ALPHA BED CHARGES */}
           <table className="arb-table">
             <colgroup>
+              <col style={{ width: '6%' }} />
               <col style={{ width: '10%' }} />
-              <col style={{ width: '75%' }} />
-              <col style={{ width: '15%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '6%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '10%' }} />
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={3} className="arb-section-title" style={{ textAlign: 'left', paddingLeft: '10px' }}>MISCELLANEOUS PROCEDURE :</th>
+                <th colSpan={12} className="arb-section-title" style={{ textAlign: 'left', paddingLeft: '10px' }}>ALPHA BED CHARGES :</th>
               </tr>
               <tr>
                 <th className="arb-col-header">Date</th>
-                <th className="arb-col-header">Procedure</th>
+                <th className="arb-col-header">Ward</th>
+                <th className="arb-col-header">Connecting Time</th>
+                <th className="arb-col-header">Disconnecting Time</th>
+                <th className="arb-col-header">Charges</th>
+                <th className="arb-col-header">Signature</th>
+                <th className="arb-col-header">Date</th>
+                <th className="arb-col-header">Ward</th>
+                <th className="arb-col-header">Connecting Time</th>
+                <th className="arb-col-header">Disconnecting Time</th>
+                <th className="arb-col-header">Charges</th>
                 <th className="arb-col-header">Signature</th>
               </tr>
             </thead>
             <tbody>
-              <EmptyRows ids={rowIds.misc} tableKey="misc" onRemove={removeRow} cols={3} colTypes={['date', 'misc-procedure-suggestion', 'user-signature']} />
+              <EmptyRows ids={rowIds.alphaBed} tableKey="alphaBed" onRemove={removeRow} cols={12} colTypes={['date','ward','time','time','text','user-signature','date','ward','time','time','text','user-signature']} defaultValues={['', currentWard, '', '', '', currentUserName, '', currentWard, '', '', '', currentUserName]} />
             </tbody>
           </table>
-          <AddRowBtn onSave={handleSave} onClick={() => addRow('misc')} />
+          <AddRowBtn onSave={handleSave} onClick={() => addRow('alphaBed')} />
 
           <div className="arb-footer-section">
             <div className="arb-footer-row">
               <div className="arb-footer-col" style={{ display: 'flex', alignItems: 'center' }}>
                 <span className="arb-label">DATE :</span>
                 <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: '150px' }}>
-                  <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ width: '100%', borderBottom: '1px dashed #000', fontFamily: 'inherit', padding: '0 4px', textAlign: 'left' }} />
+                  <input type="date" className="arb-value-input" onChange={e => e.target.value ? e.target.classList.add('has-value') : e.target.classList.remove('has-value')} onClick={e => { try { e.target.showPicker() } catch (err) { } }} style={{ width: '100%', borderBottom: '1px dashed #000', fontFamily: 'inherit', padding: '0 4px', textAlign: 'left' }}  min={new Date().toISOString().split('T')[0]} />
                   <span className="clear-time-btn no-print" style={{ right: '22px' }} onClick={(e) => {
                     const input = e.currentTarget.previousElementSibling;
                     if (input) {
@@ -1432,7 +1819,23 @@ export default function ActivityRecordBilling({ onNavigate, editData, editRecord
         >
           <ChevronLeft size={16} style={{ marginRight: '4px' }} /> Previous
         </button>
-        <span style={{ fontWeight: 'bold' }}>Page {currentPage} of 8</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(p => (
+              <button
+                key={p}
+                type="button"
+                className={`page-number-btn ${currentPage === p ? 'active' : ''}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#334155', marginLeft: '4px' }}>
+            Page {currentPage} of 8
+          </span>
+        </div>
         <button
           type="button"
           className="btn btn-secondary"
